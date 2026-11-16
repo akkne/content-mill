@@ -40,11 +40,11 @@ npm run dev
 ```bash
 python -m ruff check backend tests
 python -m pytest -q tests
-cd frontend && npm run lint && npx tsc --noEmit && npm run build
+(cd frontend && npm run lint && npx tsc --noEmit && npm run build)
 docker compose config
 ```
 
-Для команд Python установите зависимости `backend[dev]` и активируйте виртуальное окружение. Docker Compose проверяется отдельно при работающем Docker Engine.
+Для команд Python установите зависимости `backend[dev]` и активируйте виртуальное окружение. `docker compose config` проверяет конфигурацию без запущенного Docker Engine; для запуска контейнеров нужен работающий Engine.
 
 ## Структура
 
