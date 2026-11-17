@@ -28,8 +28,8 @@ flowchart LR
 | Путь | Состояние | Назначение |
 | --- | --- | --- |
 | `AGENTS.md`, `README.md`, `docs/` | Есть | Правила, обзор и документация. |
-| `frontend-mvp/index.html` | Есть | Автономный однофайловый MVP с моками. |
-| `frontend-mvp/mill-site/` | Есть | Отдельная визуальная концепция с локальными стилями, скриптами и изображениями. |
+| `frontend-mvp/index.html`, `frontend-mvp/assets/`, `frontend-mvp/js/`, `frontend-mvp/styles.css` | Есть | Основное автономное демо с моками. |
+| `frontend-mvp/legacy.html` | Есть | Прежний однофайловый MVP. |
 | `backend/` | Есть | Каркас единого FastAPI-приложения. |
 | `frontend/` | Есть | Каркас Next.js с TypeScript и Tailwind CSS. |
 | `tests/` | Есть | Проверка доступности API. |
