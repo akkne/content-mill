@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#F2F5FA">
+  <meta name="description" content="mill — визуальная концепция рабочего пространства для создания контента.">
+  <title>mill · База знаний · Finder</title>
+  <link rel="icon" type="image/png" href="assets/mill-logo.png">
+  <script>try { const theme = localStorage.getItem('sazi-content-theme'); if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme; } catch {}</script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 8 6 4-6 4Z"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 5h2m4 0h2"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18h1.3a2.3 2.3 0 001.6-3.9 1.5 1.5 0 011.1-2.6h1A4 4 0 0021 11c0-4.4-4-8-9-8Z"/><path d="M7 11h.01M10 7h.01M15 7h.01M7 15h.01" stroke-width="3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5ZM20 3v4m-2-2h4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m9 5 11 7-11 7Z"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="m3 17 6-6 4 4 8-10m-6 0h6v6"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.7 14.1A9 9 0 019.9 3.3 9 9 0 1020.7 14.1Z"/></symbol>
+
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 3v18h17M8 16v-4m5 4V7m5 9v-6"/></symbol><symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11a8 8 0 01-8 8H8l-5 3V5a2 2 0 012-2h8a8 8 0 018 8Z"/><path d="M7 8h10M7 12h7"/></symbol><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c1 5 6 5 6 11a6 6 0 11-12 0c0-3 2-6 4-8 0 4 2 4 2-3Z"/></symbol><symbol id="i-plug" viewBox="0 0 24 24"><path d="M8 3v5m8-5v5M6 8h12v4a6 6 0 01-12 0Zm6 10v4"/></symbol><symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0112 0v3m2-16a3 3 0 010 6m1 3a5 5 0 013 4v3"/></symbol><symbol id="i-box" viewBox="0 0 24 24"><path d="m3 7 9-4 9 4v10l-9 4-9-4Zm0 0 9 4 9-4M12 11v10M7 5l10 4"/></symbol><symbol id="i-send" viewBox="0 0 24 24"><path d="m3 3 18 9-18 9 4-9Zm4 9h14"/></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-4 4 4-4 4 4M4 16v5h16v-5"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0112-2l2 2M4 17l2 2a7 7 0 0012-2"/></symbol><symbol id="i-delete" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></symbol><symbol id="i-back" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol><symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8Zm0 0v5h5M8 13h8m-8 4h6"/></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a18 18 0 010 18 18 18 0 010-18Z"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Zm-4 9 3 3 5-6"/></symbol><symbol id="i-edit" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z"/></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="m10 13 4-4m-6 5-2 2a3 3 0 004 4l4-4a3 3 0 000-4m-4-1a3 3 0 010-4l4-4a3 3 0 014 4l-2 2"/></symbol>
+</defs></svg>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <a href="#overview" class="brand" aria-label="mill — Главная"><span class="brand-flower" aria-hidden="true"><img src="assets/mill-logo.png" alt="" width="68" height="68"></span><strong>mill</strong></a>
+    <div class="workspace-label">КОНТЕНТ-ЗАВОД</div>
+    <button class="btn btn-gradient sidebar-create" data-create><svg><use href="#i-plus"/></svg>Создать ролик<kbd>⌘ K</kbd></button>
+    <div class="nav-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+    <nav aria-label="Основная навигация" id="main-nav"></nav>
+    <div class="sidebar-foot"><a href="#style" class="sidebar-style" data-nav="style"><svg><use href="#i-palette"/></svg>Дизайн-система</a>
+      <div class="profile" id="profile"><div class="avatar" id="profile-avatar">И</div><div><strong id="profile-name">Илья</strong><span id="profile-role">Владелец · mill</span></div><button type="button" class="profile-signout" data-auth-action="signout" aria-label="Выйти из демо">Выйти</button></div>
+    </div>
+  </aside>
+  <div class="main-shell">
+    <header class="topbar">
+      <div class="breadcrumb"><button class="icon-btn menu-toggle" id="menu-toggle" aria-label="Открыть меню" aria-expanded="false"><svg><use href="#i-menu"/></svg></button><span>mill</span><span class="crumb-slash">/</span><strong id="page-label">Обзор</strong></div>
+      <div class="topbar-right"><div class="language-switch" role="group" aria-label="Язык интерфейса"><button type="button" data-lang-choice="ru" aria-pressed="true">RU</button><button type="button" data-lang-choice="en" aria-pressed="false">EN</button></div><div class="theme-switch" role="group" aria-label="Цветовая тема"><button type="button" data-theme-choice="light" aria-pressed="true" aria-label="Светлая тема"><svg aria-hidden="true"><use href="#i-sun"/></svg><span>Светлая</span></button><button type="button" data-theme-choice="dark" aria-pressed="false" aria-label="Тёмная тема"><svg aria-hidden="true"><use href="#i-moon"/></svg><span>Тёмная</span></button></div><span class="top-date">17 ноября, вторник</span><div class="avatar small" id="top-avatar">И</div></div>
+    </header>
+    <main id="main-content"></main>
+    <footer class="main-footer"><span>mill / CONTENT STUDIO</span><span>Подготовка, планирование и публикация контента.</span></footer>
+  </div>
+</div>
+<dialog id="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="js/studio-model.js"></script>
+<script src="js/brand-icons.js"></script>
+<script src="js/mascot.js"></script>
+<script src="js/design-system.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/auth-demo.js"></script>
+<script src="js/app.js"></script>
+<script src="js/finder-variant.js"></script>
+</body>
+</html>
