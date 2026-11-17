@@ -30,6 +30,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e './backend/src[dev]'
 export DATABASE_URL=postgresql://content_mill:content_mill@localhost:5432/content_mill
+python -m alembic -c backend/src/alembic.ini upgrade head
 python -m uvicorn app.main:app --app-dir backend/src --reload
 ```
 
@@ -50,12 +51,14 @@ npm run dev
 
 ```bash
 python -m ruff check backend/src backend/tests
+python -m ruff format --check backend/src backend/tests
 python -m pytest -q backend/tests
+python -m alembic -c backend/src/alembic.ini check
 (cd frontend && npm run lint && npx tsc --noEmit && npm run build)
 docker compose config
 ```
 
-Для команд Python установите зависимости `backend/src[dev]` и активируйте виртуальное окружение. Новые тесты бэкенда размещайте в `backend/tests/`. `docker compose config` проверяет конфигурацию без запущенного Docker Engine; для запуска контейнеров нужен работающий Engine.
+Для команд Python установите зависимости `backend/src[dev]`, активируйте виртуальное окружение и задайте `DATABASE_URL`. Новые тесты бэкенда размещайте в `backend/tests/`. `alembic check` проверяет, что миграции соответствуют ORM-моделям. Для следующего изменения схемы обновите модели, затем выполните `python -m alembic -c backend/src/alembic.ini revision --autogenerate -m "описание"`, проверьте миграцию и примените её. `docker compose config` проверяет конфигурацию без запущенного Docker Engine.
 
 ## Автономные демо
 
@@ -69,11 +72,15 @@ docker compose config
 backend/
 ├── src/
 │   ├── app/
-│   │   ├── __init__.py
+│   │   ├── domain/       # сущности и ошибки
+│   │   ├── application/  # сценарии и контракты
+│   │   ├── infrastructure/ # ORM, репозитории, криптография
+│   │   ├── presentation/ # HTTP и схемы запросов
+│   │   ├── container.py  # сборка зависимостей
 │   │   ├── main.py       # единое FastAPI-приложение
-│   │   ├── auth.py       # вход и сессии
-│   │   ├── db.py         # PostgreSQL и начальная схема
 │   │   └── bootstrap_user.py
+│   ├── migrations/      # версии схемы Alembic
+│   ├── alembic.ini
 │   ├── Dockerfile
 │   └── pyproject.toml
 └── tests/
@@ -94,7 +101,9 @@ frontend/
 | Путь | Назначение |
 | --- | --- |
 | `backend/src/app/main.py` | Точка входа единого FastAPI-приложения и проверка `/health`. |
-| `backend/src/app/auth.py`, `backend/src/app/db.py` | Вход, сессии и PostgreSQL. |
+| `backend/src/app/domain/`, `backend/src/app/application/` | Сущности, сценарии и контракты. |
+| `backend/src/app/infrastructure/`, `backend/src/app/presentation/` | Реализации PostgreSQL и безопасности, HTTP API. |
+| `backend/src/migrations/`, `backend/src/alembic.ini` | Миграции схемы, созданной из ORM-моделей. |
 | `backend/src/pyproject.toml`, `backend/src/Dockerfile` | Зависимости Python и контейнер приложения. |
 | `backend/tests/` | Тесты бэкенда. |
 | `frontend/src/app/` | Маршруты App Router, общий layout и стили Tailwind. |
@@ -105,4 +114,4 @@ frontend/
 | `frontend-mvp/` | Автономные HTML-демо на моковых данных. |
 | `docs/` | Продуктовая и техническая документация; начните с [карты](docs/README.md). |
 
-Необходимые папки для компонентов и новых функций добавляются вместе с их кодом; бизнес-логика остаётся внутри одного Python-приложения. Перед изменениями прочитайте [AGENTS.md](AGENTS.md).
+Новые функции добавляются в соответствующие слои внутри одного Python-приложения. Перед изменениями прочитайте [AGENTS.md](AGENTS.md).
