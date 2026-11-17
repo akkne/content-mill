@@ -1,6 +1,6 @@
 # Стиль кода Content Mill
 
-Правила применяются к приложениям в `backend/` и `frontend/`. Отдельное [задание MVP](mvp.md) относится к прежнему однофайловому `frontend-mvp/legacy.html`.
+Правила применяются к приложениям в `backend/src/` и `frontend/`. Тесты бэкенда размещаются в `backend/tests/`. Отдельное [задание MVP](mvp.md) относится к прежнему однофайловому `frontend-mvp/legacy.html`.
 
 ## Общие правила
 
