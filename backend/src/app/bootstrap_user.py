@@ -1,10 +1,7 @@
 import getpass
 import sys
-from uuid import uuid4
 
-from argon2 import PasswordHasher
-
-from app.db import connection, migrate
+from app.container import auth_service
 
 
 def main() -> None:
@@ -17,25 +14,7 @@ def main() -> None:
     password = getpass.getpass("Password (at least 12 characters): ")
     if not 12 <= len(password) <= 1024:
         raise SystemExit("Password must have between 12 and 1024 characters")
-    migrate()
-    with connection() as conn:
-        user = conn.execute(
-            "SELECT id FROM users WHERE email = %s", (email,)
-        ).fetchone()
-        conn.execute(
-            "INSERT INTO users (id, email, display_name, password_hash) "
-            "VALUES (%s, %s, %s, %s) "
-            "ON CONFLICT (email) DO UPDATE SET "
-            "display_name = EXCLUDED.display_name, "
-            "password_hash = EXCLUDED.password_hash",
-            (uuid4(), email, display_name, PasswordHasher().hash(password)),
-        )
-        if user:
-            conn.execute(
-                "UPDATE auth_sessions SET revoked_at = now() "
-                "WHERE user_id = %s AND revoked_at IS NULL",
-                (user["id"],),
-            )
+    auth_service().create_or_reset_user(email, display_name, password)
     print(f"Account ready: {email}")
 
 

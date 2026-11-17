@@ -1,21 +1,12 @@
-from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.auth import router as auth_router
-from app.db import migrate
+from app.presentation.http.auth import router as auth_router
 
-
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    migrate()
-    yield
-
-
-app = FastAPI(title="Content Mill API", lifespan=lifespan)
+app = FastAPI(title="Content Mill API")
 app.include_router(auth_router)
 
 
@@ -31,11 +22,13 @@ def handle_http_error(_: Request, error: HTTPException) -> JSONResponse:
     }
     return JSONResponse(
         status_code=error.status_code,
-        content={"error": {
-            "code": codes.get(error.status_code, "request_failed"),
-            "message": str(error.detail),
-            "request_id": str(uuid4()),
-        }},
+        content={
+            "error": {
+                "code": codes.get(error.status_code, "request_failed"),
+                "message": str(error.detail),
+                "request_id": str(uuid4()),
+            }
+        },
     )
 
 
@@ -43,12 +36,17 @@ def handle_http_error(_: Request, error: HTTPException) -> JSONResponse:
 def handle_validation_error(_: Request, error: RequestValidationError) -> JSONResponse:
     return JSONResponse(
         status_code=422,
-        content={"error": {
-            "code": "validation_error",
-            "message": "Некорректные данные запроса",
-            "request_id": str(uuid4()),
-            "fields": [".".join(str(part) for part in item["loc"]) for item in error.errors()],
-        }},
+        content={
+            "error": {
+                "code": "validation_error",
+                "message": "Некорректные данные запроса",
+                "request_id": str(uuid4()),
+                "fields": [
+                    ".".join(str(part) for part in item["loc"])
+                    for item in error.errors()
+                ],
+            }
+        },
     )
 
 
