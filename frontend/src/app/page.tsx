@@ -1,4 +1,5 @@
 import { getBackendStatus } from "@/lib/backend";
+import { AppShell } from "./app-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -6,26 +7,39 @@ export default async function Home() {
   const backendStatus = await getBackendStatus();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6 py-16">
-      <div className="rounded-2xl border border-border-light bg-surface p-8 shadow-sm sm:p-12">
-        <span className="text-sm font-semibold uppercase tracking-widest text-accent">
-          Content Mill
-        </span>
-        <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">
-          Платформа готовится к запуску
-        </h1>
-        <p className="mt-5 max-w-2xl text-lg leading-8 text-text-secondary">
-          Каркас интерфейса и API уже работает. Продуктовые сценарии будут
-          появляться здесь по этапам реализации.
-        </p>
-        <div className="mt-8 inline-flex items-center gap-3 rounded-xl bg-subtle px-4 py-3 text-sm text-text-secondary">
-          <span
-            aria-hidden="true"
-            className={`h-2.5 w-2.5 rounded-full ${backendStatus === "online" ? "bg-success" : "bg-warning"}`}
-          />
-          API: {backendStatus === "online" ? "доступен" : "недоступен"}
+    <AppShell>
+      <main className="content" id="main-content">
+        <span className="eyebrow">Content Mill</span>
+        <h1 className="page-title">Рабочее пространство mill</h1>
+        <p className="page-lead">Здесь появятся проекты, база знаний и инструменты создания контента. Сейчас собираем основу первого этапа.</p>
+        <section aria-labelledby="hero-title" className="hero-panel">
+          <div>
+            <span className="eyebrow">Первый этап</span>
+            <h2 id="hero-title">От контекста клиента к готовому материалу</h2>
+            <p>Начинаем с общего интерфейса. Затем подключим вход и работу с данными проекта через API.</p>
+          </div>
+          <div aria-hidden="true" className="hero-art">m</div>
+        </section>
+        <h2 className="section-title">Состояние платформы</h2>
+        <div className="status-grid">
+          <section className="work-panel">
+            <span className={`status-pill status-pill-${backendStatus}`}>API {backendStatus === "online" ? "доступен" : "недоступен"}</span>
+            <h3>Сервер приложения</h3>
+            <p>{backendStatus === "online" ? "Проверка соединения прошла успешно. Продуктовые запросы будут подключаться по мере реализации." : "Не удалось связаться с сервером. Проверьте, запущен ли FastAPI и указан ли BACKEND_URL."}</p>
+          </section>
+          <section className="work-panel">
+            <span className="status-pill status-pill-offline">В разработке</span>
+            <h3>Пользовательские сценарии</h3>
+            <p>Вход, проекты, документы и создание контента пока не подключены. Данные на этом экране не являются пользовательскими.</p>
+          </section>
         </div>
-      </div>
-    </main>
+        <h2 className="section-title">Следующие шаги</h2>
+        <ol className="next-steps">
+          <li>Определить способ входа и передачу access и refresh токенов.</li>
+          <li>Подключить текущего пользователя и защиту маршрутов.</li>
+          <li>Добавить проекты и контекст клиента на реальном API.</li>
+        </ol>
+      </main>
+    </AppShell>
   );
 }
