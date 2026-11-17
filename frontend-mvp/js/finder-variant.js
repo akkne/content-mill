@@ -1,5 +1,5 @@
 'use strict';
-// This file changes only the knowledge-base tab in index-finder.html.
+// This file renders the knowledge-base tab in index.html.
 (() => {
   const key = 'mill-finder-knowledge-v1';
   const folder = (id, parent, name) => ({id, parent, name, type:'folder'});
