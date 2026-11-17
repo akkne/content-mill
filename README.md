@@ -48,7 +48,7 @@ docker compose config
 
 ## Автономные демо
 
-Откройте [однофайловый MVP](frontend-mvp/index.html) или [визуальную концепцию mill](frontend-mvp/mill-site/index.html) в браузере. Второе демо использует файлы из своей папки, поэтому при передаче нужно сохранить её целиком. Оба интерфейса работают на моковых данных отдельно от FastAPI и Next.js. Подробности — в [README демо](frontend-mvp/README.md).
+Откройте [демо mill](frontend-mvp/index.html) в браузере, сохраняя папку `frontend-mvp/` целиком: стили, скрипты и изображения находятся рядом с HTML. Прежний [однофайловый MVP](frontend-mvp/legacy.html) доступен отдельно. Оба интерфейса работают на моковых данных отдельно от FastAPI и Next.js. Подробности — в [README демо](frontend-mvp/README.md).
 
 ## Структура
 
