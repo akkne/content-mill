@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
+
+import { logoutAction } from "./login/actions";
 
 const themeKey = "sazi-content-theme";
 const themeEvent = "mill-theme-change";
@@ -26,9 +28,11 @@ const navigation = [
   { label: "Контент", icon: "videos", available: false },
 ] as const;
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, userName }: { children: React.ReactNode; userName: string }) {
   const theme = useSyncExternalStore(subscribeToTheme, getTheme, () => "light");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+  const [logoutPending, startLogout] = useTransition();
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -76,7 +80,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="sidebar-foot">Первый этап · каркас интерфейса</div>
+        <div className="sidebar-foot">
+          <span>{userName}</span>
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            startLogout(async () => setLogoutError(await logoutAction()));
+          }}>
+            <button className="logout-button" disabled={logoutPending} type="submit">{logoutPending ? "Выходим…" : "Выйти"}</button>
+          </form>
+          {logoutError && <p aria-live="polite" className="form-error" role="alert">{logoutError}</p>}
+        </div>
       </aside>
       <div className="main-shell">
         <header className="topbar">

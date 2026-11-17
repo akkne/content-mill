@@ -10,6 +10,22 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: content_mill
+          POSTGRES_USER: content_mill
+          POSTGRES_PASSWORD: content_mill
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U content_mill -d content_mill"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://content_mill:content_mill@localhost:5432/content_mill
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
