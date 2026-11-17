@@ -38,9 +38,9 @@ flowchart LR
 | `AGENTS.md`, `README.md`, `docs/` | Есть | Правила, обзор и документация. |
 | `frontend-mvp/index.html`, `frontend-mvp/assets/`, `frontend-mvp/js/`, `frontend-mvp/styles.css` | Есть | Основное автономное демо с моками. |
 | `frontend-mvp/legacy.html` | Есть | Прежний однофайловый MVP. |
-| `backend/` | Есть | Каркас единого FastAPI-приложения. |
+| `backend/src/` | Есть | Каркас единого FastAPI-приложения, зависимости и Dockerfile. |
+| `backend/tests/` | Есть | Проверка доступности API и место для новых серверных тестов. |
 | `frontend/` | Есть | Каркас Next.js с TypeScript и Tailwind CSS. |
-| `tests/` | Есть | Проверка доступности API. |
 | `compose.yaml`, Dockerfile, `infra/` | Есть | Локальный запуск двух приложений и место для инфраструктурных конфигураций. |
 
 Текущая структура приложений и назначение папок описаны в [README](../README.md). Новые папки добавляются вместе с реальным кодом. Не вводи заранее схему `auth/`, `payments/`, `notifications/` или подобные модули из другого проекта.
