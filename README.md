@@ -11,7 +11,15 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Откройте интерфейс на <http://localhost:3000>, проверку API на <http://localhost:8000/health> или документацию FastAPI на <http://localhost:8000/docs>. Compose запускает оба приложения с автообновлением кода. PostgreSQL, S3 и продуктовые API пока не подключены.
+Откройте интерфейс на <http://localhost:3000>, проверку API на <http://localhost:8000/health> или документацию FastAPI на <http://localhost:8000/docs>. Compose запускает PostgreSQL и оба приложения с автообновлением кода. S3 и сценарии проектов, документов и генерации пока не подключены.
+
+После первого запуска создайте учётную запись в интерактивном терминале:
+
+```bash
+docker compose exec backend python -m app.bootstrap_user admin@example.com "Администратор"
+```
+
+Команда запросит пароль без вывода на экран. Повторный запуск для той же почты меняет пароль и отзывает её сессии. Войдите на <http://localhost:3000/login>. Публичной регистрации пока нет.
 
 ## Запуск без Docker
 
@@ -21,8 +29,11 @@ docker compose up --build
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e './backend/src[dev]'
+export DATABASE_URL=postgresql://content_mill:content_mill@localhost:5432/content_mill
 python -m uvicorn app.main:app --app-dir backend/src --reload
 ```
+
+Для запуска без Docker нужен доступный PostgreSQL и `DATABASE_URL` из `.env.example`. Локальный фронтенд использует `SESSION_COOKIE_SECURE=false` при HTTP; на HTTPS не задавайте это значение.
 
 Для фронтенда нужен Node.js 22 LTS и npm:
 
@@ -50,7 +61,7 @@ docker compose config
 
 Откройте [демо mill](frontend-mvp/index.html) в браузере, сохраняя папку `frontend-mvp/` целиком: стили, скрипты и изображения находятся рядом с HTML. База знаний в нём использует дерево папок, редактирование текстовых файлов и просмотр медиа. Прежний [однофайловый MVP](frontend-mvp/legacy.html) доступен отдельно. Оба интерфейса работают на моковых данных отдельно от FastAPI и Next.js. Подробности — в [README демо](frontend-mvp/README.md).
 
-Первый этап разработки ограничен сохранением контекста проекта клиента и созданием контента. План интерфейса — в [роадмапе фронтенда](docs/frontend-roadmap.md), серверные границы — в [плане бэкенда](docs/backend-foundation.md), предлагаемые маршруты — в [схеме API](docs/api-schema.md). В Next.js реализованы стартовая страница, базовая навигация и две темы; в FastAPI — только `/health`. Вход и продуктовые сценарии ещё не подключены.
+Первый этап разработки ограничен сохранением контекста проекта клиента и созданием контента. План интерфейса — в [роадмапе фронтенда](docs/frontend-roadmap.md), серверные границы — в [плане бэкенда](docs/backend-foundation.md), предлагаемые маршруты — в [схеме API](docs/api-schema.md). В Next.js реализованы вход, защищённая стартовая страница, навигация и две темы; в FastAPI — `/health` и сессии с access/refresh токенами. Проекты и продуктовые сценарии ещё не подключены.
 
 ## Структура
 
@@ -59,16 +70,21 @@ backend/
 ├── src/
 │   ├── app/
 │   │   ├── __init__.py
-│   │   └── main.py       # единое FastAPI-приложение
+│   │   ├── main.py       # единое FastAPI-приложение
+│   │   ├── auth.py       # вход и сессии
+│   │   ├── db.py         # PostgreSQL и начальная схема
+│   │   └── bootstrap_user.py
 │   ├── Dockerfile
 │   └── pyproject.toml
 └── tests/
-    └── test_health.py
+    ├── test_health.py
+    └── test_auth.py
 
 frontend/
 ├── src/
 │   ├── app/              # страницы, layout и общие стили
-│   └── lib/              # серверный доступ к API
+│   ├── lib/              # серверный доступ к API и cookie
+│   └── proxy.ts          # защита маршрутов и обновление токенов
 ├── Dockerfile
 ├── package.json
 ├── postcss.config.mjs
@@ -78,10 +94,12 @@ frontend/
 | Путь | Назначение |
 | --- | --- |
 | `backend/src/app/main.py` | Точка входа единого FastAPI-приложения и проверка `/health`. |
+| `backend/src/app/auth.py`, `backend/src/app/db.py` | Вход, сессии и PostgreSQL. |
 | `backend/src/pyproject.toml`, `backend/src/Dockerfile` | Зависимости Python и контейнер приложения. |
 | `backend/tests/` | Тесты бэкенда. |
 | `frontend/src/app/` | Маршруты App Router, общий layout и стили Tailwind. |
 | `frontend/src/lib/` | Общий код для обращения к API из серверного окружения Next.js. |
+| `frontend/src/proxy.ts` | Защита маршрутов и обновление access через refresh. |
 | `frontend/package.json`, `frontend/Dockerfile` | Сборка, проверки и контейнер интерфейса. |
 | `compose.yaml`, `infra/` | Локальный запуск и место для будущих инфраструктурных конфигураций. |
 | `frontend-mvp/` | Автономные HTML-демо на моковых данных. |
