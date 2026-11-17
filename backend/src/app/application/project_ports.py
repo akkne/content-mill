@@ -1,0 +1,30 @@
+from collections.abc import Callable
+from contextlib import AbstractContextManager
+from typing import Protocol, Self
+from uuid import UUID
+
+from app.domain.project import Project, ProjectContext
+
+
+class ProjectRepository(Protocol):
+    def list_owned(
+        self, owner_id: UUID, limit: int, cursor: UUID | None
+    ) -> list[Project]: ...
+    def create(self, owner_id: UUID, name: str) -> Project: ...
+    def get_owned(self, project_id: UUID, owner_id: UUID) -> Project | None: ...
+    def rename(self, project_id: UUID, name: str, revision: int) -> Project | None: ...
+    def context(self, project_id: UUID) -> ProjectContext: ...
+    def save_context(
+        self, context: ProjectContext, revision: int
+    ) -> ProjectContext | None: ...
+
+
+class ProjectUnitOfWork(Protocol):
+    repository: ProjectRepository
+
+    def __enter__(self) -> Self: ...
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None: ...
+    def commit(self) -> None: ...
+
+
+ProjectUnitOfWorkFactory = Callable[[], AbstractContextManager[ProjectUnitOfWork]]

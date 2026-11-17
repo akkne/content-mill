@@ -22,13 +22,13 @@ function getTheme(): "light" | "dark" {
 }
 
 const navigation = [
-  { label: "Главная", icon: "home", available: true },
-  { label: "Проекты", icon: "brand", available: false },
-  { label: "База знаний", icon: "brand", available: false },
-  { label: "Контент", icon: "videos", available: false },
+  { label: "Главная", icon: "home", href: "/" },
+  { label: "Проекты", icon: "brand", href: "/projects" },
+  { label: "База знаний", icon: "brand", href: null },
+  { label: "Контент", icon: "videos", href: null },
 ] as const;
 
-export function AppShell({ children, userName }: { children: React.ReactNode; userName: string }) {
+export function AppShell({ children, userName, section = "Главная" }: { children: React.ReactNode; userName: string; section?: string }) {
   const theme = useSyncExternalStore(subscribeToTheme, getTheme, () => "light");
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -64,17 +64,17 @@ export function AppShell({ children, userName }: { children: React.ReactNode; us
         </Link>
         <p className="workspace-label">Рабочее пространство</p>
         <nav aria-label="Разделы">
-          {navigation.map(({ label, icon, available }) => {
+          {navigation.map(({ label, icon, href }) => {
             const content = (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img alt="" height="26" src={`/icons/${icon}.png`} width="26" />
                 <span>{label}</span>
-                {!available && <small>Скоро</small>}
+                {!href && <small>Скоро</small>}
               </>
             );
-            return available ? (
-              <Link aria-current="page" className="nav-item" href="/" key={label} onClick={() => setMenuOpen(false)}>{content}</Link>
+            return href ? (
+              <Link aria-current={section === label ? "page" : undefined} className="nav-item" href={href} key={label} onClick={() => setMenuOpen(false)}>{content}</Link>
             ) : (
               <span className="nav-item nav-item-disabled" key={label}>{content}</span>
             );
@@ -103,7 +103,7 @@ export function AppShell({ children, userName }: { children: React.ReactNode; us
             >
               Меню
             </button>
-            <span className="topbar-title">mill <span aria-hidden="true">/</span> <strong>Главная</strong></span>
+            <span className="topbar-title">mill <span aria-hidden="true">/</span> <strong>{section}</strong></span>
           </div>
           <div className="topbar-actions">
             <span className="stage-badge">Разработка первого этапа</span>

@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -63,3 +64,38 @@ class LoginAttemptModel(Base):
     attempted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class ProjectModel(Base):
+    __tablename__ = "projects"
+    __table_args__ = (
+        Index("projects_owner_created_idx", "owner_id", "created_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    owner_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    name: Mapped[str] = mapped_column(String(160))
+    revision: Mapped[int] = mapped_column(default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class ProjectContextModel(Base):
+    __tablename__ = "project_contexts"
+
+    project_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("projects.id"), primary_key=True
+    )
+    revision: Mapped[int] = mapped_column(default=1)
+    description: Mapped[str] = mapped_column(Text, default="")
+    audiences: Mapped[list] = mapped_column(JSONB, default=list)
+    products: Mapped[list] = mapped_column(JSONB, default=list)
+    facts: Mapped[list] = mapped_column(JSONB, default=list)
+    tone_of_voice: Mapped[str] = mapped_column(Text, default="")
+    forbidden_terms: Mapped[list] = mapped_column(JSONB, default=list)
+    source_version_ids: Mapped[list] = mapped_column(JSONB, default=list)

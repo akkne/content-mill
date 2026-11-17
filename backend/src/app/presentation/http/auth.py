@@ -3,7 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
 from app.application.auth_service import AuthService
-from app.container import auth_service
+from app.application.project_service import ProjectService
+from app.container import auth_service, project_service
 from app.domain.auth import InvalidCredentials, InvalidSession, TooManyAttempts, User
 from app.presentation.http.schemas import (
     LoginRequest,
@@ -59,5 +60,15 @@ def logout(payload: RefreshRequest, service: Service) -> None:
 
 
 @router.get("/me")
-def me(user: Annotated[User, Depends(current_user)]) -> dict:
-    return {"id": user.id, "display_name": user.display_name, "projects": []}
+def me(
+    user: Annotated[User, Depends(current_user)],
+    projects: Annotated[ProjectService, Depends(project_service)],
+) -> dict:
+    owned = projects.list_projects(user.id, 100)
+    return {
+        "id": user.id,
+        "display_name": user.display_name,
+        "projects": [
+            {"id": item.id, "name": item.name, "role": "owner"} for item in owned[:100]
+        ],
+    }
