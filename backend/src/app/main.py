@@ -5,9 +5,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.presentation.http.auth import router as auth_router
+from app.presentation.http.projects import router as projects_router
 
 app = FastAPI(title="Content Mill API")
 app.include_router(auth_router)
+app.include_router(projects_router)
 
 
 @app.exception_handler(HTTPException)
