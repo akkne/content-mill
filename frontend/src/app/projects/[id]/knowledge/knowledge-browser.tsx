@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import type { KnowledgeNode } from "@/lib/knowledge";
-import { changeKnowledgeNode, loadDocument, saveDocument, type DocumentContent, type DocumentVersion } from "./actions";
+import { changeKnowledgeNode, loadDocument, saveDocument, searchKnowledge, type DocumentContent, type DocumentVersion } from "./actions";
 
 function FolderIcon() {
   return <svg aria-hidden="true" className="kb-folder-icon" viewBox="0 0 48 40"><path d="M4 7a4 4 0 0 1 4-4h12l5 5h15a4 4 0 0 1 4 4v21a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#51A2FF" /><path d="M4 14h40v19a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#2783ED" /></svg>;
@@ -17,6 +17,9 @@ export function KnowledgeBrowser({ initial, projectId, projectName }: { initial:
   const [nodes, setNodes] = useState(initial);
   const [folderId, setFolderId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [searchIds, setSearchIds] = useState<string[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
@@ -36,11 +39,32 @@ export function KnowledgeBrowser({ initial, projectId, projectName }: { initial:
       .forEach((node) => { orderedFolders.push(node); visit(node.id); });
   }
   visit(null);
-  const visible = nodes.filter((node) => query ? node.name.toLocaleLowerCase("ru").includes(query.toLocaleLowerCase("ru")) : node.parent_id === folderId)
+  const visible = nodes.filter((node) => query ? (searchIds ? searchIds.includes(node.id) : node.name.toLocaleLowerCase("ru").includes(query.toLocaleLowerCase("ru"))) : node.parent_id === folderId)
     .sort((a, b) => a.kind === b.kind ? a.name.localeCompare(b.name, "ru") : a.kind === "folder" ? -1 : 1);
   const crumbs: KnowledgeNode[] = [];
   let ancestor = folder;
   while (ancestor) { crumbs.unshift(ancestor); ancestor = ancestor.parent_id ? byId.get(ancestor.parent_id) : undefined; }
+
+  useEffect(() => {
+    const clean = query.trim();
+    if (!clean) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const result = await searchKnowledge(projectId, clean);
+      if (cancelled) return;
+      setSearchIds(result.ids ?? []);
+      setSearchError(result.error ?? "");
+      setSearching(false);
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [projectId, query]);
+
+  function changeQuery(value: string) {
+    setQuery(value);
+    setSearchIds(null);
+    setSearching(Boolean(value.trim()));
+    setSearchError("");
+  }
 
   function mutate(action: "create" | "rename" | "move" | "archive", data: Parameters<typeof changeKnowledgeNode>[2]) {
     setError("");
@@ -98,6 +122,7 @@ export function KnowledgeBrowser({ initial, projectId, projectName }: { initial:
         setDocument(result.document);
         setEditing(false);
         setNodes(nodes.map((node) => node.id === openId ? { ...node, revision: result.document!.revision } : node));
+        changeQuery("");
         const history = await loadDocument(projectId, openId);
         setVersions(history.versions ?? []);
       }
@@ -122,10 +147,11 @@ export function KnowledgeBrowser({ initial, projectId, projectName }: { initial:
   }
 
   return <section className="kb-shell" aria-label="База знаний проекта">
-    <div className="kb-toolbar"><nav className="kb-crumbs" aria-label="Путь к папке"><button onClick={() => { setFolderId(null); setQuery(""); }} type="button">{projectName}</button>{crumbs.map((node) => <span key={node.id}> / <button onClick={() => { setFolderId(node.id); setQuery(""); }} type="button">{node.name}</button></span>)}</nav><input aria-label="Поиск папок и документов" onChange={(event) => setQuery(event.target.value)} placeholder="Поиск файлов и папок" type="search" value={query} /></div>
-    <div className="kb-layout"><aside className="kb-tree" aria-label="Папки"><strong>ПАПКИ</strong><button aria-current={folderId === null ? "page" : undefined} onClick={() => { setFolderId(null); setQuery(""); }} type="button"><FolderIcon />{projectName}</button>{orderedFolders.map((node) => <button aria-current={folderId === node.id ? "page" : undefined} key={node.id} onClick={() => { setFolderId(node.id); setQuery(""); }} style={{ paddingLeft: `${12 + depth(node, byId) * 16}px` }} type="button"><FolderIcon />{node.name}</button>)}</aside>
-      <div className="kb-content"><div className="kb-content-head"><div><span className="eyebrow">{query ? "Результаты поиска" : "Содержимое папки"}</span><h2>{query ? "Поиск" : folder?.name ?? projectName}</h2><p>{visible.length} элементов</p></div><div className="kb-create-actions"><button className="secondary-button" disabled={pending} onClick={create} type="button">+ Папка</button><button className="primary-button" disabled={pending} onClick={createDocument} type="button">+ Файл</button></div></div>
-        <div className="kb-list">{visible.length ? visible.map((node) => <button aria-pressed={selectedId === node.id} className="kb-row" key={node.id} onClick={() => setSelectedId(node.id)} onDoubleClick={() => { if (node.kind === "folder") { setFolderId(node.id); setQuery(""); } else openDocument(node.id); }} type="button"><span aria-hidden="true">{node.kind === "folder" ? <FolderIcon /> : <FileIcon />}</span><span><strong>{node.name}</strong><small>{node.kind === "folder" ? "Папка" : "Документ"}</small></span><span aria-hidden="true">›</span></button>) : <p className="kb-empty">Здесь пока нет файлов и папок.</p>}</div>
+    <div className="kb-toolbar"><nav className="kb-crumbs" aria-label="Путь к папке"><button onClick={() => { setFolderId(null); changeQuery(""); }} type="button">{projectName}</button>{crumbs.map((node) => <span key={node.id}> / <button onClick={() => { setFolderId(node.id); changeQuery(""); }} type="button">{node.name}</button></span>)}</nav><input aria-label="Поиск папок и документов" maxLength={200} onChange={(event) => changeQuery(event.target.value)} placeholder="Поиск по названию и тексту" type="search" value={query} /></div>
+    <div className="kb-layout"><aside className="kb-tree" aria-label="Папки"><strong>ПАПКИ</strong><button aria-current={folderId === null ? "page" : undefined} onClick={() => { setFolderId(null); changeQuery(""); }} type="button"><FolderIcon />{projectName}</button>{orderedFolders.map((node) => <button aria-current={folderId === node.id ? "page" : undefined} key={node.id} onClick={() => { setFolderId(node.id); changeQuery(""); }} style={{ paddingLeft: `${12 + depth(node, byId) * 16}px` }} type="button"><FolderIcon />{node.name}</button>)}</aside>
+      <div className="kb-content"><div className="kb-content-head"><div><span className="eyebrow">{query ? "Результаты поиска" : "Содержимое папки"}</span><h2>{query ? "Поиск" : folder?.name ?? projectName}</h2><p>{searching ? "Ищем…" : `${visible.length} элементов`}</p></div><div className="kb-create-actions"><button className="secondary-button" disabled={pending} onClick={create} type="button">+ Папка</button><button className="primary-button" disabled={pending} onClick={createDocument} type="button">+ Файл</button></div></div>
+        <div className="kb-list">{visible.length ? visible.map((node) => <button aria-pressed={selectedId === node.id} className="kb-row" key={node.id} onClick={() => setSelectedId(node.id)} onDoubleClick={() => { if (node.kind === "folder") { setFolderId(node.id); changeQuery(""); } else openDocument(node.id); }} type="button"><span aria-hidden="true">{node.kind === "folder" ? <FolderIcon /> : <FileIcon />}</span><span><strong>{node.name}</strong><small>{query ? nodePath(node, byId, projectName) : node.kind === "folder" ? "Папка" : "Документ"}</small></span><span aria-hidden="true">›</span></button>) : <p className="kb-empty">Здесь пока нет файлов и папок.</p>}</div>
+        {searchError && <p className="form-error" role="alert">{searchError}</p>}
         {selected && <div className="kb-selection"><strong>{selected.name}</strong><div>{selected.kind === "document" && <button className="secondary-button" onClick={() => openDocument(selected.id)} type="button">Открыть</button>}<button className="secondary-button" disabled={pending} onClick={rename} type="button">Переименовать</button><label>Переместить в <select disabled={pending} onChange={(event) => move(event.target.value)} value={selected.parent_id ?? ""}><option value="">{projectName}</option>{folders.filter((item) => item.id !== selected.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="secondary-button" disabled={pending} onClick={archive} type="button">Архивировать</button></div></div>}
         {error && <p className="form-error" role="alert">{error}</p>}
       </div></div>
@@ -139,4 +165,11 @@ function depth(node: KnowledgeNode, byId: Map<string, KnowledgeNode>): number {
   let parent = node.parent_id;
   while (parent && count < 20) { count++; parent = byId.get(parent)?.parent_id ?? null; }
   return count;
+}
+
+function nodePath(node: KnowledgeNode, byId: Map<string, KnowledgeNode>, projectName: string): string {
+  const names: string[] = [];
+  let parent = node.parent_id;
+  while (parent) { const folder = byId.get(parent); if (!folder) break; names.unshift(folder.name); parent = folder.parent_id; }
+  return [projectName, ...names].join(" / ");
 }

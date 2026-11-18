@@ -7,6 +7,17 @@ import type { KnowledgeNode } from "@/lib/knowledge";
 
 type Result = { node?: KnowledgeNode; error?: string; conflict?: boolean };
 
+export async function searchKnowledge(projectId: string, query: string): Promise<{ ids?: string[]; error?: string }> {
+  try {
+    const response = await projectRequest(`/api/v1/projects/${projectId}/search?q=${encodeURIComponent(query)}`);
+    if (!response.ok) return { error: "Не удалось выполнить поиск." };
+    const data = await response.json() as { items: KnowledgeNode[] };
+    return { ids: data.items.map((item) => item.id) };
+  } catch {
+    return { error: "Сервер недоступен. Повторите поиск позже." };
+  }
+}
+
 export type DocumentContent = { node_id: string; revision: number; version: number; format: "markdown" | "plain"; content: string };
 export type DocumentVersion = { id: string; node_id: string; version: number; format: string; size_bytes: number; sha256: string; created_at: string };
 

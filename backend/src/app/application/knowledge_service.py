@@ -158,6 +158,27 @@ class KnowledgeService:
             self._document(work, project_id, node_id)
             return work.repository.versions(node_id)
 
+    def search_nodes(
+        self, project_id: UUID, owner_id: UUID, query: str, limit: int = 100
+    ) -> list[KnowledgeNode]:
+        with self.unit_of_work() as work:
+            self._owned(work, project_id, owner_id)
+            matches = work.repository.search(project_id, query, limit)
+            unindexed = work.repository.unindexed_versions(project_id)
+        seen = {node.id for node in matches}
+        for node, version in unindexed:
+            if len(matches) >= limit:
+                break
+            if node.id in seen:
+                continue
+            content = self.store.get(version.storage_key)
+            if sha256(content).hexdigest() != version.sha256:
+                raise InvalidNodeOperation("Содержимое документа повреждено")
+            if query.casefold() in content.decode("utf-8").casefold():
+                matches.append(node)
+                seen.add(node.id)
+        return matches
+
     def document_content(
         self,
         project_id: UUID,
@@ -219,6 +240,7 @@ class KnowledgeService:
                     len(encoded),
                     sha256(encoded).hexdigest(),
                     key,
+                    content,
                 )
                 if saved is None:
                     raise RevisionConflict

@@ -22,6 +22,12 @@ class KnowledgeRepository(Protocol):
         self, project_id: UUID, node_ids: list[UUID], root_id: UUID, revision: int
     ) -> bool: ...
     def versions(self, node_id: UUID) -> list[DocumentVersion]: ...
+    def search(
+        self, project_id: UUID, query: str, limit: int
+    ) -> list[KnowledgeNode]: ...
+    def unindexed_versions(
+        self, project_id: UUID
+    ) -> list[tuple[KnowledgeNode, DocumentVersion]]: ...
     def add_version(
         self,
         node_id: UUID,
@@ -31,6 +37,7 @@ class KnowledgeRepository(Protocol):
         size_bytes: int,
         sha256: str,
         storage_key: str,
+        search_text: str,
     ) -> DocumentVersion | None: ...
 
 

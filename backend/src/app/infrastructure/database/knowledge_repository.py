@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.domain.knowledge import DocumentVersion, KnowledgeNode
@@ -133,6 +133,57 @@ class SqlAlchemyKnowledgeRepository:
         ).all()
         return [as_version(model) for model in models]
 
+    def _latest_version(self):
+        return (
+            select(func.max(DocumentVersionModel.version))
+            .where(DocumentVersionModel.node_id == KnowledgeNodeModel.id)
+            .correlate(KnowledgeNodeModel)
+            .scalar_subquery()
+        )
+
+    def search(self, project_id: UUID, query: str, limit: int) -> list[KnowledgeNode]:
+        models = self.session.scalars(
+            select(KnowledgeNodeModel)
+            .outerjoin(
+                DocumentVersionModel,
+                and_(
+                    DocumentVersionModel.node_id == KnowledgeNodeModel.id,
+                    DocumentVersionModel.version == self._latest_version(),
+                ),
+            )
+            .where(
+                KnowledgeNodeModel.project_id == project_id,
+                KnowledgeNodeModel.archived_at.is_(None),
+                or_(
+                    KnowledgeNodeModel.name.icontains(query, autoescape=True),
+                    DocumentVersionModel.search_text.icontains(query, autoescape=True),
+                ),
+            )
+            .order_by(KnowledgeNodeModel.name, KnowledgeNodeModel.id)
+            .limit(limit)
+        ).all()
+        return [as_node(model) for model in models]
+
+    def unindexed_versions(
+        self, project_id: UUID
+    ) -> list[tuple[KnowledgeNode, DocumentVersion]]:
+        rows = self.session.execute(
+            select(KnowledgeNodeModel, DocumentVersionModel)
+            .join(
+                DocumentVersionModel,
+                and_(
+                    DocumentVersionModel.node_id == KnowledgeNodeModel.id,
+                    DocumentVersionModel.version == self._latest_version(),
+                ),
+            )
+            .where(
+                KnowledgeNodeModel.project_id == project_id,
+                KnowledgeNodeModel.archived_at.is_(None),
+                DocumentVersionModel.search_text.is_(None),
+            )
+        ).all()
+        return [(as_node(node), as_version(version)) for node, version in rows]
+
     def add_version(
         self,
         node_id: UUID,
@@ -142,6 +193,7 @@ class SqlAlchemyKnowledgeRepository:
         size_bytes: int,
         sha256: str,
         storage_key: str,
+        search_text: str,
     ) -> DocumentVersion | None:
         changed = self.session.scalar(
             update(KnowledgeNodeModel)
@@ -163,6 +215,7 @@ class SqlAlchemyKnowledgeRepository:
             size_bytes=size_bytes,
             sha256=sha256,
             storage_key=storage_key,
+            search_text=search_text,
         )
         self.session.add(model)
         self.session.flush()
