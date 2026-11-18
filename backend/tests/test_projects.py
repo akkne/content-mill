@@ -22,7 +22,7 @@ from app.infrastructure.database.models import (
 from app.infrastructure.database.session import session_factory
 from app.main import app
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 
 @pytest.fixture(scope="session")
@@ -372,12 +372,49 @@ def test_text_document_versions_and_access(login):
                 == "Первый"
             )
             assert client.get(path, headers=owner).json()["content"] == "Second"
+            assert [
+                item["id"]
+                for item in client.get(
+                    f"/api/v1/projects/{project_id}/search?q=Second", headers=owner
+                ).json()["items"]
+            ] == [document["id"]]
+            assert (
+                client.get(
+                    f"/api/v1/projects/{project_id}/search?q=Первый", headers=owner
+                ).json()["items"]
+                == []
+            )
+            assert (
+                client.get(
+                    f"/api/v1/projects/{project_id}/search?q=%25", headers=owner
+                ).json()["items"]
+                == []
+            )
+            assert [
+                item["id"]
+                for item in client.get(
+                    f"/api/v1/projects/{project_id}/search?q=Voice", headers=owner
+                ).json()["items"]
+            ] == [document["id"]]
             versions = client.get(
                 f"{base}/{document['id']}/versions", headers=owner
             ).json()["items"]
             assert [item["version"] for item in versions] == [2, 1]
             assert "storage_key" not in versions[0]
             assert len(store.objects) == 2
+            with session_factory()() as session:
+                session.execute(
+                    update(DocumentVersionModel)
+                    .where(DocumentVersionModel.id == versions[0]["id"])
+                    .values(search_text=None)
+                )
+                session.commit()
+            assert [
+                item["id"]
+                for item in client.get(
+                    f"/api/v1/projects/{project_id}/search?q=Second", headers=owner
+                ).json()["items"]
+            ] == [document["id"]]
             context_path = f"/api/v1/projects/{project_id}/context"
             linked = client.put(
                 context_path,
@@ -406,9 +443,27 @@ def test_text_document_versions_and_access(login):
             assert client.get(path, headers=stranger).status_code == 404
             assert (
                 client.get(
+                    f"/api/v1/projects/{project_id}/search?q=Voice", headers=stranger
+                ).status_code
+                == 404
+            )
+            assert (
+                client.get(
                     f"{base}/{document['id']}/versions", headers=stranger
                 ).status_code
                 == 404
+            )
+            assert (
+                client.delete(
+                    f"{base}/{document['id']}", headers={**owner, "If-Match": "3"}
+                ).status_code
+                == 204
+            )
+            assert (
+                client.get(
+                    f"/api/v1/projects/{project_id}/search?q=Voice", headers=owner
+                ).json()["items"]
+                == []
             )
     finally:
         app.dependency_overrides.pop(knowledge_service, None)

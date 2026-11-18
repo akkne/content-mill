@@ -142,6 +142,7 @@ class DocumentVersionModel(Base):
     size_bytes: Mapped[int] = mapped_column()
     sha256: Mapped[str] = mapped_column(String(64))
     storage_key: Mapped[str] = mapped_column(Text, unique=True)
+    search_text: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
