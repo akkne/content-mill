@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/app/app-shell";
 import { fetchCurrentUser } from "@/lib/backend";
 import { loadKnowledge } from "@/lib/knowledge";
-import { loadProject } from "@/lib/projects";
+import { loadContext, loadProject } from "@/lib/projects";
 import { accessCookie } from "@/lib/session";
 import { KnowledgeBrowser } from "./knowledge-browser";
 
@@ -19,8 +19,9 @@ export default async function KnowledgePage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   let project;
   let nodes;
+  let context;
   try {
-    [project, nodes] = await Promise.all([loadProject(id), loadKnowledge(id)]);
+    [project, nodes, context] = await Promise.all([loadProject(id), loadKnowledge(id), loadContext(id)]);
   } catch {
     return <AppShell userName={user.display_name} section="База знаний"><main className="content" id="main-content"><h1 className="page-title">Проект недоступен</h1><Link href="/projects">Вернуться к проектам</Link></main></AppShell>;
   }
@@ -29,6 +30,6 @@ export default async function KnowledgePage({ params }: { params: Promise<{ id: 
     <span className="eyebrow">База знаний</span>
     <h1 className="page-title">{project.name}</h1>
     <p className="page-lead">Организуйте материалы проекта по папкам, создавайте текстовые документы и возвращайтесь к прежним версиям.</p>
-    <KnowledgeBrowser initial={nodes} projectId={id} projectName={project.name} />
+    <KnowledgeBrowser initialSources={{ ids: context.source_version_ids, revision: context.revision }} initial={nodes} projectId={id} projectName={project.name} />
   </main></AppShell>;
 }
