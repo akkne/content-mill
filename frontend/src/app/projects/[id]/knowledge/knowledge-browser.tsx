@@ -5,6 +5,10 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import type { KnowledgeNode } from "@/lib/knowledge";
 import { changeKnowledgeNode, loadDocument, saveDocument, searchKnowledge, type DocumentContent, type DocumentVersion } from "./actions";
 
+import { saveProjectContext } from "../../actions";
+
+type ContextSources = { ids: string[]; revision: number };
+
 function FolderIcon() {
   return <svg aria-hidden="true" className="kb-folder-icon" viewBox="0 0 48 40"><path d="M4 7a4 4 0 0 1 4-4h12l5 5h15a4 4 0 0 1 4 4v21a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#51A2FF" /><path d="M4 14h40v19a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#2783ED" /></svg>;
 }
@@ -13,7 +17,8 @@ function FileIcon() {
   return <svg aria-hidden="true" className="kb-file-icon" viewBox="0 0 36 42"><path d="M5 1h17l9 9v29a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2z" fill="currentColor" opacity=".15" /><path d="M5 1h17l9 9v29a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zM22 1v9h9M9 17h16M9 23h16M9 29h12" fill="none" stroke="currentColor" strokeWidth="2" /></svg>;
 }
 
-export function KnowledgeBrowser({ initial, projectId, projectName }: { initial: KnowledgeNode[]; projectId: string; projectName: string }) {
+export function KnowledgeBrowser({ initial, initialSources, projectId, projectName }: { initialSources: ContextSources; initial: KnowledgeNode[]; projectId: string; projectName: string }) {
+  const [sources, setSources] = useState(initialSources);
   const [nodes, setNodes] = useState(initial);
   const [folderId, setFolderId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -129,6 +134,23 @@ export function KnowledgeBrowser({ initial, projectId, projectName }: { initial:
     });
   }
 
+  const shownVersion = versions.find((item) => item.node_id === openId && item.version === document?.version && document.node_id === openId);
+  const linked = shownVersion && sources.ids.includes(shownVersion.id);
+
+  function toggleSource() {
+    if (!shownVersion) return;
+    const ids = linked ? sources.ids.filter((id) => id !== shownVersion.id) : [...sources.ids, shownVersion.id];
+    setDocumentError("");
+    startTransition(async () => {
+      const result = await saveProjectContext(projectId, sources.revision, { source_version_ids: ids });
+      if (result.context) {
+        setSources({ ids: result.context.source_version_ids, revision: result.context.revision });
+      } else {
+        setDocumentError(result.error ?? "Не удалось сохранить источники контекста.");
+      }
+    });
+  }
+
   function rename() {
     if (!selected) return;
     const name = window.prompt("Новое название", selected.name);
@@ -156,7 +178,7 @@ export function KnowledgeBrowser({ initial, projectId, projectName }: { initial:
         {error && <p className="form-error" role="alert">{error}</p>}
       </div></div>
     {openId && <div className="kb-modal-backdrop" role="presentation"><div aria-labelledby="kb-document-title" aria-modal="true" className="kb-document-modal" onKeyDown={(event) => { if (event.key === "Escape") { setOpenId(null); setDocument(null); setEditing(false); } }} role="dialog"><div className="kb-document-head"><div><span className="eyebrow">Документ</span><h2 id="kb-document-title">{byId.get(openId)?.name ?? "Документ"}</h2></div><button aria-label="Закрыть документ" autoFocus className="secondary-button" onClick={() => { setOpenId(null); setDocument(null); setEditing(false); }} type="button">×</button></div>
-      {document ? <><div className="kb-document-body"><div className="kb-document-main">{editing ? <textarea aria-label="Содержимое документа" autoFocus maxLength={1000000} onChange={(event) => setDraft(event.target.value)} value={draft} /> : <pre>{document.content || "Документ пуст."}</pre>}</div><aside className="kb-history"><strong>История версий</strong>{versions.map((item) => <button aria-current={document.version === item.version ? "page" : undefined} key={item.id} onClick={() => openDocument(openId, item.version)} type="button">Версия {item.version}<small>{new Date(item.created_at).toLocaleString("ru-RU")}</small></button>)}{versions.length === 0 && <p>Версий пока нет.</p>}</aside></div><div className="kb-document-foot"><span>Версия {document.version || "не сохранён"}</span><div>{document.version > 0 && document.version !== versions[0]?.version && <button className="secondary-button" onClick={() => openDocument(openId)} type="button">Текущая версия</button>}{editing ? <><button className="secondary-button" onClick={() => { setEditing(false); setDraft(document.content); }} type="button">Отменить</button><button className="primary-button" disabled={pending} onClick={saveOpenDocument} type="button">{pending ? "Сохраняем…" : "Сохранить"}</button></> : (document.version === 0 || document.version === versions[0]?.version) && <button className="secondary-button" onClick={() => { setEditing(true); setDraft(document.content); }} type="button">Редактировать</button>}</div></div></> : <p className="kb-empty">{pending ? "Открываем документ…" : documentError || "Не удалось открыть документ."}</p>}{documentError && document && <p className="form-error" role="alert">{documentError}</p>}</div></div>}
+      {document ? <><div className="kb-document-body"><div className="kb-document-main">{editing ? <textarea aria-label="Содержимое документа" autoFocus maxLength={1000000} onChange={(event) => setDraft(event.target.value)} value={draft} /> : <pre>{document.content || "Документ пуст."}</pre>}</div><aside className="kb-history"><strong>История версий</strong>{versions.map((item) => <button aria-current={document.version === item.version ? "page" : undefined} key={item.id} onClick={() => openDocument(openId, item.version)} type="button">Версия {item.version}<small>{new Date(item.created_at).toLocaleString("ru-RU")}</small></button>)}{versions.length === 0 && <p>Версий пока нет.</p>}</aside></div><div className="kb-document-foot"><span>Версия {document.version || "не сохранён"}</span><div>{shownVersion && !editing && <button aria-pressed={Boolean(linked)} className="secondary-button" disabled={pending} onClick={toggleSource} type="button">{linked ? "Убрать из источников контекста" : "Добавить в источники контекста"}</button>}{document.version > 0 && document.version !== versions[0]?.version && <button className="secondary-button" onClick={() => openDocument(openId)} type="button">Текущая версия</button>}{editing ? <><button className="secondary-button" onClick={() => { setEditing(false); setDraft(document.content); }} type="button">Отменить</button><button className="primary-button" disabled={pending} onClick={saveOpenDocument} type="button">{pending ? "Сохраняем…" : "Сохранить"}</button></> : (document.version === 0 || document.version === versions[0]?.version) && <button className="secondary-button" onClick={() => { setEditing(true); setDraft(document.content); }} type="button">Редактировать</button>}</div></div></> : <p className="kb-empty">{pending ? "Открываем документ…" : documentError || "Не удалось открыть документ."}</p>}{documentError && document && <p className="form-error" role="alert">{documentError}</p>}</div></div>}
   </section>;
 }
 
