@@ -29,6 +29,10 @@ class TokenPair:
     refresh_expires_at: datetime
 
 
+class EmailAlreadyRegistered(Exception):
+    pass
+
+
 class InvalidCredentials(Exception):
     pass
 

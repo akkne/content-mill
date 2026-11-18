@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.domain.auth import RefreshSession, User
@@ -41,6 +42,17 @@ class SqlAlchemyAuthRepository:
         )
         return as_user(model) if model else None
 
+    def create_user(
+        self, email: str, display_name: str, password_hash: str
+    ) -> User | None:
+        model = self.session.scalar(
+            insert(UserModel)
+            .values(email=email, display_name=display_name, password_hash=password_hash)
+            .on_conflict_do_nothing(index_elements=[UserModel.email])
+            .returning(UserModel)
+        )
+        return as_user(model) if model else None
+
     def save_user(self, email: str, display_name: str, password_hash: str) -> User:
         model = self.session.scalar(select(UserModel).where(UserModel.email == email))
         if model is None:
@@ -63,6 +75,9 @@ class SqlAlchemyAuthRepository:
             )
             .values(revoked_at=now)
         )
+
+    def lock_attempt_bucket(self, key: str) -> None:
+        self.session.execute(select(func.pg_advisory_xact_lock(int(key[:15], 16))))
 
     def clear_old_attempts(self, since: datetime) -> None:
         self.session.execute(

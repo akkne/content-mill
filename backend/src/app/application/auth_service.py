@@ -8,6 +8,7 @@ from app.application.ports import (
     TokenPort,
 )
 from app.domain.auth import (
+    EmailAlreadyRegistered,
     InvalidCredentials,
     InvalidSession,
     TokenPair,
@@ -44,6 +45,29 @@ class AuthService:
                 work.repository.revoke_user_sessions(user.id, now)
             work.commit()
             return user
+
+    def register(
+        self, email: str, display_name: str, password: str, client_ip: str
+    ) -> TokenPair:
+        now = datetime.now(UTC)
+        key = self.tokens.hash(f"register:{client_ip}")
+        with self.unit_of_work() as work:
+            repo = work.repository
+            since = now - ATTEMPT_WINDOW
+            repo.lock_attempt_bucket(key)
+            repo.clear_old_attempts(since)
+            if repo.count_attempts(key, since) >= 30:
+                raise TooManyAttempts
+            repo.record_attempt(key, now)
+            work.commit()
+        with self.unit_of_work() as work:
+            repo = work.repository
+            user = repo.create_user(email, display_name, self.passwords.hash(password))
+            if user is None:
+                raise EmailAlreadyRegistered
+            pair = self._issue_tokens(repo, user.id, uuid4(), now)
+            work.commit()
+            return pair
 
     def login(self, email: str, password: str, client_ip: str) -> TokenPair:
         now = datetime.now(UTC)
