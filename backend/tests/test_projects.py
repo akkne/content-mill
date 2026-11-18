@@ -172,6 +172,12 @@ def test_projects_context_owner_and_revisions(login):
             == 422
         )
 
+        changes = {"products": [], "description": "Updated"}
+        patched = client.patch(path, json=changes, headers={**owner, "If-Match": "2"})
+        assert patched.status_code == 200
+        assert patched.json() == {**saved.json(), **changes, "revision": 3}
+        assert client.patch(path, json=changes, headers=headers).status_code == 409
+
         rename = client.patch(
             f"/api/v1/projects/{project_id}", json={"name": "New name"}, headers=headers
         )

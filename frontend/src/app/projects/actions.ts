@@ -27,11 +27,11 @@ export async function createProject(formData: FormData): Promise<string> {
 export async function saveProjectContext(
   id: string,
   revision: number,
-  input: Omit<ProjectContext, "project_id" | "revision">,
+  input: Partial<Omit<ProjectContext, "project_id" | "revision">>,
 ): Promise<{ context?: ProjectContext; error?: string; conflict?: boolean }> {
   try {
     const response = await projectRequest(`/api/v1/projects/${id}/context`, {
-      method: "PUT",
+      method: "PATCH",
       headers: { "Content-Type": "application/json", "If-Match": String(revision) },
       body: JSON.stringify(input),
     });

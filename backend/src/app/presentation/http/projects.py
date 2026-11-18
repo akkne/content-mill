@@ -126,7 +126,35 @@ def save_context(
     service: Service,
     if_match: str | None = Header(default=None),
 ) -> ContextResponse:
+    return persist_context(
+        project_id, payload, user, service, expected_revision(if_match)
+    )
+
+
+@router.patch("/{project_id}/context", response_model=ContextResponse)
+def patch_context(
+    project_id: UUID,
+    payload: ContextInput,
+    user: CurrentUser,
+    service: Service,
+    if_match: str | None = Header(default=None),
+) -> ContextResponse:
     revision = expected_revision(if_match)
+    if not payload.model_fields_set:
+        raise HTTPException(status_code=422, detail="Укажите поля контекста")
+    return persist_context(
+        project_id, payload, user, service, revision, payload.model_fields_set
+    )
+
+
+def persist_context(
+    project_id: UUID,
+    payload: ContextInput,
+    user: User,
+    service: ProjectService,
+    revision: int,
+    fields: set[str] | None = None,
+) -> ContextResponse:
     context = ProjectContext(
         project_id=project_id,
         revision=revision,
@@ -139,7 +167,7 @@ def save_context(
         source_version_ids=payload.source_version_ids,
     )
     try:
-        updated = service.save_context(project_id, user.id, context, revision)
+        updated = service.save_context(project_id, user.id, context, revision, fields)
     except ProjectNotFound as error:
         raise HTTPException(status_code=404, detail="Проект не найден") from error
     except RevisionConflict as error:
