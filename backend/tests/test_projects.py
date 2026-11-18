@@ -1,4 +1,5 @@
 import os
+from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
 
@@ -471,5 +472,104 @@ def test_text_document_versions_and_access(login):
                 ).json()["items"]
                 == []
             )
+    finally:
+        app.dependency_overrides.pop(knowledge_service, None)
+
+
+def test_media_upload_version_visibility_and_voice(login):
+
+    class Store:
+        def __init__(self):
+            self.objects = {}
+
+        def upload_url(self, key, mime, size):
+            return key
+
+        def read_upload(self, key, size):
+            return self.objects[key][: size + 1]
+
+        def put(self, key, content, mime):
+            self.objects[key] = content
+
+        def delete(self, key):
+            self.objects.pop(key, None)
+
+        def download_url(self, key):
+            return key
+
+    store = Store()
+    service = KnowledgeService(SqlAlchemyKnowledgeUnitOfWork, store)
+    app.dependency_overrides[knowledge_service] = lambda: service
+    try:
+        owner, stranger = login(), login()
+        with TestClient(app) as client:
+            project = client.post(
+                "/api/v1/projects", json={"name": "Media"}, headers=owner
+            ).json()["id"]
+            base = f"/api/v1/projects/{project}"
+            data = (
+                Path(__file__).parents[2]
+                / "frontend-mvp/assets/knowledge/sample-audio.m4a"
+            ).read_bytes()
+            payload = {
+                "name": "voice.m4a",
+                "mime_type": "audio/mp4",
+                "size_bytes": len(data),
+                "sha256": sha256(data).hexdigest(),
+            }
+
+            def start(headers, **changes):
+                return client.post(
+                    f"{base}/files/uploads", json=payload | changes, headers=headers
+                )
+
+            def complete(upload, headers):
+                return client.post(
+                    f"{base}/files/uploads/{upload['upload_id']}/complete",
+                    headers=headers,
+                )
+
+            assert start(stranger).status_code == 404
+            upload = start(owner).json()
+            store.objects[upload["upload_url"]] = b"wrong"
+            assert complete(upload, owner).status_code == 422
+            assert not any(
+                n["name"] == "voice.m4a"
+                for n in client.get(f"{base}/nodes/tree", headers=owner).json()["items"]
+            )
+            store.objects[upload["upload_url"]] = data
+            assert complete(upload, stranger).status_code == 404
+            saved = complete(upload, owner).json()
+            assert complete(upload, owner).json() == saved
+            node = saved["node"]
+            path = f"{base}/nodes/{node['id']}"
+            assert node["kind"] == "audio"
+            assert client.get(path + "/download", headers=stranger).status_code == 404
+            assert client.get(path + "/content", headers=owner).status_code == 404
+            assert start(owner, node_id=node["id"]).status_code == 428
+            headers = owner | {"If-Match": str(node["revision"])}
+            second = start(headers, node_id=node["id"]).json()
+            store.objects[second["upload_url"]] = data
+            saved2 = complete(second, owner).json()
+            assert saved2["version"]["version"] == 2
+            assert start(headers, node_id=node["id"]).status_code == 409
+            old = client.get(path + "/download?version=1", headers=owner).json()
+            latest = client.get(path + "/download", headers=owner).json()
+            assert latest["url"] != old["url"]
+            assert store.objects[old["url"]] == data
+            rev = saved2["node"]["revision"]
+            voice = client.patch(
+                path + "/voice",
+                json={"name": "Анна", "language": "ru", "model": "example"},
+                headers=owner | {"If-Match": str(rev)},
+            ).json()
+            assert voice["voice_language"] == "ru"
+            assert (
+                client.delete(
+                    path, headers=owner | {"If-Match": str(voice["revision"])}
+                ).status_code
+                == 204
+            )
+            assert client.get(path + "/download", headers=owner).status_code == 404
     finally:
         app.dependency_overrides.pop(knowledge_service, None)

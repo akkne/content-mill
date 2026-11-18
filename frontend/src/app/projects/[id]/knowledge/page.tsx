@@ -27,9 +27,9 @@ export default async function KnowledgePage({ params }: { params: Promise<{ id: 
   }
   return <AppShell userName={user.display_name} section="База знаний"><main className="content" id="main-content">
     <Link className="back-link" href={`/projects/${id}`}>← Контекст проекта</Link>
-    <span className="eyebrow">База знаний</span>
-    <h1 className="page-title">{project.name}</h1>
-    <p className="page-lead">Организуйте материалы проекта по папкам, создавайте текстовые документы и возвращайтесь к прежним версиям.</p>
+    <span className="eyebrow">{project.name}</span>
+    <h1 className="page-title">База знаний</h1>
+    <p className="page-lead">Материалы бренда, товаров и каждого ролика в одном дереве. Дважды нажмите файл, чтобы открыть его.</p>
     <KnowledgeBrowser initialSources={{ ids: context.source_version_ids, revision: context.revision }} initial={nodes} projectId={id} projectName={project.name} />
   </main></AppShell>;
 }

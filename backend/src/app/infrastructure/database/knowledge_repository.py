@@ -6,10 +6,11 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app.domain.knowledge import DocumentVersion, KnowledgeNode
+from app.domain.knowledge import DocumentVersion, KnowledgeNode, MediaUpload
 from app.infrastructure.database.models import (
     DocumentVersionModel,
     KnowledgeNodeModel,
+    MediaUploadModel,
     ProjectModel,
 )
 
@@ -24,6 +25,8 @@ def as_node(model: KnowledgeNodeModel) -> KnowledgeNode:
         model.revision,
         model.created_at,
         model.archived_at,
+        model.voice_language,
+        model.voice_model,
     )
 
 
@@ -47,9 +50,9 @@ class SqlAlchemyKnowledgeRepository:
     def owns_project(self, project_id: UUID, owner_id: UUID) -> bool:
         return (
             self.session.scalar(
-                select(ProjectModel.id).where(
-                    ProjectModel.id == project_id, ProjectModel.owner_id == owner_id
-                )
+                select(ProjectModel.id)
+                .where(ProjectModel.id == project_id, ProjectModel.owner_id == owner_id)
+                .with_for_update()
             )
             is not None
         )
@@ -133,6 +136,51 @@ class SqlAlchemyKnowledgeRepository:
         ).all()
         return [as_version(model) for model in models]
 
+    def record_upload(self, upload: MediaUpload) -> None:
+        self.session.add(MediaUploadModel(**vars(upload)))
+
+    def upload(self, project_id: UUID, upload_id: UUID) -> MediaUpload | None:
+        model = self.session.scalar(
+            select(MediaUploadModel)
+            .where(
+                MediaUploadModel.project_id == project_id,
+                MediaUploadModel.id == upload_id,
+            )
+            .with_for_update()
+        )
+        return (
+            MediaUpload(
+                **{key: getattr(model, key) for key in MediaUpload.__dataclass_fields__}
+            )
+            if model
+            else None
+        )
+
+    def finish_upload(self, upload_id: UUID, node_id: UUID, version: int) -> None:
+        self.session.execute(
+            update(MediaUploadModel)
+            .where(MediaUploadModel.id == upload_id)
+            .values(node_id=node_id, completed_version=version)
+        )
+
+    def expired_uploads(self, now: datetime) -> list[MediaUpload]:
+        rows = self.session.scalars(
+            select(MediaUploadModel)
+            .where(MediaUploadModel.expires_at < now)
+            .order_by(MediaUploadModel.expires_at)
+            .limit(100)
+            .with_for_update(skip_locked=True)
+        ).all()
+        uploads = [
+            MediaUpload(
+                **{key: getattr(row, key) for key in MediaUpload.__dataclass_fields__}
+            )
+            for row in rows
+        ]
+        for row in rows:
+            self.session.delete(row)
+        return uploads
+
     def _latest_version(self):
         return (
             select(func.max(DocumentVersionModel.version))
@@ -201,7 +249,9 @@ class SqlAlchemyKnowledgeRepository:
                 KnowledgeNodeModel.id == node_id,
                 KnowledgeNodeModel.revision == revision,
                 KnowledgeNodeModel.archived_at.is_(None),
-                KnowledgeNodeModel.kind == "document",
+                KnowledgeNodeModel.kind.in_(
+                    ("document", "image", "audio", "video", "file")
+                ),
             )
             .values(revision=revision + 1)
             .returning(KnowledgeNodeModel.id)

@@ -39,17 +39,11 @@ export default async function Home() {
             <p>{backendStatus === "online" ? "Проверка соединения прошла успешно. Проекты доступны через API." : "Не удалось связаться с сервером. Проверьте, запущен ли FastAPI и указан ли BACKEND_URL."}</p>
           </section>
           <section className="work-panel">
-            <span className="status-pill status-pill-offline">В разработке</span>
-            <h3>Пользовательские сценарии</h3>
-            <p>Вход, проекты и контекст клиента подключены. Документы и создание контента — следующие фичи.</p>
+            <h3>База знаний</h3>
+            <p>Документы, изображения, аудио и видео хранятся в папках проекта.</p>
+            <Link href="/knowledge" className="secondary-button">Открыть базу знаний</Link>
           </section>
         </div>
-        <h2 className="section-title">Следующие шаги</h2>
-        <ol className="next-steps">
-          <li>Создать базу знаний с папками и текстовыми документами.</li>
-          <li>Добавить загрузку и просмотр медиа.</li>
-          <li>Подключить создание контента.</li>
-        </ol>
       </main>
     </AppShell>
   );

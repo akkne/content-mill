@@ -1,15 +1,41 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.container import knowledge_service
 from app.presentation.http.auth import router as auth_router
 from app.presentation.http.knowledge import router as knowledge_router
+from app.presentation.http.media import router as media_router
 from app.presentation.http.projects import router as projects_router
 from app.presentation.http.search import router as search_router
 
-app = FastAPI(title="Content Mill API")
+
+async def cleanup_loop():
+    while True:
+        await asyncio.sleep(60)
+        try:
+            await asyncio.to_thread(knowledge_service().clean_uploads)
+        except Exception:
+            logging.getLogger(__name__).exception("Failed to clean expired uploads")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(cleanup_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+app = FastAPI(title="Content Mill API", lifespan=lifespan)
+app.include_router(media_router)
 app.include_router(auth_router)
 app.include_router(projects_router)
 app.include_router(knowledge_router)

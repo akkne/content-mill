@@ -13,6 +13,8 @@ class KnowledgeNode:
     revision: int
     created_at: datetime
     archived_at: datetime | None
+    voice_language: str | None = None
+    voice_model: str | None = None
 
 
 @dataclass(frozen=True)
@@ -41,3 +43,32 @@ class NodeConflict(Exception):
 
 class DocumentStorageError(Exception):
     pass
+
+
+@dataclass(frozen=True)
+class MediaUpload:
+    id: UUID
+    project_id: UUID
+    parent_id: UUID | None
+    node_id: UUID | None
+    revision: int | None
+    name: str
+    mime_type: str
+    size_bytes: int
+    sha256: str
+    expires_at: datetime
+    completed_version: int | None = None
+
+    @property
+    def staging_key(self) -> str:
+        return f"uploads/{self.project_id}/{self.id}"
+
+
+@dataclass(frozen=True)
+class ExampleEntry:
+    id: str
+    parent: str | None
+    name: str
+    kind: str
+    content: bytes = b""
+    format: str = ""
