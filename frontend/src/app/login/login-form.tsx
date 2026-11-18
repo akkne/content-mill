@@ -3,13 +3,19 @@
 import { field, formError, primaryButton } from "@/app/ui-styles";
 import { useActionState } from "react";
 
-import { loginAction } from "./actions";
+import { loginAction, registerAction } from "./actions";
 
-export function LoginForm() {
-  const [error, action, pending] = useActionState(loginAction, "");
+export function LoginForm({ register }: { register: boolean }) {
+  const [error, action, pending] = useActionState(register ? registerAction : loginAction, "");
 
   return (
     <form action={action} className="grid gap-2">
+      {register && (
+        <>
+          <label className="mt-[9px] font-bold" htmlFor="display_name">Ваше имя</label>
+          <input className={`${field} min-h-11`} autoComplete="name" id="display_name" name="display_name" maxLength={120} required />
+        </>
+      )}
       <label className="mt-[9px] font-bold" htmlFor="email">
         Электронная почта
       </label>
@@ -26,19 +32,23 @@ export function LoginForm() {
       </label>
       <input
         className={`${field} min-h-11`}
-        autoComplete="current-password"
+        autoComplete={register ? "new-password" : "current-password"}
+        minLength={register ? 15 : undefined}
+        maxLength={1024}
+        aria-describedby={register ? "password-hint" : undefined}
         id="password"
         name="password"
         required
         type="password"
       />
+      {register && <p className="text-sm text-muted" id="password-hint">Минимум 15 символов</p>}
       {error && (
         <p aria-live="polite" className={formError} role="alert">
           {error}
         </p>
       )}
       <button className={`${primaryButton} mt-[15px]`} disabled={pending} type="submit">
-        {pending ? "Входим…" : "Войти"}
+        {register ? (pending ? "Создаём аккаунт…" : "Создать аккаунт") : (pending ? "Входим…" : "Войти")}
       </button>
     </form>
   );

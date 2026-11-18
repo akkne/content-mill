@@ -15,10 +15,13 @@
 
 | Метод и путь | Вход → результат |
 | --- | --- |
-| `POST /api/v1/auth/login` — работает | `{email, password}` → `{access_token, access_expires_at, refresh_token, refresh_expires_at}`. Учётную запись создаёт администратор через CLI; Google/Microsoft в демо не являются провайдерами входа. |
+| `POST /api/v1/auth/register` — работает | `{email, display_name, password}` → `201` и та же пара токенов, что при входе. Имя — 1–120 символов, пароль — 15–1024. Почта приводится к нижнему регистру. Занятая почта даёт `409`, неверные поля — `422`. |
+| `POST /api/v1/auth/login` — работает | `{email, password}` → `{access_token, access_expires_at, refresh_token, refresh_expires_at}`. |
 | `POST /api/v1/auth/refresh` — работает | `{refresh_token}` → новая пара токенов с ротацией. Повторное использование ротированного refresh отзывает семейство сессий. |
 | `POST /api/v1/auth/logout` — работает | `{refresh_token}` → `204`, отзыв семейства сессий. |
 | `GET /api/v1/me` — работает | Bearer access → `{id, display_name, projects: [{id, name, role: "owner"}]}`; до 100 последних проектов. Полный список с курсором доступен через `/projects`. |
+
+Регистрация допускает 30 попыток за 15 минут с адреса клиента API, после чего возвращает `429`. Для запросов через Next.js это общий адрес сервера интерфейса. Проверяется формат почты. Подтверждение владения ящиком по письму не предусмотрено.
 
 Access действует 15 минут, refresh — 14 дней. Оба значения случайные; сервер хранит только их хеши. Next.js сохраняет токены в HttpOnly cookie, обновляет пару при истечении access и не отдаёт их клиентскому JavaScript.
 
