@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
+AVATAR_DESCRIPTION = "Описание аватара.md"
 AVATAR_FOLDERS = {
     "Лицо крупным планом": "photos",
     "В полный рост": "photos",

@@ -2,7 +2,7 @@ from dataclasses import replace
 from uuid import UUID
 
 from app.application.project_ports import ProjectUnitOfWorkFactory
-from app.domain.knowledge import AVATAR_FOLDERS
+from app.domain.knowledge import AVATAR_DESCRIPTION, AVATAR_FOLDERS
 from app.domain.project import (
     InvalidSourceVersion,
     Project,
@@ -20,6 +20,7 @@ STARTER_FOLDERS = (
     "Аватары/Основной аватар",
     *(f"Аватары/Основной аватар/{name}" for name in AVATAR_FOLDERS),
     "Голоса",
+    "Голоса/Основной голос",
     "Референсы",
     "Формулы роликов",
     "Промпты",
@@ -66,6 +67,7 @@ class ProjectService:
             folders: dict[str, UUID] = {}
             roles = {
                 "Голоса": "voices",
+                "Голоса/Основной голос": "voice",
                 "Аватары": "avatars",
                 "Аватары/Основной аватар": "avatar",
                 **{
@@ -83,6 +85,12 @@ class ProjectService:
                     roles.get(path),
                 )
                 folders[path] = folder.id
+            work.knowledge.create(
+                project.id,
+                folders["Аватары/Основной аватар"],
+                "document",
+                AVATAR_DESCRIPTION,
+            )
             work.commit()
             return project
 

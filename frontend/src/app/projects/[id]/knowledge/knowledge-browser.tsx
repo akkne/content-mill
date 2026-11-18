@@ -1,6 +1,6 @@
 "use client";
 
-import { eyebrow, formError, kbDocumentFoot, kbDocumentHead, kbEmpty, primaryButton, secondaryButton } from "@/app/ui-styles";
+import { eyebrow, field, fieldLabel, formError, kbDocumentFoot, kbDocumentHead, kbEmpty, primaryButton, secondaryButton } from "@/app/ui-styles";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
@@ -33,6 +33,8 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
   const [mediaId, setMediaId] = useState<string | null>(null);
   const [sources, setSources] = useState(initialSources);
   const [nodes, setNodes] = useState(initial);
+  const [addingProfile, setAddingProfile] = useState(false);
+  const [profileName, setProfileName] = useState("");
   const [folderId, setFolderId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchIds, setSearchIds] = useState<string[] | null>(null);
@@ -107,12 +109,19 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
         if (result.items) setNodes(result.items);
         else setNodes(previous => action === "create" ? [...previous, updated] : previous.map(node => node.id === updated.id ? updated : node));
         setSelectedId(result.node.id);
+        if (action === "create" && (updated.folder_role === "voice" || updated.folder_role === "avatar")) setAddingProfile(false);
         if (action === "create" && result.node.kind === "document") openDocument(result.node.id);
       }
     });
   }
 
   function create() {
+    if (role === "voices" || role === "avatars") {
+      setProfileName("");
+      setError("");
+      setAddingProfile(true);
+      return;
+    }
     const name = window.prompt(`Введите название («${folderLabel}»)`);
     if (name?.trim()) mutate("create", { parentId: folderId, name: name.trim(), kind: "folder" });
   }
@@ -192,6 +201,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
   }
 
   function enter(folder: string | null) {
+    setAddingProfile(false);
     setFolderId(folder);
     setSelectedId(null);
     changeQuery("");
@@ -341,6 +351,20 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
               </button>
             </div>
           </div>
+          {addingProfile && (role === "voices" || role === "avatars") && (
+            <form className="mb-5 flex flex-wrap items-end gap-2" onSubmit={event => {
+              event.preventDefault();
+              const name = profileName.trim();
+              if (name && !pending) mutate("create", { parentId: folderId, name, kind: "folder" });
+            }}>
+              <label className={fieldLabel}>{role === "voices" ? "Имя голоса" : "Имя аватара"}
+                <input className={field} autoFocus required maxLength={160} value={profileName}
+                  onChange={event => setProfileName(event.target.value)} />
+              </label>
+              <button className={primaryButton} disabled={pending || !profileName.trim()}>Создать</button>
+              <button className={secondaryButton} type="button" disabled={pending} onClick={() => setAddingProfile(false)}>Отмена</button>
+            </form>
+          )}
           {!query && folder && (folder.folder_role === "avatar" || folder.folder_role === "voice") && (
             <FolderProfile key={folder.id} project={projectId} folder={folder}
               voices={folders.filter(node => node.folder_role === "voice")}

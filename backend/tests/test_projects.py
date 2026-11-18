@@ -581,13 +581,18 @@ def test_starter_folders_and_reusable_voice(login):
         project = client.post("/api/v1/projects", json={"name": "Студия"}).json()
         base = f"/api/v1/projects/{project['id']}/nodes"
         tree = client.get(f"{base}/tree").json()["items"]
-        assert all(node["kind"] == "folder" for node in tree)
+        assert [node["name"] for node in tree if node["kind"] != "folder"] == [
+            "Описание аватара.md"
+        ]
         by_name = {node["name"]: node for node in tree}
 
         def children(parent):
             return {n["name"] for n in tree if n["parent_id"] == by_name[parent]["id"]}
 
         assert children("Бренд") == {"Товары", "Формат", "Правила бренда"}
+        assert children("Голоса") == {"Основной голос"}
+        assert by_name["Основной голос"]["folder_role"] == "voice"
+        assert "Описание аватара.md" in children("Основной аватар")
         assert not children("Товары")
         assert children("Материалы") == {"Аудио", "Видео", "Изображения"}
         assert children("Промпты") == {
@@ -628,7 +633,7 @@ def test_starter_folders_and_reusable_voice(login):
         assert folder(wardrobe["id"], "Белая рубашка").status_code == 201
         assert folder(wardrobe["id"], "белая рубашка").status_code == 409
         avatar_url = f"{base}/{avatar['id']}/profile"
-        data = {"linked_voice_id": voice["id"], "description": "Ведущая проекта"}
+        data = {"linked_voice_id": voice["id"]}
         assert (
             client.put(avatar_url, json=data, headers={"If-Match": "1"}).json()[
                 "linked_voice_id"
