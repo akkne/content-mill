@@ -99,3 +99,27 @@ class ProjectContextModel(Base):
     tone_of_voice: Mapped[str] = mapped_column(Text, default="")
     forbidden_terms: Mapped[list] = mapped_column(JSONB, default=list)
     source_version_ids: Mapped[list] = mapped_column(JSONB, default=list)
+
+
+class KnowledgeNodeModel(Base):
+    __tablename__ = "knowledge_nodes"
+    __table_args__ = (
+        Index("knowledge_nodes_project_parent_idx", "project_id", "parent_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    project_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("projects.id")
+    )
+    parent_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("knowledge_nodes.id")
+    )
+    kind: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(160))
+    revision: Mapped[int] = mapped_column(default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -24,6 +24,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     <Link className="back-link" href="/projects">← Все проекты</Link>
     <span className="eyebrow">Контекст клиента</span>
     <h1 className="page-title">{project.name}</h1>
+    <Link className="secondary-button project-knowledge-link" href={`/projects/${id}/knowledge`}>Открыть базу знаний →</Link>
     <p className="page-lead">Укажите начальные данные о клиенте, аудитории, продуктах и подтверждённых фактах. Позже их можно будет изменить. Контекст сохраняется в проекте и будет доступен при создании контента.</p>
     <ContextEditor initial={context} />
   </main></AppShell>;

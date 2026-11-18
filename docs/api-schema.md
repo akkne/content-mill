@@ -38,9 +38,10 @@ Access действует 15 минут, refresh — 14 дней. Оба зна�
 
 | Метод и суффикс | Вход → результат |
 | --- | --- |
-| `GET /nodes?parent_id={id}` / `POST /nodes` | Содержимое папки; создание `{parent_id?, name, kind: folder/document}` → `201 Node`. |
-| `GET /nodes/{node_id}` / `PATCH /nodes/{node_id}` | Метаданные; `{name}` с `If-Match` для переименования. |
-| `POST /nodes/{node_id}/move` / `DELETE /nodes/{node_id}` | `{new_parent_id}` с `If-Match`; архивирование узла. Перенос в собственного потомка отклоняется. |
+| `GET /nodes?parent_id={id}` / `POST /nodes` — работают | Содержимое папки; создание `{parent_id?, name, kind: folder/document}` → `201 Node`. |
+| `GET /nodes/tree` — работает | Все активные узлы проекта для отображения дерева. |
+| `GET /nodes/{node_id}` / `PATCH /nodes/{node_id}` — работают | Метаданные; `{name}` с `If-Match` для переименования. |
+| `POST /nodes/{node_id}/move` / `DELETE /nodes/{node_id}` — работают | `{new_parent_id}` с `If-Match`; архивирование узла вместе с потомками. Перенос в собственного потомка отклоняется. |
 | `GET /nodes/{node_id}/versions` | Готовые версии с автором, MIME-типом, размером и датой. |
 | `GET /nodes/{node_id}/content` / `PUT /nodes/{node_id}/content` | Текстовый документ; `PUT {content, format}` с `If-Match` создаёт неизменяемую версию в S3. |
 | `POST /files/uploads` | `{parent_id?, node_id?, name, mime_type, size_bytes, sha256}` → `{upload_id, upload_url, expires_at}`. Для нового файла указан `parent_id`, для новой версии — `node_id`. |
@@ -49,6 +50,8 @@ Access действует 15 минут, refresh — 14 дней. Оба зна�
 | `GET /search?q=...` | Поиск по названиям, метаданным и извлечённому тексту проекта → узлы с вычисляемым путём. |
 
 `Node` содержит `id`, `project_id`, `parent_id`, `kind`, `name`, `revision`, `archived_at`. `FileVersion` содержит `id`, `node_id`, `version`, `mime_type`, `size_bytes`, `sha256`, `state`, `created_at`. Документ в S3 остаётся источником содержимого; извлечённый текст в PostgreSQL служит поисковым индексом. Ограничения размера, форматы редактора и допустимые MIME-типы задаются при реализации.
+
+Сейчас реализовано дерево метаданных: создание папок и узлов документов, переименование, перенос и архивирование. Содержимое документов, версии, загрузка файлов и поиск ещё не подключены. В интерфейсе пока доступно управление папками.
 
 ## Создание контента
 
