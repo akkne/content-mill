@@ -6,6 +6,7 @@ import { AppShell } from "../../app-shell";
 import { fetchCurrentUser } from "@/lib/backend";
 import { loadContext, loadProject } from "@/lib/projects";
 import { accessCookie } from "@/lib/session";
+import { ProjectSettings } from "./project-settings";
 import { ContextEditor } from "./context-editor";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     <h1 className="page-title">{project.name}</h1>
     <Link className="secondary-button project-knowledge-link" href={`/projects/${id}/knowledge`}>Открыть базу знаний →</Link>
     <p className="page-lead">Укажите начальные данные о клиенте, аудитории, продуктах и подтверждённых фактах. Позже их можно будет изменить. Контекст сохраняется в проекте и будет доступен при создании контента.</p>
+    <ProjectSettings project={project} />
     <ContextEditor initial={context} />
   </main></AppShell>;
 }

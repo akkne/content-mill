@@ -44,3 +44,20 @@ export async function saveProjectContext(
     return { error: "Сервер недоступен. Повторите сохранение позже." };
   }
 }
+
+export async function renameProject(id: string, revision: number, name: string) {
+  try {
+    const response = await projectRequest(`/api/v1/projects/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "If-Match": String(revision) },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    if (response.status === 409) return "Название изменилось в другой вкладке. Обновите страницу.";
+    if (!response.ok) return "Не удалось сохранить название проекта.";
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${id}`, "layout");
+    return "";
+  } catch {
+    return "Сервер недоступен. Повторите сохранение позже.";
+  }
+}
