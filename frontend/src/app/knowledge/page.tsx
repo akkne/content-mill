@@ -1,3 +1,4 @@
+import { content, pageLead, pageTitle, projectCard, projectGrid, secondaryButton } from "@/app/ui-styles";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -12,10 +13,28 @@ export default async function KnowledgeProjects() {
   if (!user) redirect("/login");
   const projects = await loadProjects();
   if (projects.length === 1) redirect(`/projects/${projects[0].id}/knowledge`);
-  return <AppShell userName={user.display_name} section="База знаний"><main className="content" id="main-content">
-    <h1 className="page-title">База знаний</h1>
-    {projects.length ? <><p className="page-lead">Выберите проект, чтобы открыть его папки и файлы.</p>
-      <div className="project-grid">{projects.map(p => <Link className="project-card" href={`/projects/${p.id}/knowledge`} key={p.id}><strong>{p.name}</strong><span>Открыть папки →</span></Link>)}</div></>
-      : <Link className="secondary-button" href="/projects">Создать первый проект</Link>}
-  </main></AppShell>;
+  return (
+    <AppShell userName={user.display_name} section="База знаний">
+      <main className={content} id="main-content">
+        <h1 className={pageTitle}>База знаний</h1>
+        {projects.length ? (
+          <>
+            <p className={pageLead}>Выберите проект, чтобы открыть его папки и файлы.</p>
+            <div className={projectGrid}>
+              {projects.map((p) => (
+                <Link className={projectCard} href={`/projects/${p.id}/knowledge`} key={p.id}>
+                  <strong className="text-base">{p.name}</strong>
+                  <span className="font-bold text-accent">Открыть папки →</span>
+                </Link>
+              ))}
+            </div>
+          </>
+        ) : (
+          <Link className={secondaryButton} href="/projects">
+            Создать первый проект
+          </Link>
+        )}
+      </main>
+    </AppShell>
+  );
 }
