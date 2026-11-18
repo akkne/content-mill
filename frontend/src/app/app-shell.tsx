@@ -3,8 +3,14 @@
 import { formError } from "@/app/ui-styles";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 
+import { WorkspaceIcon } from "./workspace-icon";
 import { logoutAction } from "./login/actions";
 
 const themeKey = "sazi-content-theme";
@@ -24,13 +30,34 @@ function getTheme(): "light" | "dark" {
 }
 
 const navigation = [
-  { label: "Главная", icon: "home", href: "/" },
-  { label: "Проекты", icon: "brand", href: "/projects" },
-  { label: "База знаний", icon: "brand", href: "/knowledge" },
-  { label: "Контент", icon: "videos", href: null },
+  ["Главная", "Home", "home", "/"],
+  ["Проекты", "Projects", "brand", "/projects"],
+  ["База знаний", "Knowledge base", "brand", "/knowledge"],
+  ["Ролики", "Videos", "videos", null],
+  ["План и автопилот", "Plan and autopilot", "plan", null],
+  ["Аналитика", "Analytics", "analytics", null],
+  ["Агент-маркетолог", "Marketing agent", "agent", null],
+  ["Анализ ниши", "Niche analysis", "niche", null],
+  ["Instagram-студия", "Instagram studio", "studio", null],
+  ["Каналы и API", "Channels and API", "channels", null],
+  ["Заявки (команда)", "Team leads", "leads", null],
+  ["Проверка API", "API checks", "checks", null],
 ] as const;
 
-export function AppShell({ children, userName, section = "Главная" }: { children: React.ReactNode; userName: string; section?: string }) {
+export function AppShell({
+  children,
+  userName,
+  section = "Главная",
+  english = false,
+}: {
+  children: React.ReactNode;
+  userName: string;
+  section?: string;
+  english?: boolean;
+}) {
+  const t = (ru: string, en: string) => (english ? en : ru);
+  const pending = t("Ещё не реализовано", "Not yet implemented");
+  const home = section === "Главная";
   const projectId = useParams().id;
   const theme = useSyncExternalStore(subscribeToTheme, getTheme, () => "light");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -41,32 +68,30 @@ export function AppShell({ children, userName, section = "Главная" }: { c
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  function toggleTheme() {
-    const nextTheme = theme === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = nextTheme;
+  function chooseTheme(nextTheme: "light" | "dark") {
     localStorage.setItem(themeKey, nextTheme);
     window.dispatchEvent(new Event(themeEvent));
   }
 
   return (
-    <div className="min-h-screen">
+    <div lang={english ? "en" : "ru"} className="min-h-screen">
       <a
         className="fixed -top-[60px] left-3 z-30 rounded-lg bg-surface px-3 py-[9px] text-ink focus:top-3"
         href="#main-content"
       >
-        Перейти к содержимому
+        {t("Перейти к содержимому", "Skip to content")}
       </a>
       {menuOpen && (
         <button
-          aria-label="Закрыть меню"
+          aria-label={t("Закрыть меню", "Close menu")}
           className="fixed inset-0 z-10 hidden bg-[#08152885] max-[761px]:block"
           onClick={() => setMenuOpen(false)}
           type="button"
         />
       )}
       <aside
-        aria-label="Основная навигация"
-        className={`fixed inset-y-0 left-0 z-20 flex w-[226px] flex-col border-r border-line bg-sidebar px-[18px] py-[26px] max-[761px]:w-[260px] max-[761px]:transition-[transform,visibility] max-[761px]:duration-200 motion-reduce:transition-none ${menuOpen ? "" : "max-[761px]:invisible max-[761px]:-translate-x-full"}`}
+        aria-label={t("Основная навигация", "Main navigation")}
+        className={`fixed inset-y-0 left-0 z-20 flex w-[242px] max-[1150px]:w-[224px] flex-col border-r border-line bg-sidebar px-[18px] pt-5 pb-3 max-[761px]:w-[246px] max-[761px]:transition-[transform,visibility] max-[761px]:duration-200 motion-reduce:transition-none ${menuOpen ? "" : "max-[761px]:invisible max-[761px]:-translate-x-full"}`}
         id="main-navigation"
         onKeyDown={(event) => {
           if (event.key === "Escape") setMenuOpen(false);
@@ -78,56 +103,103 @@ export function AppShell({ children, userName, section = "Главная" }: { c
           onClick={() => setMenuOpen(false)}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img alt="" height="33" src="/mill-logo.png" width="33" />
-          <span>
-            mill<small className="ml-1 text-[13px] font-medium tracking-normal text-muted">studio</small>
-          </span>
+          <img alt="" height="54" src="/mill-logo.png" width="54" />
+          mill
         </Link>
-        <p className="mx-[11px] mt-9 mb-[13px] text-[10px] font-bold tracking-[.1em] text-faint uppercase">
-          Рабочее пространство
+        <p className="mx-[11px] mt-3 text-[10px] font-bold tracking-widest text-faint">
+          {t("КОНТЕНТ-ЗАВОД", "CONTENT FACTORY")}
         </p>
-        <nav className="grid gap-[5px]" aria-label="Разделы">
-          {navigation.map(({ label, icon, href }) => {
+        <button
+          disabled
+          className="mt-4 rounded-[10px] bg-action px-3 py-2 text-left font-bold text-white disabled:cursor-default"
+        >
+          ＋ {t("Создать ролик", "Create video")}
+          <small className="block pl-4 text-[10px] font-medium">
+            {pending}
+          </small>
+        </button>
+        <p className="mx-[11px] mt-5 mb-2 text-[10px] font-bold tracking-[.1em] text-faint uppercase">
+          {t("Рабочее пространство", "Workspace")}
+        </p>
+        <nav
+          className="grid min-h-0 content-start gap-0.5 overflow-y-auto"
+          aria-label={t("Разделы", "Sections")}
+        >
+          {navigation.map(([label, en, icon, href]) => {
             const content = (
               <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img alt="" height="26" src={`/icons/${icon}.png`} width="26" />
-                <span>{label}</span>
-                {!href && <small className="ml-auto text-[9px] font-medium text-faint">Скоро</small>}
+                <WorkspaceIcon
+                  name={icon}
+                  className={`size-[29px] ${section === label ? "rounded-lg bg-white" : ""}`}
+                />
+                <span>
+                  {t(label, en)}
+                  {!href && (
+                    <small className="block text-[10px] font-medium text-muted">
+                      {pending}
+                    </small>
+                  )}
+                </span>
               </>
             );
             return href ? (
               <Link
                 aria-current={section === label ? "page" : undefined}
-                className="flex min-h-11 items-center gap-[11px] rounded-[10px] px-[11px] py-2 font-semibold text-muted aria-[current=page]:bg-selected aria-[current=page]:text-selected-ink aria-[current=page]:[&_img]:brightness-0 aria-[current=page]:[&_img]:invert [&:not([aria-current]):hover]:bg-control [&:not([aria-current]):hover]:text-ink"
-                href={href === "/knowledge" && projectId ? `/projects/${projectId}/knowledge` : href}
+                className="flex min-h-11 items-center gap-[11px] rounded-[10px] px-[11px] py-2 font-semibold text-muted aria-[current=page]:bg-selected aria-[current=page]:text-selected-ink [&:not([aria-current]):hover]:bg-control [&:not([aria-current]):hover]:text-ink"
+                href={
+                  href === "/knowledge" && projectId
+                    ? `/projects/${projectId}/knowledge`
+                    : href
+                }
                 key={label}
                 onClick={() => setMenuOpen(false)}
               >
                 {content}
               </Link>
             ) : (
-              <span
-                className="flex min-h-11 items-center gap-[11px] rounded-[10px] px-[11px] py-2 font-semibold text-muted cursor-default opacity-[.66]"
+              <button
+                disabled
+                className="text-left disabled:cursor-default flex min-h-11 items-center gap-[11px] rounded-[10px] px-[11px] py-1 text-xs font-semibold text-muted"
                 key={label}
               >
                 {content}
-              </span>
+              </button>
             );
           })}
         </nav>
-        <div className="mt-auto border-t border-line px-[11px] pt-4 text-[11px] text-faint">
-          <span className="block truncate font-bold text-ink">{userName}</span>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              startLogout(async () => setLogoutError(await logoutAction()));
-            }}
+        <div className="mt-auto shrink-0 border-t border-line pt-2 text-[11px] text-muted">
+          <button
+            disabled
+            className="mb-2 flex w-full justify-between gap-2 border-b border-line px-2 pb-2 text-left disabled:cursor-default"
           >
-            <button className="mt-[9px] py-1 font-bold text-accent" disabled={logoutPending} type="submit">
-              {logoutPending ? "Выходим…" : "Выйти"}
-            </button>
-          </form>
+            {t("Дизайн-система", "Design system")}
+            <small>{pending}</small>
+          </button>
+          <div className="flex items-center gap-2 px-2">
+            <span
+              aria-hidden="true"
+              className="grid size-8 shrink-0 place-items-center rounded-full bg-tint font-bold text-accent"
+            >
+              {userName.slice(0, 1)}
+            </span>
+            <strong className="mr-auto truncate text-ink">{userName}</strong>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                startLogout(async () => setLogoutError(await logoutAction()));
+              }}
+            >
+              <button
+                className="mt-[9px] py-1 font-bold text-accent"
+                disabled={logoutPending}
+                type="submit"
+              >
+                {logoutPending
+                  ? t("Выходим…", "Signing out…")
+                  : t("Выйти", "Sign out")}
+              </button>
+            </form>
+          </div>
           {logoutError && (
             <p aria-live="polite" className={formError} role="alert">
               {logoutError}
@@ -135,7 +207,7 @@ export function AppShell({ children, userName, section = "Главная" }: { c
           )}
         </div>
       </aside>
-      <div className="ml-[226px] min-h-screen max-[761px]:ml-0">
+      <div className="ml-[242px] max-[1150px]:ml-[224px] flex min-h-screen flex-col max-[761px]:ml-0">
         <header className="flex min-h-[73px] items-center justify-between gap-4 border-b border-line px-[38px] max-[761px]:px-5">
           <div className="flex items-center gap-3">
             <button
@@ -145,25 +217,73 @@ export function AppShell({ children, userName, section = "Главная" }: { c
               onClick={() => setMenuOpen(!menuOpen)}
               type="button"
             >
-              Меню
+              {t("Меню", "Menu")}
             </button>
             <span className="text-xs text-muted">
-              mill <span aria-hidden="true">/</span> <strong className="text-ink">{section}</strong>
+              mill <span aria-hidden="true">/</span>{" "}
+              <strong className="text-ink">
+                {home ? t("Главная", "Home") : section}
+              </strong>
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="rounded-[7px] border border-line px-[9px] py-[5px] text-[10px] whitespace-nowrap text-muted max-[561px]:hidden">
-              Разработка первого этапа
+            {home && (
+              <div
+                aria-label={t("Язык интерфейса", "Interface language")}
+                className="flex gap-1 rounded-[9px] border border-line bg-control p-1"
+              >
+                {[
+                  ["RU", "/"],
+                  ["EN", "/?lang=en"],
+                ].map(([label, href]) => (
+                  <Link
+                    key={label}
+                    href={href}
+                    aria-current={
+                      (label === "EN") === english ? "true" : undefined
+                    }
+                    className="rounded-md px-2 py-1 text-[11px] font-bold text-muted aria-current:bg-surface aria-current:text-ink"
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            )}
+            <div className="flex rounded-[9px] border border-line bg-control p-1">
+              {(["light", "dark"] as const).map((choice) => {
+                const label =
+                  choice === "light"
+                    ? t("Светлая", "Light")
+                    : t("Тёмная", "Dark");
+                return (
+                  <button
+                    key={choice}
+                    type="button"
+                    aria-label={label}
+                    aria-pressed={theme === choice}
+                    onClick={() => chooseTheme(choice)}
+                    className="rounded-md px-2 py-1 text-xs font-semibold text-muted aria-pressed:bg-surface aria-pressed:text-ink"
+                  >
+                    {choice === "light" ? "☀" : "☾"}{" "}
+                    <span className="max-[761px]:hidden">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-xs text-muted max-[1150px]:hidden">
+              {new Intl.DateTimeFormat(english ? "en-GB" : "ru", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                timeZone: "Europe/Moscow",
+              }).format(new Date())}
             </span>
-            <button
-              aria-label={theme === "light" ? "Включить тёмную тему" : "Включить светлую тему"}
-              aria-pressed={theme === "dark"}
-              className="inline-flex items-center justify-center min-h-[38px] gap-[7px] px-[11px] py-1.5 rounded-[9px] border border-line bg-control text-ink text-[11px] font-bold hover:bg-subtle"
-              onClick={toggleTheme}
-              type="button"
+            <span
+              aria-hidden="true"
+              className="grid size-8 place-items-center rounded-full bg-tint font-bold text-accent max-[761px]:hidden"
             >
-              {theme === "light" ? "☾ Тёмная" : "☀ Светлая"}
-            </button>
+              {userName.slice(0, 1)}
+            </span>
           </div>
         </header>
         {children}
