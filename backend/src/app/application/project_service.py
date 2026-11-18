@@ -1,3 +1,4 @@
+from dataclasses import replace
 from uuid import UUID
 
 from app.application.project_ports import ProjectUnitOfWorkFactory
@@ -53,11 +54,23 @@ class ProjectService:
             return work.repository.context(project_id)
 
     def save_context(
-        self, project_id: UUID, owner_id: UUID, context: ProjectContext, revision: int
+        self,
+        project_id: UUID,
+        owner_id: UUID,
+        context: ProjectContext,
+        revision: int,
+        fields: set[str] | None = None,
     ) -> ProjectContext:
         with self.unit_of_work() as work:
             if work.repository.get_owned(project_id, owner_id) is None:
                 raise ProjectNotFound
+            if fields is not None:
+                current = work.repository.context(project_id)
+                if current.revision != revision:
+                    raise RevisionConflict
+                context = replace(
+                    current, **{key: getattr(context, key) for key in fields}
+                )
             if not work.repository.valid_source_versions(
                 project_id, context.source_version_ids
             ):

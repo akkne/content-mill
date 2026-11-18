@@ -27,9 +27,7 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
         audiences: splitLines(audiences),
         products: products.filter((item) => item.name.trim()).map((item) => ({ name: item.name.trim(), description: item.description.trim() })),
         facts: facts.filter((item) => item.text.trim()).map((item) => ({ text: item.text.trim(), source_url: item.source_url?.trim() || null })),
-        tone_of_voice: initial.tone_of_voice,
         forbidden_terms: splitLines(terms),
-        source_version_ids: initial.source_version_ids,
       });
       if (result.context) {
         setRevision(result.context.revision);
