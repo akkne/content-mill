@@ -7,6 +7,41 @@ import type { KnowledgeNode } from "@/lib/knowledge";
 
 type Result = { node?: KnowledgeNode; error?: string; conflict?: boolean };
 
+export type DocumentContent = { node_id: string; revision: number; version: number; format: "markdown" | "plain"; content: string };
+export type DocumentVersion = { id: string; node_id: string; version: number; format: string; size_bytes: number; sha256: string; created_at: string };
+
+export async function loadDocument(projectId: string, nodeId: string, version?: number): Promise<{ document?: DocumentContent; versions?: DocumentVersion[]; error?: string }> {
+  try {
+    const base = `/api/v1/projects/${projectId}/nodes/${nodeId}`;
+    const [content, history] = await Promise.all([
+      projectRequest(`${base}/content${version ? `?version=${version}` : ""}`),
+      projectRequest(`${base}/versions`),
+    ]);
+    if (!content.ok || !history.ok) return { error: "Не удалось открыть документ." };
+    const document = await content.json() as DocumentContent;
+    const versions = (await history.json() as { items: DocumentVersion[] }).items;
+    return { document, versions };
+  } catch {
+    return { error: "Сервер недоступен. Повторите попытку позже." };
+  }
+}
+
+export async function saveDocument(projectId: string, nodeId: string, revision: number, content: string, format: "markdown" | "plain"): Promise<{ document?: DocumentContent; error?: string; conflict?: boolean }> {
+  try {
+    const response = await projectRequest(`/api/v1/projects/${projectId}/nodes/${nodeId}/content`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "If-Match": String(revision) },
+      body: JSON.stringify({ content, format }),
+    });
+    if (response.status === 409) return { error: "Документ изменился в другой вкладке. Закройте и откройте его снова.", conflict: true };
+    if (!response.ok) return { error: response.status === 413 || response.status === 422 ? "Документ слишком большой или имеет неверный формат." : "Не удалось сохранить документ." };
+    revalidatePath(`/projects/${projectId}/knowledge`);
+    return { document: await response.json() as DocumentContent };
+  } catch {
+    return { error: "Сервер недоступен. Повторите сохранение позже." };
+  }
+}
+
 export async function changeKnowledgeNode(
   projectId: string,
   action: "create" | "rename" | "move" | "archive",

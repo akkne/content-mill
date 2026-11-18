@@ -17,6 +17,9 @@ class ProjectRepository(Protocol):
     def save_context(
         self, context: ProjectContext, revision: int
     ) -> ProjectContext | None: ...
+    def valid_source_versions(
+        self, project_id: UUID, version_ids: list[UUID]
+    ) -> bool: ...
 
 
 class ProjectUnitOfWork(Protocol):

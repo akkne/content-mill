@@ -8,6 +8,7 @@ from app.infrastructure.database.project_unit_of_work import SqlAlchemyProjectUn
 from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
+from app.infrastructure.storage.s3_documents import S3DocumentStore
 
 passwords = Argon2Passwords()
 tokens = SecureTokens()
@@ -22,4 +23,4 @@ def project_service() -> ProjectService:
 
 
 def knowledge_service() -> KnowledgeService:
-    return KnowledgeService(SqlAlchemyKnowledgeUnitOfWork)
+    return KnowledgeService(SqlAlchemyKnowledgeUnitOfWork, S3DocumentStore())

@@ -9,6 +9,7 @@ from app.domain.auth import User
 from app.domain.project import (
     Fact,
     InvalidCursor,
+    InvalidSourceVersion,
     Product,
     Project,
     ProjectContext,
@@ -125,10 +126,6 @@ def save_context(
     service: Service,
     if_match: str | None = Header(default=None),
 ) -> ContextResponse:
-    if payload.source_version_ids:
-        raise HTTPException(
-            status_code=422, detail="Версии документов пока не подключены"
-        )
     revision = expected_revision(if_match)
     context = ProjectContext(
         project_id=project_id,
@@ -139,7 +136,7 @@ def save_context(
         facts=[Fact(**item.model_dump()) for item in payload.facts],
         tone_of_voice=payload.tone_of_voice,
         forbidden_terms=payload.forbidden_terms,
-        source_version_ids=[],
+        source_version_ids=payload.source_version_ids,
     )
     try:
         updated = service.save_context(project_id, user.id, context, revision)
@@ -148,5 +145,9 @@ def save_context(
     except RevisionConflict as error:
         raise HTTPException(
             status_code=409, detail="Версия контекста изменилась"
+        ) from error
+    except InvalidSourceVersion as error:
+        raise HTTPException(
+            status_code=422, detail="Версия источника не найдена в проекте"
         ) from error
     return ContextResponse.model_validate(updated, from_attributes=True)

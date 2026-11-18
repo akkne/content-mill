@@ -5,9 +5,14 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
-from app.container import auth_service
+from app.application.knowledge_service import KnowledgeService
+from app.container import auth_service, knowledge_service
+from app.infrastructure.database.knowledge_unit_of_work import (
+    SqlAlchemyKnowledgeUnitOfWork,
+)
 from app.infrastructure.database.models import (
     AccessTokenModel,
+    DocumentVersionModel,
     KnowledgeNodeModel,
     ProjectContextModel,
     ProjectModel,
@@ -50,6 +55,14 @@ def login(migrated_database):
         for user_id in users:
             project_ids = select(ProjectModel.id).where(
                 ProjectModel.owner_id == user_id
+            )
+            node_ids = select(KnowledgeNodeModel.id).where(
+                KnowledgeNodeModel.project_id.in_(project_ids)
+            )
+            session.execute(
+                delete(DocumentVersionModel).where(
+                    DocumentVersionModel.node_id.in_(node_ids)
+                )
             )
             session.execute(
                 delete(KnowledgeNodeModel).where(
@@ -290,3 +303,112 @@ def test_knowledge_tree_owner_moves_and_archive(login):
         assert client.get(f"{base}/{brand_id}", headers=owner).status_code == 404
         assert client.get(f"{base}/{archived_child}", headers=owner).status_code == 404
         assert client.get(f"{base}/{products_id}", headers=owner).status_code == 200
+
+
+def test_text_document_versions_and_access(login):
+    class MemoryStore:
+        def __init__(self):
+            self.objects = {}
+
+        def put(self, key, content, content_type):
+            assert key not in self.objects
+            self.objects[key] = content
+
+        def get(self, key):
+            return self.objects[key]
+
+        def delete(self, key):
+            self.objects.pop(key, None)
+
+    store = MemoryStore()
+    app.dependency_overrides[knowledge_service] = lambda: KnowledgeService(
+        SqlAlchemyKnowledgeUnitOfWork, store
+    )
+    try:
+        owner = login()
+        stranger = login()
+        with TestClient(app) as client:
+            project_id = client.post(
+                "/api/v1/projects", json={"name": "Documents"}, headers=owner
+            ).json()["id"]
+            base = f"/api/v1/projects/{project_id}/nodes"
+            document = client.post(
+                base, json={"name": "Voice.md", "kind": "document"}, headers=owner
+            ).json()
+            path = f"{base}/{document['id']}/content"
+            empty = client.get(path, headers=owner)
+            assert empty.json()["version"] == 0
+            assert empty.json()["content"] == ""
+            assert (
+                client.put(
+                    path, json={"content": "First", "format": "markdown"}, headers=owner
+                ).status_code
+                == 428
+            )
+            first = client.put(
+                path,
+                json={"content": "Первый", "format": "markdown"},
+                headers={**owner, "If-Match": "1"},
+            )
+            assert first.status_code == 200
+            assert first.json()["version"] == 1
+            assert first.json()["revision"] == 2
+            assert (
+                client.put(
+                    path,
+                    json={"content": "stale", "format": "plain"},
+                    headers={**owner, "If-Match": "1"},
+                ).status_code
+                == 409
+            )
+            second = client.put(
+                path,
+                json={"content": "Second", "format": "plain"},
+                headers={**owner, "If-Match": "2"},
+            )
+            assert second.json()["version"] == 2
+            assert (
+                client.get(f"{path}?version=1", headers=owner).json()["content"]
+                == "Первый"
+            )
+            assert client.get(path, headers=owner).json()["content"] == "Second"
+            versions = client.get(
+                f"{base}/{document['id']}/versions", headers=owner
+            ).json()["items"]
+            assert [item["version"] for item in versions] == [2, 1]
+            assert "storage_key" not in versions[0]
+            assert len(store.objects) == 2
+            context_path = f"/api/v1/projects/{project_id}/context"
+            linked = client.put(
+                context_path,
+                json={
+                    "description": "From document",
+                    "source_version_ids": [versions[0]["id"]],
+                },
+                headers={**owner, "If-Match": "1"},
+            )
+            assert linked.status_code == 200
+            assert linked.json()["source_version_ids"] == [versions[0]["id"]]
+            assert client.get(context_path, headers=owner).json()[
+                "source_version_ids"
+            ] == [versions[0]["id"]]
+            other_project = client.post(
+                "/api/v1/projects", json={"name": "Other sources"}, headers=stranger
+            ).json()["id"]
+            assert (
+                client.put(
+                    f"/api/v1/projects/{other_project}/context",
+                    json={"source_version_ids": [versions[0]["id"]]},
+                    headers={**stranger, "If-Match": "1"},
+                ).status_code
+                == 422
+            )
+            assert client.get(path, headers=stranger).status_code == 404
+            assert (
+                client.get(
+                    f"{base}/{document['id']}/versions", headers=stranger
+                ).status_code
+                == 404
+            )
+    finally:
+        app.dependency_overrides.pop(knowledge_service, None)

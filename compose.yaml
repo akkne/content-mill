@@ -15,6 +15,22 @@ services:
       timeout: 3s
       retries: 10
 
+  s3:
+    image: adobe/s3mock:5.2.3
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: ${S3_BUCKET:-content-mill}
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /s3mockroot
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
+    ports:
+      - "127.0.0.1:${S3_PORT:-9090}:9090"
+    volumes:
+      - s3_data:/s3mockroot
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/favicon.ico"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
   backend:
     build: ./backend/src
     ports:
@@ -23,8 +39,14 @@ services:
       - ./backend/src:/app
     environment:
       DATABASE_URL: postgresql://content_mill:${POSTGRES_PASSWORD:-content_mill}@postgres:5432/content_mill
+      S3_ENDPOINT_URL: http://s3:9090
+      S3_ACCESS_KEY_ID: test
+      S3_SECRET_ACCESS_KEY: test
+      S3_BUCKET: ${S3_BUCKET:-content-mill}
     depends_on:
       postgres:
+        condition: service_healthy
+      s3:
         condition: service_healthy
     command: sh -c "alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     healthcheck:
@@ -51,5 +73,6 @@ services:
 
 volumes:
   postgres_data:
+  s3_data:
   frontend_node_modules:
   frontend_next:

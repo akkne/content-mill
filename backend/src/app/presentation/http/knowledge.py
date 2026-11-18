@@ -1,13 +1,19 @@
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel, Field, field_validator
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.application.knowledge_service import KnowledgeService
 from app.container import knowledge_service
 from app.domain.auth import User
-from app.domain.knowledge import InvalidNodeOperation, NodeConflict, NodeNotFound
+from app.domain.knowledge import (
+    DocumentStorageError,
+    InvalidNodeOperation,
+    NodeConflict,
+    NodeNotFound,
+)
 from app.domain.project import ProjectNotFound, RevisionConflict
 from app.presentation.http.auth import current_user
 from app.presentation.http.projects import expected_revision
@@ -44,7 +50,34 @@ class MoveInput(BaseModel):
     new_parent_id: UUID | None = None
 
 
+class DocumentInput(BaseModel):
+    content: str = Field(max_length=1000000)
+    format: Literal["markdown", "plain"]
+
+
+class VersionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    node_id: UUID
+    version: int
+    format: str
+    size_bytes: int
+    sha256: str
+    created_at: datetime
+
+
+class ContentResponse(BaseModel):
+    node_id: UUID
+    revision: int
+    version: int
+    format: str
+    content: str
+
+
 def translate(error: Exception) -> HTTPException:
+    if isinstance(error, DocumentStorageError):
+        return HTTPException(status_code=503, detail=str(error))
     if isinstance(error, (ProjectNotFound, NodeNotFound)):
         return HTTPException(status_code=404, detail="Ресурс не найден")
     if isinstance(error, RevisionConflict):
@@ -52,6 +85,83 @@ def translate(error: Exception) -> HTTPException:
     if isinstance(error, NodeConflict):
         return HTTPException(status_code=409, detail="Имя уже занято в этой папке")
     return HTTPException(status_code=422, detail=str(error))
+
+
+@router.get("/{node_id}/versions")
+def document_versions(
+    project_id: UUID, node_id: UUID, user: CurrentUser, service: Service
+) -> dict:
+    try:
+        versions = service.document_versions(project_id, user.id, node_id)
+    except (ProjectNotFound, NodeNotFound) as error:
+        raise translate(error) from error
+    return {"items": [VersionResponse.model_validate(item) for item in versions]}
+
+
+@router.get("/{node_id}/content", response_model=ContentResponse)
+def document_content(
+    project_id: UUID,
+    node_id: UUID,
+    user: CurrentUser,
+    service: Service,
+    version: Annotated[int | None, Query(ge=1)] = None,
+) -> ContentResponse:
+    try:
+        node, selected, content = service.document_content(
+            project_id, user.id, node_id, version
+        )
+    except (
+        ProjectNotFound,
+        NodeNotFound,
+        DocumentStorageError,
+        InvalidNodeOperation,
+    ) as error:
+        raise translate(error) from error
+    return ContentResponse(
+        node_id=node.id,
+        revision=node.revision,
+        version=selected.version if selected else 0,
+        format=selected.format
+        if selected
+        else ("plain" if node.name.lower().endswith(".txt") else "markdown"),
+        content=content,
+    )
+
+
+@router.put("/{node_id}/content", response_model=ContentResponse)
+def save_document(
+    project_id: UUID,
+    node_id: UUID,
+    payload: DocumentInput,
+    user: CurrentUser,
+    service: Service,
+    if_match: str | None = Header(default=None),
+) -> ContentResponse:
+    if len(payload.content.encode("utf-8")) > 1000000:
+        raise HTTPException(status_code=413, detail="Документ слишком большой")
+    try:
+        node, version = service.save_document(
+            project_id,
+            user.id,
+            node_id,
+            expected_revision(if_match),
+            payload.content,
+            payload.format,
+        )
+    except (
+        ProjectNotFound,
+        NodeNotFound,
+        RevisionConflict,
+        DocumentStorageError,
+    ) as error:
+        raise translate(error) from error
+    return ContentResponse(
+        node_id=node.id,
+        revision=node.revision,
+        version=version.version,
+        format=version.format,
+        content=payload.content,
+    )
 
 
 @router.get("")

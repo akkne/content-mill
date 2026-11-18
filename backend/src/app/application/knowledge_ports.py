@@ -5,7 +5,7 @@ from contextlib import AbstractContextManager
 from typing import Protocol, Self
 from uuid import UUID
 
-from app.domain.knowledge import KnowledgeNode
+from app.domain.knowledge import DocumentVersion, KnowledgeNode
 
 
 class KnowledgeRepository(Protocol):
@@ -21,6 +21,17 @@ class KnowledgeRepository(Protocol):
     def archive(
         self, project_id: UUID, node_ids: list[UUID], root_id: UUID, revision: int
     ) -> bool: ...
+    def versions(self, node_id: UUID) -> list[DocumentVersion]: ...
+    def add_version(
+        self,
+        node_id: UUID,
+        revision: int,
+        version: int,
+        format: str,
+        size_bytes: int,
+        sha256: str,
+        storage_key: str,
+    ) -> DocumentVersion | None: ...
 
 
 class KnowledgeUnitOfWork(Protocol):
@@ -32,3 +43,9 @@ class KnowledgeUnitOfWork(Protocol):
 
 
 KnowledgeUnitOfWorkFactory = Callable[[], AbstractContextManager[KnowledgeUnitOfWork]]
+
+
+class DocumentStore(Protocol):
+    def put(self, key: str, content: bytes, content_type: str) -> None: ...
+    def get(self, key: str) -> bytes: ...
+    def delete(self, key: str) -> None: ...

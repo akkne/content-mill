@@ -11,6 +11,7 @@ from app.domain.project import (
     ProjectContext,
 )
 from app.infrastructure.database.models import (
+    DocumentVersionModel,
     KnowledgeNodeModel,
     ProjectContextModel,
     ProjectModel,
@@ -136,3 +137,19 @@ class SqlAlchemyProjectRepository:
             .returning(ProjectContextModel)
         )
         return as_context(model) if model else None
+
+    def valid_source_versions(self, project_id: UUID, version_ids: list[UUID]) -> bool:
+        if not version_ids:
+            return True
+        found = self.session.scalars(
+            select(DocumentVersionModel.id)
+            .join(
+                KnowledgeNodeModel,
+                DocumentVersionModel.node_id == KnowledgeNodeModel.id,
+            )
+            .where(
+                DocumentVersionModel.id.in_(version_ids),
+                KnowledgeNodeModel.project_id == project_id,
+            )
+        ).all()
+        return len(set(found)) == len(set(version_ids))
