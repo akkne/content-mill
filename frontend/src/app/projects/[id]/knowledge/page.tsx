@@ -28,7 +28,7 @@ export default async function KnowledgePage({ params }: { params: Promise<{ id: 
     <Link className="back-link" href={`/projects/${id}`}>← Контекст проекта</Link>
     <span className="eyebrow">База знаний</span>
     <h1 className="page-title">{project.name}</h1>
-    <p className="page-lead">Организуйте материалы проекта по папкам. Документы появятся здесь после подключения хранения файлов.</p>
+    <p className="page-lead">Организуйте материалы проекта по папкам, создавайте текстовые документы и возвращайтесь к прежним версиям.</p>
     <KnowledgeBrowser initial={nodes} projectId={id} projectName={project.name} />
   </main></AppShell>;
 }

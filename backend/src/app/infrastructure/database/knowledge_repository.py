@@ -6,8 +6,12 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.domain.knowledge import KnowledgeNode
-from app.infrastructure.database.models import KnowledgeNodeModel, ProjectModel
+from app.domain.knowledge import DocumentVersion, KnowledgeNode
+from app.infrastructure.database.models import (
+    DocumentVersionModel,
+    KnowledgeNodeModel,
+    ProjectModel,
+)
 
 
 def as_node(model: KnowledgeNodeModel) -> KnowledgeNode:
@@ -20,6 +24,19 @@ def as_node(model: KnowledgeNodeModel) -> KnowledgeNode:
         model.revision,
         model.created_at,
         model.archived_at,
+    )
+
+
+def as_version(model: DocumentVersionModel) -> DocumentVersion:
+    return DocumentVersion(
+        model.id,
+        model.node_id,
+        model.version,
+        model.format,
+        model.size_bytes,
+        model.sha256,
+        model.storage_key,
+        model.created_at,
     )
 
 
@@ -107,3 +124,46 @@ class SqlAlchemyKnowledgeRepository:
                 .values(archived_at=datetime.now(UTC))
             )
         return True
+
+    def versions(self, node_id: UUID) -> list[DocumentVersion]:
+        models = self.session.scalars(
+            select(DocumentVersionModel)
+            .where(DocumentVersionModel.node_id == node_id)
+            .order_by(DocumentVersionModel.version.desc())
+        ).all()
+        return [as_version(model) for model in models]
+
+    def add_version(
+        self,
+        node_id: UUID,
+        revision: int,
+        version: int,
+        format: str,
+        size_bytes: int,
+        sha256: str,
+        storage_key: str,
+    ) -> DocumentVersion | None:
+        changed = self.session.scalar(
+            update(KnowledgeNodeModel)
+            .where(
+                KnowledgeNodeModel.id == node_id,
+                KnowledgeNodeModel.revision == revision,
+                KnowledgeNodeModel.archived_at.is_(None),
+                KnowledgeNodeModel.kind == "document",
+            )
+            .values(revision=revision + 1)
+            .returning(KnowledgeNodeModel.id)
+        )
+        if changed is None:
+            return None
+        model = DocumentVersionModel(
+            node_id=node_id,
+            version=version,
+            format=format,
+            size_bytes=size_bytes,
+            sha256=sha256,
+            storage_key=storage_key,
+        )
+        self.session.add(model)
+        self.session.flush()
+        return as_version(model)

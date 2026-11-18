@@ -123,3 +123,25 @@ class KnowledgeNodeModel(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DocumentVersionModel(Base):
+    __tablename__ = "document_versions"
+    __table_args__ = (
+        Index("document_versions_node_version_idx", "node_id", "version", unique=True),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    node_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("knowledge_nodes.id")
+    )
+    version: Mapped[int] = mapped_column()
+    format: Mapped[str] = mapped_column(String(16))
+    size_bytes: Mapped[int] = mapped_column()
+    sha256: Mapped[str] = mapped_column(String(64))
+    storage_key: Mapped[str] = mapped_column(Text, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

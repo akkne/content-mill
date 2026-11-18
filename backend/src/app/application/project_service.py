@@ -2,6 +2,7 @@ from uuid import UUID
 
 from app.application.project_ports import ProjectUnitOfWorkFactory
 from app.domain.project import (
+    InvalidSourceVersion,
     Project,
     ProjectContext,
     ProjectNotFound,
@@ -57,6 +58,10 @@ class ProjectService:
         with self.unit_of_work() as work:
             if work.repository.get_owned(project_id, owner_id) is None:
                 raise ProjectNotFound
+            if not work.repository.valid_source_versions(
+                project_id, context.source_version_ids
+            ):
+                raise InvalidSourceVersion
             updated = work.repository.save_context(context, revision)
             if updated is None:
                 raise RevisionConflict

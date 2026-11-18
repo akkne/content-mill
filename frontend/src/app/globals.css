@@ -165,7 +165,9 @@ a { color: inherit; text-decoration: none; }
 .kb-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); min-height: 500px; }
 .kb-tree { display: flex; flex-direction: column; gap: 3px; padding: 18px 10px; border-right: 1px solid var(--border); }
 .kb-tree strong { padding: 0 12px 12px; color: var(--faint); font-size: 10px; letter-spacing: .1em; }
-.kb-tree button { overflow: hidden; min-height: 38px; padding: 7px 12px; border: 0; border-radius: 8px; background: none; color: var(--muted); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.kb-tree button { display: flex; align-items: center; overflow: hidden; min-height: 38px; gap: 8px; padding: 7px 12px; border: 0; border-radius: 8px; background: none; color: var(--muted); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.kb-folder-icon { width: 28px; height: 24px; flex: none; }
+.kb-file-icon { width: 24px; height: 29px; flex: none; color: var(--accent); }
 .kb-tree button:hover, .kb-tree button[aria-current="page"] { background: var(--soft-blue); color: var(--accent); }
 .kb-content { min-width: 0; padding: 23px; }
 .kb-content-head { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 20px; }
@@ -183,6 +185,25 @@ a { color: inherit; text-decoration: none; }
 .kb-selection { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
 .kb-selection > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .kb-selection label { display: flex; align-items: center; gap: 7px; color: var(--muted); }
+.kb-create-actions, .kb-document-foot > div { display: flex; align-items: center; gap: 8px; }
+.kb-modal-backdrop { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 15px; background: #081528b8; }
+.kb-document-modal { display: flex; flex-direction: column; width: min(800px, 100%); max-height: 88vh; overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 25px 80px #0006; }
+.kb-document-head, .kb-document-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 23px; border-bottom: 1px solid var(--border); }
+.kb-document-head h2 { margin: 4px 0 0; font-size: 18px; }
+.kb-document-head .secondary-button { font-size: 22px; }
+.kb-document-body { display: grid; grid-template-columns: minmax(0, 1fr) 180px; min-height: 280px; overflow: auto; }
+.kb-document-main { min-width: 0; }
+.kb-document-main pre { margin: 0; padding: 26px; overflow-wrap: anywhere; white-space: pre-wrap; font: 13px/1.8 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.kb-document-main textarea { display: block; width: calc(100% - 40px); min-height: 300px; margin: 20px; padding: 15px; border: 1px solid var(--border); border-radius: 10px; background: var(--control-bg); color: var(--text); resize: vertical; font: 13px/1.8 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.kb-history { display: flex; flex-direction: column; gap: 5px; padding: 20px 12px; border-left: 1px solid var(--border); }
+.kb-history strong { padding: 0 8px 8px; font-size: 11px; }
+.kb-history button { padding: 8px; border: 0; border-radius: 8px; background: none; color: var(--text); text-align: left; }
+.kb-history button:hover, .kb-history button[aria-current="page"] { background: var(--soft-blue); color: var(--accent); }
+.kb-history small { display: block; color: var(--muted); }
+.kb-history p { color: var(--muted); }
+.kb-document-foot { border-top: 1px solid var(--border); border-bottom: 0; color: var(--muted); }
+.kb-document-foot .primary-button { margin: 0; }
+.kb-document-modal > .form-error { padding: 0 23px 18px; }
 
 @media (max-width: 760px) {
   .kb-layout { grid-template-columns: 1fr; }
@@ -199,6 +220,10 @@ a { color: inherit; text-decoration: none; }
   .hero-art { display: none; }
 }
 @media (max-width: 560px) {
+  .kb-document-body { grid-template-columns: 1fr; }
+  .kb-history { max-height: 150px; overflow: auto; border-top: 1px solid var(--border); border-left: 0; }
+  .kb-document-foot { align-items: flex-start; flex-direction: column; }
+  .kb-create-actions { flex-wrap: wrap; }
   .stage-badge { display: none; }
   .status-grid { grid-template-columns: 1fr; }
   .hero-panel { padding: 24px; }

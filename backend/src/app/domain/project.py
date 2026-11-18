@@ -47,3 +47,7 @@ class RevisionConflict(Exception):
 
 class InvalidCursor(Exception):
     pass
+
+
+class InvalidSourceVersion(Exception):
+    pass

@@ -3,7 +3,15 @@
 import { useMemo, useState, useTransition } from "react";
 
 import type { KnowledgeNode } from "@/lib/knowledge";
-import { changeKnowledgeNode } from "./actions";
+import { changeKnowledgeNode, loadDocument, saveDocument, type DocumentContent, type DocumentVersion } from "./actions";
+
+function FolderIcon() {
+  return <svg aria-hidden="true" className="kb-folder-icon" viewBox="0 0 48 40"><path d="M4 7a4 4 0 0 1 4-4h12l5 5h15a4 4 0 0 1 4 4v21a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#51A2FF" /><path d="M4 14h40v19a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#2783ED" /></svg>;
+}
+
+function FileIcon() {
+  return <svg aria-hidden="true" className="kb-file-icon" viewBox="0 0 36 42"><path d="M5 1h17l9 9v29a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2z" fill="currentColor" opacity=".15" /><path d="M5 1h17l9 9v29a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zM22 1v9h9M9 17h16M9 23h16M9 29h12" fill="none" stroke="currentColor" strokeWidth="2" /></svg>;
+}
 
 export function KnowledgeBrowser({ initial, projectId, projectName }: { initial: KnowledgeNode[]; projectId: string; projectName: string }) {
   const [nodes, setNodes] = useState(initial);
@@ -12,6 +20,12 @@ export function KnowledgeBrowser({ initial, projectId, projectName }: { initial:
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [document, setDocument] = useState<DocumentContent | null>(null);
+  const [versions, setVersions] = useState<DocumentVersion[]>([]);
+  const [draft, setDraft] = useState("");
+  const [documentError, setDocumentError] = useState("");
+  const [editing, setEditing] = useState(false);
   const byId = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const selected = selectedId ? byId.get(selectedId) : undefined;
   const folder = folderId ? byId.get(folderId) : undefined;
@@ -43,6 +57,7 @@ export function KnowledgeBrowser({ initial, projectId, projectName }: { initial:
       } else if (result.node) {
         setNodes(action === "create" ? [...nodes, result.node] : nodes.map((node) => node.id === result.node?.id ? result.node : node));
         setSelectedId(result.node.id);
+        if (action === "create" && result.node.kind === "document") openDocument(result.node.id);
       }
     });
   }
@@ -50,6 +65,43 @@ export function KnowledgeBrowser({ initial, projectId, projectName }: { initial:
   function create() {
     const name = window.prompt("Название новой папки");
     if (name?.trim()) mutate("create", { parentId: folderId, name: name.trim(), kind: "folder" });
+  }
+
+  function createDocument() {
+    const name = window.prompt("Название документа (.md или .txt)", "Новый документ.md");
+    if (!name) return;
+    if (!/\.(md|txt)$/i.test(name.trim())) { setError("Документ должен иметь расширение .md или .txt."); return; }
+    mutate("create", { parentId: folderId, name: name.trim(), kind: "document" });
+  }
+
+  function openDocument(nodeId: string, version?: number) {
+    setOpenId(nodeId);
+    setDocument(null);
+    setDocumentError("");
+    setEditing(false);
+    startTransition(async () => {
+      const result = await loadDocument(projectId, nodeId, version);
+      if (result.error) { setDocumentError(result.error); return; }
+      setDocument(result.document ?? null);
+      setDraft(result.document?.content ?? "");
+      setVersions(result.versions ?? []);
+    });
+  }
+
+  function saveOpenDocument() {
+    if (!openId || !document) return;
+    setDocumentError("");
+    startTransition(async () => {
+      const result = await saveDocument(projectId, openId, document.revision, draft, document.format);
+      if (result.error) { setDocumentError(result.error); return; }
+      if (result.document) {
+        setDocument(result.document);
+        setEditing(false);
+        setNodes(nodes.map((node) => node.id === openId ? { ...node, revision: result.document!.revision } : node));
+        const history = await loadDocument(projectId, openId);
+        setVersions(history.versions ?? []);
+      }
+    });
   }
 
   function rename() {
@@ -71,12 +123,14 @@ export function KnowledgeBrowser({ initial, projectId, projectName }: { initial:
 
   return <section className="kb-shell" aria-label="База знаний проекта">
     <div className="kb-toolbar"><nav className="kb-crumbs" aria-label="Путь к папке"><button onClick={() => { setFolderId(null); setQuery(""); }} type="button">{projectName}</button>{crumbs.map((node) => <span key={node.id}> / <button onClick={() => { setFolderId(node.id); setQuery(""); }} type="button">{node.name}</button></span>)}</nav><input aria-label="Поиск папок и документов" onChange={(event) => setQuery(event.target.value)} placeholder="Поиск файлов и папок" type="search" value={query} /></div>
-    <div className="kb-layout"><aside className="kb-tree" aria-label="Папки"><strong>ПАПКИ</strong><button aria-current={folderId === null ? "page" : undefined} onClick={() => { setFolderId(null); setQuery(""); }} type="button">📁 {projectName}</button>{orderedFolders.map((node) => <button aria-current={folderId === node.id ? "page" : undefined} key={node.id} onClick={() => { setFolderId(node.id); setQuery(""); }} style={{ paddingLeft: `${12 + depth(node, byId) * 16}px` }} type="button">📁 {node.name}</button>)}</aside>
-      <div className="kb-content"><div className="kb-content-head"><div><span className="eyebrow">{query ? "Результаты поиска" : "Содержимое папки"}</span><h2>{query ? "Поиск" : folder?.name ?? projectName}</h2><p>{visible.length} элементов</p></div><button className="primary-button" disabled={pending} onClick={create} type="button">+ Папка</button></div>
-        <div className="kb-list">{visible.length ? visible.map((node) => <button aria-pressed={selectedId === node.id} className="kb-row" key={node.id} onClick={() => setSelectedId(node.id)} onDoubleClick={() => { if (node.kind === "folder") { setFolderId(node.id); setQuery(""); } }} type="button"><span aria-hidden="true">{node.kind === "folder" ? "📁" : "📄"}</span><span><strong>{node.name}</strong><small>{node.kind === "folder" ? "Папка" : "Документ"}</small></span><span aria-hidden="true">›</span></button>) : <p className="kb-empty">Здесь пока нет файлов и папок.</p>}</div>
-        {selected && <div className="kb-selection"><strong>{selected.name}</strong><div><button className="secondary-button" disabled={pending} onClick={rename} type="button">Переименовать</button><label>Переместить в <select disabled={pending} onChange={(event) => move(event.target.value)} value={selected.parent_id ?? ""}><option value="">{projectName}</option>{folders.filter((item) => item.id !== selected.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="secondary-button" disabled={pending} onClick={archive} type="button">Архивировать</button></div></div>}
+    <div className="kb-layout"><aside className="kb-tree" aria-label="Папки"><strong>ПАПКИ</strong><button aria-current={folderId === null ? "page" : undefined} onClick={() => { setFolderId(null); setQuery(""); }} type="button"><FolderIcon />{projectName}</button>{orderedFolders.map((node) => <button aria-current={folderId === node.id ? "page" : undefined} key={node.id} onClick={() => { setFolderId(node.id); setQuery(""); }} style={{ paddingLeft: `${12 + depth(node, byId) * 16}px` }} type="button"><FolderIcon />{node.name}</button>)}</aside>
+      <div className="kb-content"><div className="kb-content-head"><div><span className="eyebrow">{query ? "Результаты поиска" : "Содержимое папки"}</span><h2>{query ? "Поиск" : folder?.name ?? projectName}</h2><p>{visible.length} элементов</p></div><div className="kb-create-actions"><button className="secondary-button" disabled={pending} onClick={create} type="button">+ Папка</button><button className="primary-button" disabled={pending} onClick={createDocument} type="button">+ Файл</button></div></div>
+        <div className="kb-list">{visible.length ? visible.map((node) => <button aria-pressed={selectedId === node.id} className="kb-row" key={node.id} onClick={() => setSelectedId(node.id)} onDoubleClick={() => { if (node.kind === "folder") { setFolderId(node.id); setQuery(""); } else openDocument(node.id); }} type="button"><span aria-hidden="true">{node.kind === "folder" ? <FolderIcon /> : <FileIcon />}</span><span><strong>{node.name}</strong><small>{node.kind === "folder" ? "Папка" : "Документ"}</small></span><span aria-hidden="true">›</span></button>) : <p className="kb-empty">Здесь пока нет файлов и папок.</p>}</div>
+        {selected && <div className="kb-selection"><strong>{selected.name}</strong><div>{selected.kind === "document" && <button className="secondary-button" onClick={() => openDocument(selected.id)} type="button">Открыть</button>}<button className="secondary-button" disabled={pending} onClick={rename} type="button">Переименовать</button><label>Переместить в <select disabled={pending} onChange={(event) => move(event.target.value)} value={selected.parent_id ?? ""}><option value="">{projectName}</option>{folders.filter((item) => item.id !== selected.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="secondary-button" disabled={pending} onClick={archive} type="button">Архивировать</button></div></div>}
         {error && <p className="form-error" role="alert">{error}</p>}
       </div></div>
+    {openId && <div className="kb-modal-backdrop" role="presentation"><div aria-labelledby="kb-document-title" aria-modal="true" className="kb-document-modal" onKeyDown={(event) => { if (event.key === "Escape") { setOpenId(null); setDocument(null); setEditing(false); } }} role="dialog"><div className="kb-document-head"><div><span className="eyebrow">Документ</span><h2 id="kb-document-title">{byId.get(openId)?.name ?? "Документ"}</h2></div><button aria-label="Закрыть документ" autoFocus className="secondary-button" onClick={() => { setOpenId(null); setDocument(null); setEditing(false); }} type="button">×</button></div>
+      {document ? <><div className="kb-document-body"><div className="kb-document-main">{editing ? <textarea aria-label="Содержимое документа" autoFocus maxLength={1000000} onChange={(event) => setDraft(event.target.value)} value={draft} /> : <pre>{document.content || "Документ пуст."}</pre>}</div><aside className="kb-history"><strong>История версий</strong>{versions.map((item) => <button aria-current={document.version === item.version ? "page" : undefined} key={item.id} onClick={() => openDocument(openId, item.version)} type="button">Версия {item.version}<small>{new Date(item.created_at).toLocaleString("ru-RU")}</small></button>)}{versions.length === 0 && <p>Версий пока нет.</p>}</aside></div><div className="kb-document-foot"><span>Версия {document.version || "не сохранён"}</span><div>{document.version > 0 && document.version !== versions[0]?.version && <button className="secondary-button" onClick={() => openDocument(openId)} type="button">Текущая версия</button>}{editing ? <><button className="secondary-button" onClick={() => { setEditing(false); setDraft(document.content); }} type="button">Отменить</button><button className="primary-button" disabled={pending} onClick={saveOpenDocument} type="button">{pending ? "Сохраняем…" : "Сохранить"}</button></> : (document.version === 0 || document.version === versions[0]?.version) && <button className="secondary-button" onClick={() => { setEditing(true); setDraft(document.content); }} type="button">Редактировать</button>}</div></div></> : <p className="kb-empty">{pending ? "Открываем документ…" : documentError || "Не удалось открыть документ."}</p>}{documentError && document && <p className="form-error" role="alert">{documentError}</p>}</div></div>}
   </section>;
 }
 
