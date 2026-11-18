@@ -14,7 +14,6 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
   const [audiences, setAudiences] = useState(lines(initial.audiences));
   const [products, setProducts] = useState(initial.products);
   const [facts, setFacts] = useState(initial.facts);
-  const [tone, setTone] = useState(initial.tone_of_voice);
   const [terms, setTerms] = useState(lines(initial.forbidden_terms));
   const [status, setStatus] = useState("");
   const [conflict, setConflict] = useState(false);
@@ -28,7 +27,7 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
         audiences: splitLines(audiences),
         products: products.filter((item) => item.name.trim()).map((item) => ({ name: item.name.trim(), description: item.description.trim() })),
         facts: facts.filter((item) => item.text.trim()).map((item) => ({ text: item.text.trim(), source_url: item.source_url?.trim() || null })),
-        tone_of_voice: tone,
+        tone_of_voice: initial.tone_of_voice,
         forbidden_terms: splitLines(terms),
         source_version_ids: [],
       });
@@ -54,7 +53,7 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
       {facts.length === 0 && <p>Факты помогут сохранять точность будущих материалов.</p>}
       {facts.map((fact, index) => <div className="entry-row" key={index}><label>Факт<input maxLength={2000} onChange={(event) => setFacts(facts.map((item, i) => i === index ? { ...item, text: event.target.value } : item))} value={fact.text} /></label><label>Ссылка на источник<input maxLength={2000} onChange={(event) => setFacts(facts.map((item, i) => i === index ? { ...item, source_url: event.target.value } : item))} placeholder="https://" type="url" value={fact.source_url ?? ""} /></label><button aria-label={`Удалить факт ${index + 1}`} className="remove-button" onClick={() => setFacts(facts.filter((_, i) => i !== index))} type="button">×</button></div>)}
     </section>
-    <section className="work-panel context-section"><h2>Голос и ограничения</h2><label htmlFor="context-tone">Tone of Voice</label><textarea id="context-tone" maxLength={5000} onChange={(event) => setTone(event.target.value)} placeholder="Стиль общения, тон и примеры формулировок" rows={4} value={tone} /><label htmlFor="context-terms">Запрещённые слова и темы</label><textarea id="context-terms" onChange={(event) => setTerms(event.target.value)} placeholder="Каждое ограничение с новой строки" rows={3} value={terms} /></section>
+    <section className="work-panel context-section"><h2>Ограничения</h2><label htmlFor="context-terms">Запрещённые слова и темы</label><textarea id="context-terms" onChange={(event) => setTerms(event.target.value)} placeholder="Каждое ограничение с новой строки" rows={3} value={terms} /></section>
     <div className="context-actions"><span aria-live="polite" className={status && status !== "Контекст сохранён" ? "form-error" : "save-status"}>{status}</span>{conflict && <button className="secondary-button" onClick={() => window.location.reload()} type="button">Обновить страницу</button>}<button className="primary-button" disabled={pending || conflict} type="submit">{pending ? "Сохраняем…" : "Сохранить контекст"}</button></div>
   </form>;
 }
