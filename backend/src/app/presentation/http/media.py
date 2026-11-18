@@ -136,7 +136,6 @@ def examples(project_id: UUID, user: CurrentUser, service: Service):
 
 class AvatarProfile(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    description: str = Field(max_length=4000)
     linked_voice_id: UUID | None = None
 
 

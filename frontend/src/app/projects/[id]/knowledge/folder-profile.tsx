@@ -20,19 +20,19 @@ export function FolderProfile({ project, folder, voices, onSave }: {
       const data = new FormData(event.currentTarget);
       const value = (key: string) => String(data.get(key) ?? "").trim();
       const profile = voice
-        ? { voice_language: value("language"), voice_model: value("model"), elevenlabs_voice_id: value("voiceId") || null }
+        ? { description: value("description"), voice_language: value("language"), voice_model: value("model"), elevenlabs_voice_id: value("voiceId") || null }
         : { linked_voice_id: value("linkedVoice") || null };
       setMessage("");
       start(async () => {
-        const result = await saveProfile(project, folder.id, folder.revision, { description: value("description"), ...profile });
+        const result = await saveProfile(project, folder.id, folder.revision, profile);
         if (result.data) onSave(result.data);
         setMessage(result.error ?? "Сохранено");
       });
     }}>
-      <label className={fieldLabel}>Описание {voice ? "голоса" : "аватара"}
-        <textarea className={field} name="description" maxLength={4000} defaultValue={folder.description ?? ""} />
-      </label>
       {voice ? <>
+        <label className={fieldLabel}>Описание голоса
+          <textarea className={field} name="description" maxLength={4000} defaultValue={folder.description ?? ""} />
+        </label>
         <label className={fieldLabel}>Язык
           <input className={field} name="language" required maxLength={80} defaultValue={folder.voice_language ?? ""} />
         </label>
@@ -48,7 +48,7 @@ export function FolderProfile({ project, folder, voices, onSave }: {
           {voices.map(node => <option key={node.id} value={node.id}>{node.name}</option>)}
         </select>
       </label>}
-      <button className={secondaryButton} disabled={pending}>Сохранить карточку</button>
+      <button className={secondaryButton} disabled={pending}>{voice ? "Сохранить карточку" : "Сохранить привязку"}</button>
       <span role="status">{message}</span>
     </form>
   );

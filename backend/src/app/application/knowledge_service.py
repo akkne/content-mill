@@ -9,6 +9,7 @@ from app.application.knowledge_ports import (
     KnowledgeUnitOfWorkFactory,
 )
 from app.domain.knowledge import (
+    AVATAR_DESCRIPTION,
     AVATAR_FOLDERS,
     DocumentVersion,
     ExampleEntry,
@@ -111,6 +112,9 @@ class KnowledgeService:
                 }.get(parent.folder_role)
             node = work.repository.create(project_id, parent_id, kind, name, role)
             if role == "avatar":
+                work.repository.create(
+                    project_id, node.id, "document", AVATAR_DESCRIPTION
+                )
                 for label, child_role in AVATAR_FOLDERS.items():
                     work.repository.create(
                         project_id,
@@ -455,7 +459,6 @@ class KnowledgeService:
         node_id: UUID,
         revision: int,
         role: str,
-        description: str,
         **fields: object,
     ) -> KnowledgeNode:
         with self.unit_of_work() as work:
@@ -468,9 +471,7 @@ class KnowledgeService:
                 voice = work.repository.get(project_id, voice_id)
                 if voice is None or voice.folder_role != "voice":
                     raise InvalidNodeOperation("Выберите голос этого проекта")
-            updated = work.repository.change(
-                project_id, node_id, revision, description=description, **fields
-            )
+            updated = work.repository.change(project_id, node_id, revision, **fields)
             if updated is None:
                 raise RevisionConflict
             work.commit()

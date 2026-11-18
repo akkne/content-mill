@@ -47,6 +47,6 @@ export async function updateVoice(project: string, id: string, revision: number,
   return request<KnowledgeNode>(project, `nodes/${encodeURIComponent(id)}/voice`, "PATCH", { name, language, model: model.trim() || null }, revision);
 }
 
-export async function saveProfile(project: string, id: string, revision: number, profile: { description: string }) {
+export async function saveProfile(project: string, id: string, revision: number, profile: { description: string; voice_model: string; voice_language: string; elevenlabs_voice_id: string | null } | { linked_voice_id: string | null }) {
   return request<KnowledgeNode>(project, `nodes/${encodeURIComponent(id)}/profile`, "PUT", profile, revision);
 }
