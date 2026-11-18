@@ -1,4 +1,5 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from uuid import uuid4
 
@@ -8,6 +9,7 @@ from alembic.config import Config
 from app.container import auth_service
 from app.infrastructure.database.models import (
     AccessTokenModel,
+    LoginAttemptModel,
     RefreshSessionModel,
     UserModel,
 )
@@ -26,12 +28,9 @@ def database_ready():
 
 
 @pytest.fixture
-def account(database_ready):
-    email = f"test-{uuid4()}@example.test"
-    user = auth_service().create_or_reset_user(
-        email, "Тестовый пользователь", "correct-password-123"
-    )
-    yield email, user.id
+def unused_email(database_ready):
+    email = f"test-{uuid4()}@example.com"
+    yield email
     with session_factory()() as session:
         model = session.scalar(select(UserModel).where(UserModel.email == email))
         if model:
@@ -51,6 +50,90 @@ def account(database_ready):
             )
             session.delete(model)
         session.commit()
+
+
+@pytest.fixture
+def account(unused_email):
+    user = auth_service().create_or_reset_user(
+        unused_email, "Тестовый пользователь", "correct-password-123"
+    )
+    return unused_email, user.id
+
+
+def test_concurrent_registration_and_session(unused_email):
+    source = str(uuid4())
+    with TestClient(app, client=(source, 5000)) as client:
+
+        def register(name):
+            return client.post(
+                "/api/v1/auth/register",
+                json={
+                    "email": f" {unused_email.upper()} ",
+                    "display_name": f" {name} ",
+                    "password": f"unique-password-{name}",
+                },
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(register, ["Alice", "Bob"]))
+        assert sorted(result.status_code for result in results) == [201, 409]
+        winner = next(
+            i for i, result in enumerate(results) if result.status_code == 201
+        )
+        name = ["Alice", "Bob"][winner]
+        response = results[winner]
+        assert response.headers["cache-control"] == "no-store"
+        tokens = response.json()
+        me = client.get(
+            "/api/v1/me", headers={"Authorization": f"Bearer {tokens['access_token']}"}
+        )
+        assert me.json()["display_name"] == name
+        assert (
+            client.post(
+                "/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]}
+            ).status_code
+            == 200
+        )
+        assert (
+            client.post(
+                "/api/v1/auth/login",
+                json={"email": unused_email, "password": f"unique-password-{name}"},
+            ).status_code
+            == 200
+        )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("email", "invalid"), ("display_name", "   "), ("password", "short")],
+)
+def test_registration_validation(field, value):
+    data = {
+        "email": "person@example.com",
+        "display_name": "Имя",
+        "password": "long-enough-password",
+    }
+    data[field] = value
+    with TestClient(app) as client:
+        assert client.post("/api/v1/auth/register", json=data).status_code == 422
+
+
+def test_registration_limit(unused_email):
+    source = str(uuid4())
+    key = auth_service().tokens.hash(f"register:{source}")
+    with session_factory()() as session:
+        session.add_all(LoginAttemptModel(attempt_key=key) for _ in range(30))
+        session.commit()
+    with TestClient(app, client=(source, 5000)) as client:
+        response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": unused_email,
+                "display_name": "Имя",
+                "password": "long-enough-password",
+            },
+        )
+        assert response.status_code == 429
 
 
 def test_login_refresh_replay_and_logout(account):
