@@ -70,39 +70,6 @@ class SqlAlchemyProjectRepository:
         self.session.add(model)
         self.session.flush()
         self.session.add(ProjectContextModel(project_id=model.id))
-        starter = [
-            ("Бренд", None),
-            ("Аватары", None),
-            ("Референсы", None),
-            ("Формулы роликов", None),
-            ("Промпты", None),
-            ("Ролики", None),
-            ("Голоса", None),
-            *(
-                (name, "Промпты")
-                for name in (
-                    "Общие",
-                    "Instagram",
-                    "TikTok",
-                    "YouTube",
-                    "Telegram",
-                    "VK",
-                )
-            ),
-            *((name, "Бренд") for name in ("Товары", "Аудитории", "Правила бренда")),
-        ]
-        folders: dict[str, KnowledgeNodeModel] = {}
-        for folder_name, parent_name in starter:
-            folder = KnowledgeNodeModel(
-                project_id=model.id,
-                parent_id=folders[parent_name].id if parent_name else None,
-                kind="folder",
-                name=folder_name,
-            )
-            self.session.add(folder)
-            self.session.flush()
-            folders[folder_name] = folder
-        self.session.flush()
         return as_project(model)
 
     def get_owned(self, project_id: UUID, owner_id: UUID) -> Project | None:

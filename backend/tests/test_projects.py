@@ -573,3 +573,91 @@ def test_media_upload_version_visibility_and_voice(login):
             assert client.get(path + "/download", headers=owner).status_code == 404
     finally:
         app.dependency_overrides.pop(knowledge_service, None)
+
+
+def test_starter_folders_and_reusable_voice(login):
+    owner = login()
+    with TestClient(app, headers=owner) as client:
+        project = client.post("/api/v1/projects", json={"name": "Студия"}).json()
+        base = f"/api/v1/projects/{project['id']}/nodes"
+        tree = client.get(f"{base}/tree").json()["items"]
+        assert all(node["kind"] == "folder" for node in tree)
+        by_name = {node["name"]: node for node in tree}
+
+        def children(parent):
+            return {n["name"] for n in tree if n["parent_id"] == by_name[parent]["id"]}
+
+        assert children("Бренд") == {"Товары", "Формат", "Правила бренда"}
+        assert not children("Товары")
+        assert children("Материалы") == {"Аудио", "Видео", "Изображения"}
+        assert children("Промпты") == {
+            "Общие",
+            "Бриф и источники",
+            "Сценарий и хуки",
+            "Раскадровка",
+            "Голос",
+            "Аватар",
+            "Медиаматериалы",
+            "Анимации",
+            "Монтаж и субтитры",
+            "Рендер и проверка",
+            "Варианты и публикация",
+        }
+
+        def folder(parent, name):
+            return client.post(
+                base, json={"parent_id": parent, "kind": "folder", "name": name}
+            )
+
+        voice = folder(by_name["Голоса"]["id"], "Алиса").json()
+        profile = {
+            "description": "Спокойный тембр",
+            "voice_language": "русский",
+            "voice_model": "eleven_multilingual_v2",
+            "elevenlabs_voice_id": "voice-42",
+        }
+        saved = client.put(
+            f"{base}/{voice['id']}/profile", json=profile, headers={"If-Match": "1"}
+        )
+        assert saved.status_code == 200
+        assert all(saved.json()[key] == value for key, value in profile.items())
+        avatar = folder(by_name["Аватары"]["id"], "Ведущая").json()
+        sections = client.get(base, params={"parent_id": avatar["id"]}).json()["items"]
+        assert {n["name"] for n in sections} == children("Основной аватар")
+        wardrobe = next(n for n in sections if n["folder_role"] == "wardrobe")
+        assert folder(wardrobe["id"], "Белая рубашка").status_code == 201
+        assert folder(wardrobe["id"], "белая рубашка").status_code == 409
+        avatar_url = f"{base}/{avatar['id']}/profile"
+        data = {"linked_voice_id": voice["id"], "description": "Ведущая проекта"}
+        assert (
+            client.put(avatar_url, json=data, headers={"If-Match": "1"}).json()[
+                "linked_voice_id"
+            ]
+            == voice["id"]
+        )
+        assert (
+            client.put(avatar_url, json=data, headers={"If-Match": "1"}).status_code
+            == 409
+        )
+        other = client.post("/api/v1/projects", json={"name": "Другой"}).json()
+        other_base = f"/api/v1/projects/{other['id']}/nodes"
+        other_avatar = next(
+            n
+            for n in client.get(f"{other_base}/tree").json()["items"]
+            if n["folder_role"] == "avatar"
+        )
+        assert (
+            client.put(
+                f"{other_base}/{other_avatar['id']}/profile",
+                json=data,
+                headers={"If-Match": "1"},
+            ).status_code
+            == 422
+        )
+        assert (
+            client.delete(
+                f"{base}/{voice['id']}", headers={"If-Match": "2"}
+            ).status_code
+            == 204
+        )
+        assert client.get(f"{base}/{avatar['id']}").json()["linked_voice_id"] is None

@@ -14,7 +14,12 @@ class KnowledgeRepository(Protocol):
     def get(self, project_id: UUID, node_id: UUID) -> KnowledgeNode | None: ...
     def list(self, project_id: UUID) -> list[KnowledgeNode]: ...
     def create(
-        self, project_id: UUID, parent_id: UUID | None, kind: str, name: str
+        self,
+        project_id: UUID,
+        parent_id: UUID | None,
+        kind: str,
+        name: str,
+        folder_role: str | None = None,
     ) -> KnowledgeNode: ...
     def change(
         self, project_id: UUID, node_id: UUID, revision: int, **values: object

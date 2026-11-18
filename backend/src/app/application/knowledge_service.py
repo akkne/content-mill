@@ -9,6 +9,7 @@ from app.application.knowledge_ports import (
     KnowledgeUnitOfWorkFactory,
 )
 from app.domain.knowledge import (
+    AVATAR_FOLDERS,
     DocumentVersion,
     ExampleEntry,
     InvalidNodeOperation,
@@ -50,13 +51,29 @@ class KnowledgeService:
             return node
 
     def _parent(
-        self, work: KnowledgeUnitOfWork, project_id: UUID, parent_id: UUID | None
-    ) -> None:
+        self,
+        work: KnowledgeUnitOfWork,
+        project_id: UUID,
+        parent_id: UUID | None,
+        kind: str,
+    ) -> KnowledgeNode | None:
         if parent_id is None:
             return
         parent = work.repository.get(project_id, parent_id)
         if parent is None or parent.kind != "folder":
             raise InvalidNodeOperation("Родительская папка не найдена")
+        allowed = {
+            "wardrobe": "folder",
+            "photos": "image",
+            "outfit": "image",
+            "voice": "audio",
+        }
+        required = allowed.get(parent.folder_role)
+        if required and kind != required:
+            raise InvalidNodeOperation(
+                "Этот тип элемента не подходит для выбранной папки"
+            )
+        return parent
 
     def _unique(
         self,
@@ -83,9 +100,25 @@ class KnowledgeService:
     ) -> KnowledgeNode:
         with self.unit_of_work() as work:
             self._owned(work, project_id, owner_id)
-            self._parent(work, project_id, parent_id)
+            parent = self._parent(work, project_id, parent_id, kind)
             self._unique(work.repository.list(project_id), parent_id, name)
-            node = work.repository.create(project_id, parent_id, kind, name)
+            role = None
+            if parent and kind == "folder":
+                role = {
+                    "voices": "voice",
+                    "avatars": "avatar",
+                    "wardrobe": "outfit",
+                }.get(parent.folder_role)
+            node = work.repository.create(project_id, parent_id, kind, name, role)
+            if role == "avatar":
+                for label, child_role in AVATAR_FOLDERS.items():
+                    work.repository.create(
+                        project_id,
+                        node.id,
+                        "folder",
+                        label,
+                        child_role,
+                    )
             work.commit()
             return node
 
@@ -108,7 +141,7 @@ class KnowledgeService:
             nodes = work.repository.list(project_id)
             destination = parent_id if move else node.parent_id
             if move:
-                self._parent(work, project_id, parent_id)
+                self._parent(work, project_id, parent_id, node.kind)
                 parent = parent_id
                 by_id = {item.id: item for item in nodes}
                 while parent is not None:
@@ -281,7 +314,7 @@ class KnowledgeService:
                 if revision != node.revision:
                     raise RevisionConflict
             else:
-                self._parent(work, project_id, parent_id)
+                self._parent(work, project_id, parent_id, MEDIA_TYPES[mime_type])
                 self._unique(work.repository.list(project_id), parent_id, name)
             upload = MediaUpload(
                 uuid4(),
@@ -321,7 +354,9 @@ class KnowledgeService:
                     raise RevisionConflict
                 number = versions[0].version + 1
             else:
-                self._parent(work, project_id, upload.parent_id)
+                self._parent(
+                    work, project_id, upload.parent_id, MEDIA_TYPES[upload.mime_type]
+                )
                 self._unique(
                     work.repository.list(project_id), upload.parent_id, upload.name
                 )
@@ -407,6 +442,34 @@ class KnowledgeService:
                 name=name,
                 voice_language=language,
                 voice_model=model,
+            )
+            if updated is None:
+                raise RevisionConflict
+            work.commit()
+            return updated
+
+    def edit_profile(
+        self,
+        project_id: UUID,
+        owner_id: UUID,
+        node_id: UUID,
+        revision: int,
+        role: str,
+        description: str,
+        **fields: object,
+    ) -> KnowledgeNode:
+        with self.unit_of_work() as work:
+            self._owned(work, project_id, owner_id)
+            node = work.repository.get(project_id, node_id)
+            if node is None or node.folder_role != role:
+                raise NodeNotFound
+            voice_id = fields.get("linked_voice_id")
+            if isinstance(voice_id, UUID):
+                voice = work.repository.get(project_id, voice_id)
+                if voice is None or voice.folder_role != "voice":
+                    raise InvalidNodeOperation("Выберите голос этого проекта")
+            updated = work.repository.change(
+                project_id, node_id, revision, description=description, **fields
             )
             if updated is None:
                 raise RevisionConflict

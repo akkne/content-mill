@@ -124,6 +124,12 @@ class KnowledgeNodeModel(Base):
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    folder_role: Mapped[str | None] = mapped_column(String(32))
+    description: Mapped[str | None] = mapped_column(Text)
+    elevenlabs_voice_id: Mapped[str | None] = mapped_column(String(160))
+    linked_voice_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("knowledge_nodes.id", name="knowledge_nodes_linked_voice_fk")
+    )
     voice_language: Mapped[str | None] = mapped_column(String(80))
     voice_model: Mapped[str | None] = mapped_column(String(160))
 

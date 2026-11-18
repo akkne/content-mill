@@ -3,6 +3,7 @@ from contextlib import AbstractContextManager
 from typing import Protocol, Self
 from uuid import UUID
 
+from app.application.knowledge_ports import KnowledgeRepository
 from app.domain.project import Project, ProjectContext
 
 
@@ -23,6 +24,7 @@ class ProjectRepository(Protocol):
 
 
 class ProjectUnitOfWork(Protocol):
+    knowledge: KnowledgeRepository
     repository: ProjectRepository
 
     def __enter__(self) -> Self: ...

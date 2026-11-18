@@ -46,3 +46,7 @@ export async function mediaPreview(project: string, id: string, version?: number
 export async function updateVoice(project: string, id: string, revision: number, name: string, language: string, model: string) {
   return request<KnowledgeNode>(project, `nodes/${encodeURIComponent(id)}/voice`, "PATCH", { name, language, model: model.trim() || null }, revision);
 }
+
+export async function saveProfile(project: string, id: string, revision: number, profile: { description: string }) {
+  return request<KnowledgeNode>(project, `nodes/${encodeURIComponent(id)}/profile`, "PUT", profile, revision);
+}

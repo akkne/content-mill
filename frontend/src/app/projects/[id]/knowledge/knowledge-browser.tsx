@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { DocumentEditor } from "./document-editor";
 import Markdown from "react-markdown";
+import { FolderProfile } from "./folder-profile";
 import { MediaPreview } from "./media-preview";
 import { exampleFiles } from "./media-actions";
 import { acceptedMedia, uploadMedia } from "./upload-media";
@@ -51,6 +52,10 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
   const media = mediaId ? byId.get(mediaId) : undefined;
   const selected = selectedId ? byId.get(selectedId) : undefined;
   const folder = folderId ? byId.get(folderId) : undefined;
+  const role = folder?.folder_role ?? "";
+  const labelsByRole: Record<string, string> = { avatars: "Аватар", voices: "Голос", wardrobe: "Предмет одежды" };
+  const folderLabel = labelsByRole[role] ?? "Папка";
+  const mediaOnly = ["voice", "photos", "outfit"].includes(role);
   const folders = nodes.filter((node) => node.kind === "folder");
   const orderedFolders: KnowledgeNode[] = [];
   function visit(parentId: string | null) {
@@ -94,12 +99,13 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
         const removed = new Set([data.nodeId]);
         let changed = true;
         while (changed) { changed = false; for (const node of nodes) if (node.parent_id && removed.has(node.parent_id) && !removed.has(node.id)) { removed.add(node.id); changed = true; } }
-        setNodes(nodes.filter((node) => !removed.has(node.id)));
+        if (result.items) setNodes(result.items);
         setSelectedId(null);
         if (folderId && removed.has(folderId)) setFolderId(null);
       } else if (result.node) {
         const updated = result.node;
-        setNodes(previous => action === "create" ? [...previous, updated] : previous.map(node => node.id === updated.id ? updated : node));
+        if (result.items) setNodes(result.items);
+        else setNodes(previous => action === "create" ? [...previous, updated] : previous.map(node => node.id === updated.id ? updated : node));
         setSelectedId(result.node.id);
         if (action === "create" && result.node.kind === "document") openDocument(result.node.id);
       }
@@ -107,7 +113,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
   }
 
   function create() {
-    const name = window.prompt("Название новой папки");
+    const name = window.prompt(`Введите название («${folderLabel}»)`);
     if (name?.trim()) mutate("create", { parentId: folderId, name: name.trim(), kind: "folder" });
   }
 
@@ -317,24 +323,29 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                 ref={picker}
                 type="file"
                 multiple
-                accept={acceptedMedia}
+                accept={role === "voice" ? "audio/*" : ["photos", "outfit"].includes(role) ? "image/*" : acceptedMedia}
                 aria-label="Выберите файлы для загрузки"
                 onChange={(event) => {
                   upload(Array.from(event.target.files || []), folderId);
                   event.target.value = "";
                 }}
               />
-              <button className={secondaryButton} disabled={pending} onClick={() => picker.current?.click()}>
+              <button className={secondaryButton} disabled={pending || role === "wardrobe"} onClick={() => picker.current?.click()}>
                 Загрузить файл
               </button>
-              <button className={secondaryButton} disabled={pending} onClick={create} type="button">
-                + Папка
+              <button className={secondaryButton} disabled={pending || mediaOnly} onClick={create} type="button">
+                + {folderLabel}
               </button>
-              <button className={primaryButton} disabled={pending} onClick={createDocument} type="button">
+              <button className={primaryButton} disabled={pending || mediaOnly || role === "wardrobe"} onClick={createDocument} type="button">
                 + Документ
               </button>
             </div>
           </div>
+          {!query && folder && (folder.folder_role === "avatar" || folder.folder_role === "voice") && (
+            <FolderProfile key={folder.id} project={projectId} folder={folder}
+              voices={folders.filter(node => node.folder_role === "voice")}
+              onSave={updated => setNodes(previous => previous.map(node => node.id === updated.id ? updated : node))} />
+          )}
           {folderId === null && !query && !nodes.some((n) => !n.parent_id && n.name === "Пример проекта") && (
             <button className={`${secondaryButton} mb-3`} onClick={examples} disabled={pending}>
               Добавить примеры из демо
@@ -437,6 +448,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
           key={media.id}
           project={projectId}
           node={media}
+          voiceSample={!!media.parent_id && byId.get(media.parent_id)?.folder_role === "voice"}
           path={nodePath(media, byId, projectName)}
           onChange={(updated) =>
             setNodes((previous) => previous.map((n) => (n.id === updated.id ? updated : n)))

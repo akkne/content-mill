@@ -2,7 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Header, Query
-from pydantic import Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.domain.knowledge import (
     DocumentStorageError,
@@ -130,5 +130,46 @@ def examples(project_id: UUID, user: CurrentUser, service: Service):
         return {
             "items": service.import_examples(project_id, user.id, example_entries())
         }
+    except media_errors as error:
+        raise translate(error) from error
+
+
+class AvatarProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    description: str = Field(max_length=4000)
+    linked_voice_id: UUID | None = None
+
+
+class VoiceProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    description: str = Field(max_length=4000)
+    voice_language: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
+    ]
+    voice_model: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)
+    ]
+    elevenlabs_voice_id: str | None = Field(default=None, max_length=160)
+
+
+@router.put("/nodes/{node_id}/profile")
+def profile(
+    project_id: UUID,
+    node_id: UUID,
+    payload: VoiceProfile | AvatarProfile,
+    user: CurrentUser,
+    service: Service,
+    if_match: str | None = Header(default=None),
+):
+    try:
+        role = "voice" if isinstance(payload, VoiceProfile) else "avatar"
+        return service.edit_profile(
+            project_id,
+            user.id,
+            node_id,
+            expected_revision(if_match),
+            role,
+            **payload.model_dump(),
+        )
     except media_errors as error:
         raise translate(error) from error

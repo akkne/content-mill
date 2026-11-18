@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import { projectRequest } from "@/lib/projects";
-import type { KnowledgeNode } from "@/lib/knowledge";
+import { loadKnowledge, type KnowledgeNode } from "@/lib/knowledge";
 
-type Result = { node?: KnowledgeNode; error?: string; conflict?: boolean };
+type Result = { items?: KnowledgeNode[]; node?: KnowledgeNode; error?: string; conflict?: boolean };
 
 export async function searchKnowledge(projectId: string, query: string): Promise<{ ids?: string[]; error?: string }> {
   try {
@@ -72,7 +72,10 @@ export async function changeKnowledgeNode(
     if (response.status === 409) return { error: "Данные изменились или имя уже занято. Обновите страницу.", conflict: true };
     if (!response.ok) return { error: response.status === 422 ? "Проверьте имя и папку назначения." : "Не удалось сохранить изменение." };
     revalidatePath(`/projects/${projectId}/knowledge`);
-    return action === "archive" ? {} : { node: await response.json() as KnowledgeNode };
+    if (action === "archive") return { items: await loadKnowledge(projectId) };
+    const node = await response.json() as KnowledgeNode;
+    if (action === "create" && node.folder_role === "avatar") return { node, items: await loadKnowledge(projectId) };
+    return { node };
   } catch {
     return { error: "Сервер недоступен. Повторите попытку позже." };
   }

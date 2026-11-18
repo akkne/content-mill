@@ -2,6 +2,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
+AVATAR_FOLDERS = {
+    "Лицо крупным планом": "photos",
+    "В полный рост": "photos",
+    "Дополнительные ракурсы": "photos",
+    "Одежда": "wardrobe",
+}
+
 
 @dataclass(frozen=True)
 class KnowledgeNode:
@@ -15,6 +22,10 @@ class KnowledgeNode:
     archived_at: datetime | None
     voice_language: str | None = None
     voice_model: str | None = None
+    folder_role: str | None = None
+    description: str | None = None
+    elevenlabs_voice_id: str | None = None
+    linked_voice_id: UUID | None = None
 
 
 @dataclass(frozen=True)

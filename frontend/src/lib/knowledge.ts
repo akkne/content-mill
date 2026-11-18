@@ -8,6 +8,10 @@ export type KnowledgeNode = {
   parent_id: string | null;
   kind: "folder" | "document" | "image" | "audio" | "video" | "file";
   voice_language: string | null;
+  folder_role: string | null;
+  description: string | null;
+  elevenlabs_voice_id: string | null;
+  linked_voice_id: string | null;
   voice_model: string | null;
   name: string;
   revision: number;
