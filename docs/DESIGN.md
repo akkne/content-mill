@@ -1,6 +1,6 @@
 # Дизайн-токены демо mill
 
-Источник истины для реализованного интерфейса — [`frontend-mvp/styles.css`](../frontend-mvp/styles.css), экран токенов — раздел «Дизайн-система» в [`index.html`](../frontend-mvp/index.html). Этот документ описывает **новое автономное демо**, а не прежний [`legacy.html`](../frontend-mvp/legacy.html). Для будущего Next.js эти правила служат ориентиром, пока токены не перенесены в Tailwind.
+Источник истины для реализованного интерфейса — [`frontend-mvp/styles.css`](../frontend-mvp/styles.css), экран токенов — раздел «Дизайн-система» в [`index.html`](../frontend-mvp/index.html). Этот документ описывает **новое автономное демо**, а не прежний [`legacy.html`](../frontend-mvp/legacy.html). Цвета и тени рабочего приложения Next.js заданы в [теме Tailwind](../frontend/src/app/globals.css).
 
 ## Темы и палитра
 
