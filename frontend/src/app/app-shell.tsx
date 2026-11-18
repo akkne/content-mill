@@ -1,5 +1,6 @@
 "use client";
 
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 
@@ -24,11 +25,12 @@ function getTheme(): "light" | "dark" {
 const navigation = [
   { label: "Главная", icon: "home", href: "/" },
   { label: "Проекты", icon: "brand", href: "/projects" },
-  { label: "База знаний", icon: "brand", href: null },
+  { label: "База знаний", icon: "brand", href: "/knowledge" },
   { label: "Контент", icon: "videos", href: null },
 ] as const;
 
 export function AppShell({ children, userName, section = "Главная" }: { children: React.ReactNode; userName: string; section?: string }) {
+  const projectId = useParams().id;
   const theme = useSyncExternalStore(subscribeToTheme, getTheme, () => "light");
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -74,7 +76,7 @@ export function AppShell({ children, userName, section = "Главная" }: { c
               </>
             );
             return href ? (
-              <Link aria-current={section === label ? "page" : undefined} className="nav-item" href={href} key={label} onClick={() => setMenuOpen(false)}>{content}</Link>
+              <Link aria-current={section === label ? "page" : undefined} className="nav-item" href={href === "/knowledge" && projectId ? `/projects/${projectId}/knowledge` : href} key={label} onClick={() => setMenuOpen(false)}>{content}</Link>
             ) : (
               <span className="nav-item nav-item-disabled" key={label}>{content}</span>
             );

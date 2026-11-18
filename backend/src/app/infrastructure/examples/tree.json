@@ -1,0 +1,356 @@
+[
+  {
+    "id": "root",
+    "parent": null,
+    "name": "Проект",
+    "type": "folder"
+  },
+  {
+    "id": "brand",
+    "parent": "root",
+    "name": "Бренд",
+    "type": "folder"
+  },
+  {
+    "id": "products",
+    "parent": "brand",
+    "name": "Товары",
+    "type": "folder"
+  },
+  {
+    "id": "product-one",
+    "parent": "products",
+    "name": "Контент-завод mill",
+    "type": "folder"
+  },
+  {
+    "id": "product-about",
+    "parent": "product-one",
+    "name": "О продукте.md",
+    "type": "file",
+    "content": "# Контент-завод mill\n\nПлатформа для подготовки, планирования, публикации и анализа короткого контента.\n\n## Кому помогает\nКомандам, которые регулярно выпускают короткие ролики."
+  },
+  {
+    "id": "product-facts",
+    "parent": "product-one",
+    "name": "Подтверждённые факты.txt",
+    "type": "file",
+    "content": "Продукт: Content Mill\nФормат: короткие ролики\nДлительность ролика: 15–35 секунд\nФормат кадра по умолчанию: 9:16"
+  },
+  {
+    "id": "audiences",
+    "parent": "brand",
+    "name": "Аудитории",
+    "type": "folder"
+  },
+  {
+    "id": "audience-main",
+    "parent": "audiences",
+    "name": "Основная аудитория.md",
+    "type": "file",
+    "content": "# Основная аудитория\n\nНебольшие команды и создатели контента, которым нужен понятный процесс от идеи до публикации."
+  },
+  {
+    "id": "brand-rules",
+    "parent": "brand",
+    "name": "Правила бренда",
+    "type": "folder"
+  },
+  {
+    "id": "tone",
+    "parent": "brand-rules",
+    "name": "Tone of Voice.md",
+    "type": "file",
+    "content": "# Голос бренда\n\nПисать ясно и по делу. Показывать конкретный результат. Сохранять дружелюбный тон."
+  },
+  {
+    "id": "restrictions",
+    "parent": "brand-rules",
+    "name": "Запрещённые формулировки.txt",
+    "type": "file",
+    "content": "Не обещать гарантированные просмотры или продажи.\nНе публиковать неподтверждённые факты о продукте."
+  },
+  {
+    "id": "sources",
+    "parent": "brand",
+    "name": "Источники.md",
+    "type": "file",
+    "content": "# Источники\n\nЗдесь хранятся ссылки на подтверждённые материалы бренда и товаров."
+  },
+  {
+    "id": "avatars",
+    "parent": "root",
+    "name": "Аватары",
+    "type": "folder"
+  },
+  {
+    "id": "avatar-main",
+    "parent": "avatars",
+    "name": "Основной аватар",
+    "type": "folder"
+  },
+  {
+    "id": "avatar-consent",
+    "parent": "avatar-main",
+    "name": "Согласие.md",
+    "type": "file",
+    "content": "# Согласие\n\nДокумент согласия и его версия."
+  },
+  {
+    "id": "references",
+    "parent": "root",
+    "name": "Референсы",
+    "type": "folder"
+  },
+  {
+    "id": "reference-one",
+    "parent": "references",
+    "name": "Разбор монтажа.md",
+    "type": "file",
+    "content": "# Разбор монтажа\n\nХук в первые секунды, один тезис на сцену, читаемые субтитры и короткий финальный призыв."
+  },
+  {
+    "id": "formulas",
+    "parent": "root",
+    "name": "Формулы роликов",
+    "type": "folder"
+  },
+  {
+    "id": "formula-one",
+    "parent": "formulas",
+    "name": "Проблема — решение.md",
+    "type": "file",
+    "content": "# Проблема — решение\n\n1. Покажите знакомую проблему.\n2. Продемонстрируйте решение.\n3. Завершите конкретным действием."
+  },
+  {
+    "id": "prompts",
+    "parent": "root",
+    "name": "Промпты",
+    "type": "folder"
+  },
+  {
+    "id": "prompts-common",
+    "parent": "prompts",
+    "name": "Общие",
+    "type": "folder"
+  },
+  {
+    "id": "prompts-instagram",
+    "parent": "prompts",
+    "name": "Instagram",
+    "type": "folder"
+  },
+  {
+    "id": "prompts-tiktok",
+    "parent": "prompts",
+    "name": "TikTok",
+    "type": "folder"
+  },
+  {
+    "id": "prompts-youtube",
+    "parent": "prompts",
+    "name": "YouTube",
+    "type": "folder"
+  },
+  {
+    "id": "prompts-telegram",
+    "parent": "prompts",
+    "name": "Telegram",
+    "type": "folder"
+  },
+  {
+    "id": "prompts-vk",
+    "parent": "prompts",
+    "name": "VK",
+    "type": "folder"
+  },
+  {
+    "id": "prompt-common",
+    "parent": "prompts-common",
+    "name": "Сценарий.md",
+    "type": "file",
+    "content": "# Промпт для сценария\n\nИспользуй подтверждённые факты о товаре и правила бренда. Предложи хук, основную мысль и финальную фразу."
+  },
+  {
+    "id": "videos",
+    "parent": "root",
+    "name": "Ролики",
+    "type": "folder"
+  },
+  {
+    "id": "video-123",
+    "parent": "videos",
+    "name": "CM-000123",
+    "type": "folder"
+  },
+  {
+    "id": "video-assets",
+    "parent": "video-123",
+    "name": "Материалы",
+    "type": "folder"
+  },
+  {
+    "id": "video-video",
+    "parent": "video-assets",
+    "name": "Видео",
+    "type": "folder"
+  },
+  {
+    "id": "sample-video",
+    "parent": "video-video",
+    "name": "Пример ролика.mp4",
+    "type": "video",
+    "src": "sample-video.mp4"
+  },
+  {
+    "id": "video-audio",
+    "parent": "video-assets",
+    "name": "Аудио",
+    "type": "folder"
+  },
+  {
+    "id": "sample-audio",
+    "parent": "video-audio",
+    "name": "Пример озвучки.m4a",
+    "type": "audio",
+    "src": "sample-audio.m4a"
+  },
+  {
+    "id": "video-images",
+    "parent": "video-assets",
+    "name": "Изображения",
+    "type": "folder"
+  },
+  {
+    "id": "sample-image",
+    "parent": "video-images",
+    "name": "Образ бренда.png",
+    "type": "image",
+    "src": "brand.png"
+  },
+  {
+    "id": "video-scripts",
+    "parent": "video-123",
+    "name": "Документы",
+    "type": "folder"
+  },
+  {
+    "id": "script-1",
+    "parent": "video-scripts",
+    "name": "01-brief.md",
+    "type": "file",
+    "content": "# Задача\n\nКороткий ролик о том, как команда готовит контент в одном рабочем пространстве."
+  },
+  {
+    "id": "script-2",
+    "parent": "video-scripts",
+    "name": "02-sources.md",
+    "type": "file",
+    "content": "# Источники\n\nТовар: Контент-завод mill.\nФормула: Проблема — решение."
+  },
+  {
+    "id": "script-3",
+    "parent": "video-scripts",
+    "name": "03-hooks.md",
+    "type": "file",
+    "content": "# Хуки\n\nВариант 1: Сколько времени уходит на один короткий ролик?"
+  },
+  {
+    "id": "script-4",
+    "parent": "video-scripts",
+    "name": "04-script.md",
+    "type": "file",
+    "content": "# Сценарий\n\nХук: контент отнимает много времени.\nРешение: план, материалы и производство в одном месте."
+  },
+  {
+    "id": "script-5",
+    "parent": "video-scripts",
+    "name": "05-storyboard.md",
+    "type": "file",
+    "content": "# Раскадровка\n\nСцена 1: проблема.\nСцена 2: интерфейс.\nСцена 3: готовый ролик."
+  },
+  {
+    "id": "script-6",
+    "parent": "video-scripts",
+    "name": "06-voice.md",
+    "type": "file",
+    "content": "# Озвучка\n\nТон: спокойный и уверенный."
+  },
+  {
+    "id": "script-7",
+    "parent": "video-scripts",
+    "name": "07-avatar.md",
+    "type": "file",
+    "content": "# Аватар\n\nИспользовать утверждённый образ."
+  },
+  {
+    "id": "script-8",
+    "parent": "video-scripts",
+    "name": "08-media.md",
+    "type": "file",
+    "content": "# Медиа\n\nПроверить происхождение каждого кадра."
+  },
+  {
+    "id": "script-9",
+    "parent": "video-scripts",
+    "name": "09-animation.md",
+    "type": "file",
+    "content": "# Анимация\n\nПлавные движения камеры и акценты на ключевых словах."
+  },
+  {
+    "id": "script-10",
+    "parent": "video-scripts",
+    "name": "10-edit.md",
+    "type": "file",
+    "content": "# Монтаж\n\nБыстрый темп и читаемые субтитры."
+  },
+  {
+    "id": "script-11",
+    "parent": "video-scripts",
+    "name": "11-render.md",
+    "type": "file",
+    "content": "# Рендер\n\nФормат: 9:16. Длительность: 30 секунд."
+  },
+  {
+    "id": "script-12",
+    "parent": "video-scripts",
+    "name": "12-review.md",
+    "type": "file",
+    "content": "# Проверка\n\nПроверить звук, субтитры и утверждения о продукте."
+  },
+  {
+    "id": "script-13",
+    "parent": "video-scripts",
+    "name": "13-variants.md",
+    "type": "file",
+    "content": "# Версии\n\nВерсия 1."
+  },
+  {
+    "id": "script-14",
+    "parent": "video-scripts",
+    "name": "14-publication.md",
+    "type": "file",
+    "content": "# Публикация\n\nПодпись и площадки выбираются после проверки."
+  },
+  {
+    "id": "edit-project",
+    "parent": "video-scripts",
+    "name": "edit-project.json",
+    "type": "file",
+    "content": "{\n  \"format\": \"9:16\",\n  \"duration\": 30\n}"
+  },
+  {
+    "id": "prompts-used",
+    "parent": "video-scripts",
+    "name": "prompts-used.json",
+    "type": "file",
+    "content": "{\n  \"prompts\": []\n}"
+  },
+  {
+    "id": "manifest",
+    "parent": "video-123",
+    "name": "manifest.json",
+    "type": "file",
+    "content": "{\n  \"video\": \"CM-000123\",\n  \"version\": 1\n}"
+  }
+]

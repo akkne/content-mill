@@ -1,4 +1,5 @@
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from uuid import UUID, uuid4
 
@@ -9,11 +10,14 @@ from app.application.knowledge_ports import (
 )
 from app.domain.knowledge import (
     DocumentVersion,
+    ExampleEntry,
     InvalidNodeOperation,
     KnowledgeNode,
+    MediaUpload,
     NodeConflict,
     NodeNotFound,
 )
+from app.domain.media import MAX_MEDIA_BYTES, MEDIA_TYPES, verify_media
 from app.domain.project import ProjectNotFound, RevisionConflict
 
 
@@ -155,7 +159,9 @@ class KnowledgeService:
     ) -> list[DocumentVersion]:
         with self.unit_of_work() as work:
             self._owned(work, project_id, owner_id)
-            self._document(work, project_id, node_id)
+            node = work.repository.get(project_id, node_id)
+            if node is None or node.kind == "folder":
+                raise NodeNotFound
             return work.repository.versions(node_id)
 
     def search_nodes(
@@ -249,3 +255,204 @@ class KnowledgeService:
                 self.store.delete(key)
                 raise
         return replace(node, revision=revision + 1), saved
+
+    def start_upload(
+        self,
+        project_id: UUID,
+        owner_id: UUID,
+        parent_id: UUID | None,
+        node_id: UUID | None,
+        revision: int | None,
+        name: str,
+        mime_type: str,
+        size_bytes: int,
+        digest: str,
+    ) -> tuple[MediaUpload, str]:
+        if mime_type not in MEDIA_TYPES or not 0 < size_bytes <= MAX_MEDIA_BYTES:
+            raise InvalidNodeOperation("Неподдерживаемый формат или размер файла")
+        with self.unit_of_work() as work:
+            self._owned(work, project_id, owner_id)
+            if node_id:
+                node = work.repository.get(project_id, node_id)
+                if node is None or node.kind != MEDIA_TYPES[mime_type]:
+                    raise InvalidNodeOperation(
+                        "Тип новой версии должен совпадать с типом файла"
+                    )
+                if revision != node.revision:
+                    raise RevisionConflict
+            else:
+                self._parent(work, project_id, parent_id)
+                self._unique(work.repository.list(project_id), parent_id, name)
+            upload = MediaUpload(
+                uuid4(),
+                project_id,
+                parent_id,
+                node_id,
+                revision,
+                name,
+                mime_type,
+                size_bytes,
+                digest,
+                datetime.now(UTC) + timedelta(minutes=10),
+            )
+            url = self.store.upload_url(upload.staging_key, mime_type, size_bytes)
+            work.repository.record_upload(upload)
+            work.commit()
+            return upload, url
+
+    def complete_upload(
+        self, project_id: UUID, owner_id: UUID, upload_id: UUID
+    ) -> tuple[KnowledgeNode, DocumentVersion]:
+        with self.unit_of_work() as work:
+            self._owned(work, project_id, owner_id)
+            upload = work.repository.upload(project_id, upload_id)
+            if not upload or upload.expires_at <= datetime.now(UTC):
+                raise InvalidNodeOperation("Срок загрузки истёк")
+            if upload.node_id:
+                node = work.repository.get(project_id, upload.node_id)
+                if node is None:
+                    raise NodeNotFound
+                versions = work.repository.versions(node.id)
+                if upload.completed_version:
+                    return node, next(
+                        v for v in versions if v.version == upload.completed_version
+                    )
+                if node.revision != upload.revision:
+                    raise RevisionConflict
+                number = versions[0].version + 1
+            else:
+                self._parent(work, project_id, upload.parent_id)
+                self._unique(
+                    work.repository.list(project_id), upload.parent_id, upload.name
+                )
+                node = work.repository.create(
+                    project_id,
+                    upload.parent_id,
+                    MEDIA_TYPES[upload.mime_type],
+                    upload.name,
+                )
+                number = 1
+            data = self.store.read_upload(upload.staging_key, upload.size_bytes)
+            if (
+                len(data) != upload.size_bytes
+                or sha256(data).hexdigest() != upload.sha256
+            ):
+                raise InvalidNodeOperation(
+                    "Размер или контрольная сумма файла не совпали"
+                )
+            verify_media(data, upload.mime_type)
+            key = f"projects/{project_id}/nodes/{node.id}/versions/{uuid4()}"
+            self.store.put(key, data, upload.mime_type)
+            try:
+                version = work.repository.add_version(
+                    node.id,
+                    node.revision,
+                    number,
+                    upload.mime_type,
+                    len(data),
+                    upload.sha256,
+                    key,
+                    "",
+                )
+                if version is None:
+                    raise RevisionConflict
+                work.repository.finish_upload(upload.id, node.id, number)
+                work.commit()
+            except Exception:
+                self.store.delete(key)
+                raise
+            return replace(node, revision=node.revision + 1), version
+
+    def download(
+        self, project_id: UUID, owner_id: UUID, node_id: UUID, number: int | None
+    ) -> tuple[str, DocumentVersion]:
+        versions = self.document_versions(project_id, owner_id, node_id)
+        version = next(
+            (v for v in versions if number is None or v.version == number), None
+        )
+        if version is None:
+            raise NodeNotFound
+        return self.store.download_url(version.storage_key), version
+
+    def clean_uploads(self) -> None:
+        with self.unit_of_work() as work:
+            for upload in work.repository.expired_uploads(
+                datetime.now(UTC) - timedelta(minutes=5)
+            ):
+                self.store.delete(upload.staging_key)
+            work.commit()
+
+    def edit_voice(
+        self,
+        project_id: UUID,
+        owner_id: UUID,
+        node_id: UUID,
+        revision: int,
+        name: str,
+        language: str,
+        model: str | None,
+    ) -> KnowledgeNode:
+        with self.unit_of_work() as work:
+            self._owned(work, project_id, owner_id)
+            node = work.repository.get(project_id, node_id)
+            if node is None or node.kind != "audio":
+                raise NodeNotFound
+            self._unique(
+                work.repository.list(project_id), node.parent_id, name, node.id
+            )
+            updated = work.repository.change(
+                project_id,
+                node_id,
+                revision,
+                name=name,
+                voice_language=language,
+                voice_model=model,
+            )
+            if updated is None:
+                raise RevisionConflict
+            work.commit()
+            return updated
+
+    def import_examples(
+        self, project_id: UUID, owner_id: UUID, entries: list[ExampleEntry]
+    ) -> list[KnowledgeNode]:
+        keys = []
+        with self.unit_of_work() as work:
+            self._owned(work, project_id, owner_id)
+            self._unique(work.repository.list(project_id), None, entries[0].name)
+            nodes = {}
+            try:
+                for entry in entries:
+                    parent = nodes[entry.parent].id if entry.parent else None
+                    node = work.repository.create(
+                        project_id, parent, entry.kind, entry.name
+                    )
+                    if entry.kind != "folder":
+                        key = (
+                            f"projects/{project_id}/nodes/{node.id}/versions/{uuid4()}"
+                        )
+                        mime = {"markdown": "text/markdown", "plain": "text/plain"}.get(
+                            entry.format, entry.format
+                        )
+                        self.store.put(key, entry.content, mime)
+                        keys.append(key)
+                        version = work.repository.add_version(
+                            node.id,
+                            node.revision,
+                            1,
+                            entry.format,
+                            len(entry.content),
+                            sha256(entry.content).hexdigest(),
+                            key,
+                            entry.content.decode() if entry.kind == "document" else "",
+                        )
+                        if version is None:
+                            raise RevisionConflict
+                        node = replace(node, revision=node.revision + 1)
+                    nodes[entry.id] = node
+                work.commit()
+            except Exception:
+                for key in keys:
+                    self.store.delete(key)
+                raise
+            return list(nodes.values())

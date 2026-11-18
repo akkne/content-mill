@@ -124,6 +124,9 @@ class KnowledgeNodeModel(Base):
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    voice_language: Mapped[str | None] = mapped_column(String(80))
+    voice_model: Mapped[str | None] = mapped_column(String(160))
+
 
 class DocumentVersionModel(Base):
     __tablename__ = "document_versions"
@@ -146,3 +149,21 @@ class DocumentVersionModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class MediaUploadModel(Base):
+    __tablename__ = "media_uploads"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    project_id: Mapped[UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE")
+    )
+    parent_id: Mapped[UUID | None]
+    node_id: Mapped[UUID | None]
+    revision: Mapped[int | None]
+    name: Mapped[str] = mapped_column(String(160))
+    mime_type: Mapped[str] = mapped_column(String(64))
+    size_bytes: Mapped[int]
+    sha256: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    completed_version: Mapped[int | None]

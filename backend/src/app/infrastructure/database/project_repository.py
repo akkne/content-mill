@@ -77,6 +77,19 @@ class SqlAlchemyProjectRepository:
             ("Формулы роликов", None),
             ("Промпты", None),
             ("Ролики", None),
+            ("Голоса", None),
+            *(
+                (name, "Промпты")
+                for name in (
+                    "Общие",
+                    "Instagram",
+                    "TikTok",
+                    "YouTube",
+                    "Telegram",
+                    "VK",
+                )
+            ),
+            *((name, "Бренд") for name in ("Товары", "Аудитории", "Правила бренда")),
         ]
         folders: dict[str, KnowledgeNodeModel] = {}
         for folder_name, parent_name in starter:
@@ -149,6 +162,7 @@ class SqlAlchemyProjectRepository:
             )
             .where(
                 DocumentVersionModel.id.in_(version_ids),
+                KnowledgeNodeModel.kind == "document",
                 KnowledgeNodeModel.project_id == project_id,
             )
         ).all()
