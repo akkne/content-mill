@@ -6,8 +6,8 @@ import type { KnowledgeNode } from "@/lib/knowledge";
 import { mediaPreview, updateVoice } from "./media-actions";
 import { acceptedMedia, uploadMedia } from "./upload-media";
 
-export function MediaPreview({ project, node, path, onChange, onClose }: {
-  project: string; node: KnowledgeNode; path: string; onChange: (node: KnowledgeNode) => void; onClose: () => void;
+export function MediaPreview({ project, node, voiceSample, path, onChange, onClose }: {
+  voiceSample: boolean; project: string; node: KnowledgeNode; path: string; onChange: (node: KnowledgeNode) => void; onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [number, setNumber] = useState<number>();
@@ -123,7 +123,7 @@ export function MediaPreview({ project, node, path, onChange, onClose }: {
           />
         </label>
         {pending && <span role="status">Сохраняем…</span>}
-        {node.kind === "audio" && (
+        {node.kind === "audio" && !voiceSample && (
           <details>
             <summary>Параметры голоса{node.voice_language && ` · ${node.voice_language}`}</summary>
             <form

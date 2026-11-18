@@ -2,12 +2,51 @@ from dataclasses import replace
 from uuid import UUID
 
 from app.application.project_ports import ProjectUnitOfWorkFactory
+from app.domain.knowledge import AVATAR_FOLDERS
 from app.domain.project import (
     InvalidSourceVersion,
     Project,
     ProjectContext,
     ProjectNotFound,
     RevisionConflict,
+)
+
+STARTER_FOLDERS = (
+    "Бренд",
+    "Бренд/Товары",
+    "Бренд/Формат",
+    "Бренд/Правила бренда",
+    "Аватары",
+    "Аватары/Основной аватар",
+    *(f"Аватары/Основной аватар/{name}" for name in AVATAR_FOLDERS),
+    "Голоса",
+    "Референсы",
+    "Формулы роликов",
+    "Промпты",
+    *(
+        f"Промпты/{name}"
+        for name in (
+            "Общие",
+            "Бриф и источники",
+            "Сценарий и хуки",
+            "Раскадровка",
+            "Голос",
+            "Аватар",
+            "Медиаматериалы",
+            "Анимации",
+            "Монтаж и субтитры",
+            "Рендер и проверка",
+            "Варианты и публикация",
+        )
+    ),
+    "Ролики",
+    "Ролики/CM-000123",
+    "Ролики/CM-000123/Документы",
+    "Ролики/CM-000123/Материалы",
+    *(
+        f"Ролики/CM-000123/Материалы/{name}"
+        for name in ("Видео", "Аудио", "Изображения")
+    ),
 )
 
 
@@ -24,6 +63,26 @@ class ProjectService:
     def create_project(self, owner_id: UUID, name: str) -> Project:
         with self.unit_of_work() as work:
             project = work.repository.create(owner_id, name.strip())
+            folders: dict[str, UUID] = {}
+            roles = {
+                "Голоса": "voices",
+                "Аватары": "avatars",
+                "Аватары/Основной аватар": "avatar",
+                **{
+                    f"Аватары/Основной аватар/{name}": role
+                    for name, role in AVATAR_FOLDERS.items()
+                },
+            }
+            for path in STARTER_FOLDERS:
+                parent, _, label = path.rpartition("/")
+                folder = work.knowledge.create(
+                    project.id,
+                    folders[parent] if parent else None,
+                    "folder",
+                    label,
+                    roles.get(path),
+                )
+                folders[path] = folder.id
             work.commit()
             return project
 

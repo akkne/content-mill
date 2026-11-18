@@ -27,6 +27,10 @@ def as_node(model: KnowledgeNodeModel) -> KnowledgeNode:
         model.archived_at,
         model.voice_language,
         model.voice_model,
+        model.folder_role,
+        model.description,
+        model.elevenlabs_voice_id,
+        model.linked_voice_id,
     )
 
 
@@ -79,10 +83,19 @@ class SqlAlchemyKnowledgeRepository:
         return [as_node(model) for model in models]
 
     def create(
-        self, project_id: UUID, parent_id: UUID | None, kind: str, name: str
+        self,
+        project_id: UUID,
+        parent_id: UUID | None,
+        kind: str,
+        name: str,
+        folder_role: str | None = None,
     ) -> KnowledgeNode:
         model = KnowledgeNodeModel(
-            project_id=project_id, parent_id=parent_id, kind=kind, name=name
+            project_id=project_id,
+            parent_id=parent_id,
+            kind=kind,
+            name=name,
+            folder_role=folder_role,
         )
         self.session.add(model)
         self.session.flush()
@@ -120,6 +133,14 @@ class SqlAlchemyKnowledgeRepository:
         )
         if changed is None:
             return False
+        self.session.execute(
+            update(KnowledgeNodeModel)
+            .where(
+                KnowledgeNodeModel.project_id == project_id,
+                KnowledgeNodeModel.linked_voice_id.in_([root_id, *node_ids]),
+            )
+            .values(linked_voice_id=None, revision=KnowledgeNodeModel.revision + 1)
+        )
         if node_ids:
             self.session.execute(
                 update(KnowledgeNodeModel)
