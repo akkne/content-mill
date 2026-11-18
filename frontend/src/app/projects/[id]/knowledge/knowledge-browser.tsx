@@ -372,7 +372,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
           )}
           {folderId === null && !query && !nodes.some((n) => !n.parent_id && n.name === "Пример проекта") && (
             <button className={`${secondaryButton} mb-3`} onClick={examples} disabled={pending}>
-              Добавить примеры из демо
+              Добавить примеры материалов
             </button>
           )}
           {pending && <span role="status"> Выполняется…</span>}

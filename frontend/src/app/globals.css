@@ -69,3 +69,28 @@
   --color-warning-bg: var(--warning-bg);
   --shadow-panel: var(--shadow);
 }
+
+:root {
+  --hero-background: linear-gradient(115deg, #fff 20%, #e7f0ff);
+  --tag-background: #ffffffd9;
+}
+:root[data-theme="dark"] {
+  --hero-background: linear-gradient(115deg, #191c22 20%, #14243d);
+  --tag-background: #202d40e6;
+}
+@theme inline {
+  --background-image-hero: var(--hero-background);
+  --color-tag: var(--tag-background);
+}
+@keyframes flower-blink {
+  0%, 100% { transform: scaleY(1); opacity: 1; }
+  45%, 55% { transform: scaleY(.04); opacity: 0; }
+}
+@keyframes flower-close {
+  0%, 25%, 75%, 100% { opacity: 0; }
+  45%, 55% { opacity: 1; }
+}
+@keyframes overview-appear {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
