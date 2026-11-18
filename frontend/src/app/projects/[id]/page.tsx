@@ -24,7 +24,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     <Link className="back-link" href="/projects">← Все проекты</Link>
     <span className="eyebrow">Контекст клиента</span>
     <h1 className="page-title">{project.name}</h1>
-    <p className="page-lead">Опишите клиента, аудиторию, продукты и подтверждённые факты. Контекст сохраняется в проекте и будет доступен при создании контента.</p>
+    <p className="page-lead">Укажите начальные данные о клиенте, аудитории, продуктах и подтверждённых фактах. Позже их можно будет изменить. Контекст сохраняется в проекте и будет доступен при создании контента.</p>
     <ContextEditor initial={context} />
   </main></AppShell>;
 }
