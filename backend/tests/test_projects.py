@@ -8,6 +8,7 @@ from alembic.config import Config
 from app.container import auth_service
 from app.infrastructure.database.models import (
     AccessTokenModel,
+    KnowledgeNodeModel,
     ProjectContextModel,
     ProjectModel,
     RefreshSessionModel,
@@ -49,6 +50,11 @@ def login(migrated_database):
         for user_id in users:
             project_ids = select(ProjectModel.id).where(
                 ProjectModel.owner_id == user_id
+            )
+            session.execute(
+                delete(KnowledgeNodeModel).where(
+                    KnowledgeNodeModel.project_id.in_(project_ids)
+                )
             )
             session.execute(
                 delete(ProjectContextModel).where(
@@ -164,3 +170,123 @@ def test_projects_context_owner_and_revisions(login):
             ).status_code
             == 409
         )
+
+
+def test_knowledge_tree_owner_moves_and_archive(login):
+    owner = login()
+    stranger = login()
+    with TestClient(app) as client:
+        project_id = client.post(
+            "/api/v1/projects", json={"name": "Knowledge"}, headers=owner
+        ).json()["id"]
+        base = f"/api/v1/projects/{project_id}/nodes"
+        assert client.get(base, headers=stranger).status_code == 404
+        assert (
+            client.post(
+                base, json={"name": "Wrong", "kind": "folder"}, headers=stranger
+            ).status_code
+            == 404
+        )
+        initial = client.get(f"{base}/tree", headers=owner).json()["items"]
+        assert {node["name"] for node in initial} >= {
+            "Бренд",
+            "Аватары",
+            "Референсы",
+            "Промпты",
+        }
+        brand = client.post(
+            base, json={"name": "Client", "kind": "folder"}, headers=owner
+        )
+        assert brand.status_code == 201
+        brand_id = brand.json()["id"]
+        assert brand.json()["revision"] == 1
+        products = client.post(
+            base,
+            json={"name": "Products", "kind": "folder", "parent_id": brand_id},
+            headers=owner,
+        )
+        assert products.status_code == 201
+        products_id = products.json()["id"]
+        assert (
+            client.get(f"{base}?parent_id={brand_id}", headers=owner).json()["items"][
+                0
+            ]["id"]
+            == products_id
+        )
+        assert (
+            len(client.get(f"{base}/tree", headers=owner).json()["items"])
+            == len(initial) + 2
+        )
+        assert (
+            client.post(
+                base, json={"name": "client", "kind": "folder"}, headers=owner
+            ).status_code
+            == 409
+        )
+        other_project = client.post(
+            "/api/v1/projects", json={"name": "Other"}, headers=owner
+        ).json()["id"]
+        assert (
+            client.post(
+                f"/api/v1/projects/{other_project}/nodes",
+                json={"name": "Cross project", "kind": "folder", "parent_id": brand_id},
+                headers=owner,
+            ).status_code
+            == 422
+        )
+        assert (
+            client.patch(
+                f"{base}/{brand_id}", json={"name": "Brand 2"}, headers=owner
+            ).status_code
+            == 428
+        )
+        renamed = client.patch(
+            f"{base}/{brand_id}",
+            json={"name": "Brand 2"},
+            headers={**owner, "If-Match": "1"},
+        )
+        assert renamed.status_code == 200
+        assert renamed.json()["revision"] == 2
+        assert (
+            client.patch(
+                f"{base}/{brand_id}",
+                json={"name": "Old"},
+                headers={**owner, "If-Match": "1"},
+            ).status_code
+            == 409
+        )
+        assert (
+            client.post(
+                f"{base}/{brand_id}/move",
+                json={"new_parent_id": products_id},
+                headers={**owner, "If-Match": "2"},
+            ).status_code
+            == 422
+        )
+        moved = client.post(
+            f"{base}/{products_id}/move",
+            json={"new_parent_id": None},
+            headers={**owner, "If-Match": "1"},
+        )
+        assert moved.status_code == 200
+        assert moved.json()["parent_id"] is None
+        archived_child = client.post(
+            base,
+            json={"name": "Rules", "kind": "folder", "parent_id": brand_id},
+            headers=owner,
+        ).json()["id"]
+        assert (
+            client.delete(
+                f"{base}/{brand_id}", headers={**stranger, "If-Match": "2"}
+            ).status_code
+            == 404
+        )
+        assert (
+            client.delete(
+                f"{base}/{brand_id}", headers={**owner, "If-Match": "2"}
+            ).status_code
+            == 204
+        )
+        assert client.get(f"{base}/{brand_id}", headers=owner).status_code == 404
+        assert client.get(f"{base}/{archived_child}", headers=owner).status_code == 404
+        assert client.get(f"{base}/{products_id}", headers=owner).status_code == 200

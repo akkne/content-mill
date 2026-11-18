@@ -10,7 +10,11 @@ from app.domain.project import (
     Project,
     ProjectContext,
 )
-from app.infrastructure.database.models import ProjectContextModel, ProjectModel
+from app.infrastructure.database.models import (
+    KnowledgeNodeModel,
+    ProjectContextModel,
+    ProjectModel,
+)
 
 
 def as_project(model: ProjectModel) -> Project:
@@ -65,6 +69,25 @@ class SqlAlchemyProjectRepository:
         self.session.add(model)
         self.session.flush()
         self.session.add(ProjectContextModel(project_id=model.id))
+        starter = [
+            ("Бренд", None),
+            ("Аватары", None),
+            ("Референсы", None),
+            ("Формулы роликов", None),
+            ("Промпты", None),
+            ("Ролики", None),
+        ]
+        folders: dict[str, KnowledgeNodeModel] = {}
+        for folder_name, parent_name in starter:
+            folder = KnowledgeNodeModel(
+                project_id=model.id,
+                parent_id=folders[parent_name].id if parent_name else None,
+                kind="folder",
+                name=folder_name,
+            )
+            self.session.add(folder)
+            self.session.flush()
+            folders[folder_name] = folder
         self.session.flush()
         return as_project(model)
 
