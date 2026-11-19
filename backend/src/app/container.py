@@ -18,6 +18,7 @@ from app.infrastructure.elevenlabs import ElevenLabsCatalog
 from app.infrastructure.mock_video_generator import MockVideoGenerator
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
+from app.infrastructure.starter_prompts import starter_prompts
 from app.infrastructure.storage.s3_documents import S3DocumentStore
 
 passwords = Argon2Passwords()
@@ -29,7 +30,9 @@ def auth_service() -> AuthService:
 
 
 def project_service() -> ProjectService:
-    return ProjectService(SqlAlchemyProjectUnitOfWork)
+    return ProjectService(
+        SqlAlchemyProjectUnitOfWork, starter_prompts(), S3DocumentStore()
+    )
 
 
 def knowledge_service() -> KnowledgeService:

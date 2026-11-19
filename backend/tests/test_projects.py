@@ -9,6 +9,7 @@ from alembic import command
 from alembic.config import Config
 from app.application.knowledge_service import KnowledgeService
 from app.container import auth_service, knowledge_service
+from app.domain.knowledge import DocumentStorageError
 from app.infrastructure.database.knowledge_unit_of_work import (
     SqlAlchemyKnowledgeUnitOfWork,
 )
@@ -23,6 +24,7 @@ from app.infrastructure.database.models import (
     VideoModel,
 )
 from app.infrastructure.database.session import session_factory
+from app.infrastructure.storage.s3_documents import S3DocumentStore
 from app.main import app
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select, update
@@ -37,7 +39,17 @@ def migrated_database():
 
 
 @pytest.fixture
-def login(migrated_database):
+def login(migrated_database, monkeypatch):
+    objects = {}
+    monkeypatch.setattr(
+        S3DocumentStore,
+        "put",
+        lambda self, key, body, mime: objects.update({key: body}),
+    )
+    monkeypatch.setattr(S3DocumentStore, "get", lambda self, key: objects[key])
+    monkeypatch.setattr(
+        S3DocumentStore, "delete", lambda self, key: objects.pop(key, None)
+    )
     users = []
 
     def create() -> dict[str, str]:
@@ -356,7 +368,7 @@ def test_text_document_versions_and_access(login):
             )
             first = client.put(
                 path,
-                json={"content": "Первый", "format": "markdown"},
+                json={"content": "Первый вариант озвучивания", "format": "markdown"},
                 headers={**owner, "If-Match": "1"},
             )
             assert first.status_code == 200
@@ -378,7 +390,7 @@ def test_text_document_versions_and_access(login):
             assert second.json()["version"] == 2
             assert (
                 client.get(f"{path}?version=1", headers=owner).json()["content"]
-                == "Первый"
+                == "Первый вариант озвучивания"
             )
             assert client.get(path, headers=owner).json()["content"] == "Second"
             assert [
@@ -389,7 +401,8 @@ def test_text_document_versions_and_access(login):
             ] == [document["id"]]
             assert (
                 client.get(
-                    f"/api/v1/projects/{project_id}/search?q=Первый", headers=owner
+                    f"/api/v1/projects/{project_id}/search?q=Первый вариант озвучивания",
+                    headers=owner,
                 ).json()["items"]
                 == []
             )
@@ -585,15 +598,41 @@ def test_media_upload_version_visibility_and_voice(login):
         app.dependency_overrides.pop(knowledge_service, None)
 
 
+def test_project_creation_rolls_back_partial_prompt_set(login, monkeypatch):
+    owner = login()
+    stored = set()
+
+    def fail_second_write(self, key, content, mime):
+        stored.add(key)
+        if len(stored) == 2:
+            raise DocumentStorageError
+
+    monkeypatch.setattr(S3DocumentStore, "put", fail_second_write)
+    monkeypatch.setattr(
+        S3DocumentStore, "delete", lambda self, key: stored.discard(key)
+    )
+    with TestClient(app, headers=owner) as client:
+        response = client.post("/api/v1/projects", json={"name": "Проба"})
+        assert response.status_code == 503
+        assert not stored
+        assert client.get("/api/v1/projects").json()["items"] == []
+
+
 def test_starter_folders_and_reusable_voice(login):
     owner = login()
     with TestClient(app, headers=owner) as client:
         project = client.post("/api/v1/projects", json={"name": "Студия"}).json()
         base = f"/api/v1/projects/{project['id']}/nodes"
         tree = client.get(f"{base}/tree").json()["items"]
-        assert [node["name"] for node in tree if node["kind"] != "folder"] == [
-            "Описание аватара.md"
+        documents = [
+            n
+            for n in tree
+            if n["kind"] == "document" and n["name"] != "Описание аватара.md"
         ]
+        assert len(documents) == 10
+        for node in documents:
+            saved = client.get(f"{base}/{node['id']}/content").json()
+            assert saved["version"] == 1 and saved["content"].startswith("# ")
         by_name = {node["name"]: node for node in tree}
 
         def children(parent):
@@ -605,7 +644,6 @@ def test_starter_folders_and_reusable_voice(login):
         assert not children("Товары")
         assert children("Материалы") == {"Аудио", "Видео", "Изображения"}
         assert children("Промпты") == {
-            "Общие",
             "Бриф и источники",
             "Сценарий и хуки",
             "Раскадровка",
@@ -615,7 +653,6 @@ def test_starter_folders_and_reusable_voice(login):
             "Анимации",
             "Монтаж и субтитры",
             "Рендер и проверка",
-            "Варианты и публикация",
         }
 
         def folder(parent, name):

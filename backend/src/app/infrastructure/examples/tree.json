@@ -123,55 +123,6 @@
     "content": "# Проблема — решение\n\n1. Покажите знакомую проблему.\n2. Продемонстрируйте решение.\n3. Завершите конкретным действием."
   },
   {
-    "id": "prompts",
-    "parent": "root",
-    "name": "Промпты",
-    "type": "folder"
-  },
-  {
-    "id": "prompts-common",
-    "parent": "prompts",
-    "name": "Общие",
-    "type": "folder"
-  },
-  {
-    "id": "prompts-instagram",
-    "parent": "prompts",
-    "name": "Instagram",
-    "type": "folder"
-  },
-  {
-    "id": "prompts-tiktok",
-    "parent": "prompts",
-    "name": "TikTok",
-    "type": "folder"
-  },
-  {
-    "id": "prompts-youtube",
-    "parent": "prompts",
-    "name": "YouTube",
-    "type": "folder"
-  },
-  {
-    "id": "prompts-telegram",
-    "parent": "prompts",
-    "name": "Telegram",
-    "type": "folder"
-  },
-  {
-    "id": "prompts-vk",
-    "parent": "prompts",
-    "name": "VK",
-    "type": "folder"
-  },
-  {
-    "id": "prompt-common",
-    "parent": "prompts-common",
-    "name": "Сценарий.md",
-    "type": "file",
-    "content": "# Промпт для сценария\n\nИспользуй подтверждённые факты о товаре и правила бренда. Предложи хук, основную мысль и финальную фразу."
-  },
-  {
     "id": "videos",
     "parent": "root",
     "name": "Ролики",
