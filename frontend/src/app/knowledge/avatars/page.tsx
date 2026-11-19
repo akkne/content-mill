@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { LibraryIllustration } from "../library-illustration";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -21,7 +21,7 @@ export default async function AvatarsPage() {
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Аватары</h1>
             <p className="mt-3 text-sm leading-relaxed text-muted">Личная библиотека аватаров в разработке.</p>
           </div>
-          <Image src="/library/portrait.jpg" alt="" width={120} height={150} className="mr-2 w-20 rotate-6 rounded-sm border-4 border-white shadow-panel sm:w-28" />
+          <LibraryIllustration kind="avatar" />
         </header>
       </main>
     </AppShell>
