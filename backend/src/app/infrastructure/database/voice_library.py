@@ -33,7 +33,7 @@ def view(row: Voice, projects: list[UUID]) -> LibraryVoice:
 
 
 class SqlVoiceLibrary:
-    def list(self, owner: UUID):
+    def list_owned(self, owner: UUID):
         with session_factory()() as db:
             rows = db.execute(
                 select(Voice, Node.project_id)

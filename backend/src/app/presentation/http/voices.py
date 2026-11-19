@@ -25,7 +25,7 @@ Library = Annotated[VoiceLibrary, Depends(voice_library)]
 
 @router.get("")
 def library_list(user: CurrentUser, library: Library):
-    return library.repository.list(user.id)
+    return library.repository.list_owned(user.id)
 
 
 @router.get("/catalog")
