@@ -8,6 +8,7 @@ from app.infrastructure.database.knowledge_repository import (
 )
 from app.infrastructure.database.project_repository import SqlAlchemyProjectRepository
 from app.infrastructure.database.session import session_factory
+from app.infrastructure.database.video_repository import VideoRepository
 
 
 class SqlAlchemyProjectUnitOfWork:
@@ -17,6 +18,7 @@ class SqlAlchemyProjectUnitOfWork:
 
     def __enter__(self) -> Self:
         self.session = session_factory()()
+        self.videos = VideoRepository(self.session)
         self.knowledge = SqlAlchemyKnowledgeRepository(self.session)
         self.repository = SqlAlchemyProjectRepository(self.session)
         return self

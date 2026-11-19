@@ -4,7 +4,7 @@ import { beginUpload, finishUpload } from "./media-actions";
 export const mediaFormats = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", mp3: "audio/mpeg", wav: "audio/wav", m4a: "audio/mp4", mp4: "video/mp4", webm: "video/webm", pdf: "application/pdf" };
 export const acceptedMedia = Object.keys(mediaFormats).map(ext => "." + ext).join(",");
 
-export async function uploadMedia(project: string, parent: string | null, file: File, target?: KnowledgeNode) {
+export async function uploadMediaVersion(project: string, parent: string | null, file: File, target?: KnowledgeNode) {
   const ext = file.name.toLowerCase().split(".").pop() as keyof typeof mediaFormats;
   const mime = mediaFormats[ext];
   if (!mime) throw new Error("Выберите изображение, видео, аудио или PDF поддерживаемого формата.");
@@ -17,5 +17,9 @@ export async function uploadMedia(project: string, parent: string | null, file: 
   if (!sent.ok) throw new Error("Не удалось передать файл в хранилище.");
   const end = await finishUpload(project, start.data.upload_id);
   if (!end.data) throw new Error(end.error);
-  return end.data.node;
+  return end.data;
+}
+
+export async function uploadMedia(project: string, parent: string | null, file: File, target?: KnowledgeNode) {
+  return (await uploadMediaVersion(project, parent, file, target)).node;
 }

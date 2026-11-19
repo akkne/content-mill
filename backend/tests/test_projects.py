@@ -1,4 +1,5 @@
 import os
+from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
@@ -19,6 +20,7 @@ from app.infrastructure.database.models import (
     ProjectModel,
     RefreshSessionModel,
     UserModel,
+    VideoModel,
 )
 from app.infrastructure.database.session import session_factory
 from app.main import app
@@ -433,6 +435,16 @@ def test_text_document_versions_and_access(login):
             )
             assert linked.status_code == 200
             assert linked.json()["source_version_ids"] == [versions[0]["id"]]
+            video_path = f"/api/v1/projects/{project_id}/videos"
+            choices = client.get(video_path + "/options", headers=owner).json()[
+                "sources"
+            ]
+            assert [s["id"] for s in choices if s["selected"]] == [versions[0]["id"]]
+            payload = {"title": "Из базы знаний", "sources": [versions[1]["id"]]}
+            draft = client.post(video_path, headers=owner, json=payload)
+            assert draft.status_code == 201
+            assert "первый" in draft.json()["script"].lower()
+            assert draft.json()["settings"]["sources"][0]["version"] == 1
             assert client.get(context_path, headers=owner).json()[
                 "source_version_ids"
             ] == [versions[0]["id"]]
@@ -786,3 +798,54 @@ def test_voice_catalog_and_manual_import(login):
         finally:
             app.dependency_overrides.pop(voice_catalog)
             app.dependency_overrides.pop(voice_library)
+
+
+def test_project_video_lifecycle(login):
+    owner, stranger = login(), login()
+    with TestClient(app) as client:
+        project = client.post(
+            "/api/v1/projects", headers=owner, json={"name": "Студия"}
+        ).json()["id"]
+        base = f"/api/v1/projects/{project}/videos"
+        assert client.get(base, headers=stranger).status_code == 404
+        assert (
+            client.post(
+                base, headers=owner, json={"title": "Тест", "sources": [str(uuid4())]}
+            ).status_code
+            == 422
+        )
+        video = client.post(base, headers=owner, json={"title": "Тест сборки"}).json()
+        path = f"{base}/{video['id']}"
+        assert (
+            client.get(
+                base, params={"q": "сборки", "status": "draft"}, headers=owner
+            ).json()["items"][0]["id"]
+            == video["id"]
+        )
+        assert client.get(path, headers=stranger).status_code == 404
+
+        def act(action, value=""):
+            return client.post(
+                path + "/actions",
+                headers=owner,
+                json={"action": action, "value": value},
+            )
+
+        assert (
+            act("script", "Авторский сценарий").json()["script"] == "Авторский сценарий"
+        )
+        assert act("assemble").json()["status"] == "generating"
+        with session_factory()() as session:
+            session.execute(
+                update(VideoModel)
+                .where(VideoModel.id == video["id"])
+                .values(ready_at=datetime.now(UTC))
+            )
+            session.commit()
+        assert client.get(path, headers=owner).json()["status"] == "ready"
+        assert act("schedule", "2000-01-01T00:00:00Z").status_code == 422
+        assert act("publish").json()["status"] == "published"
+        assert client.get(path, headers=owner).json()["settings"]["publication"]
+        assert act("duplicate").json()["status"] == "draft"
+        assert act("delete").status_code == 200
+        assert client.get(path, headers=owner).status_code == 404

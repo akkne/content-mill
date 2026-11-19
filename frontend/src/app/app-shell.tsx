@@ -33,7 +33,7 @@ const navigation = [
   ["Главная", "Home", "home", "/"],
   ["Проекты", "Projects", "brand", "/projects"],
   ["База знаний", "Knowledge base", "brand", "/knowledge"],
-  ["Ролики", "Videos", "videos", null],
+  ["Ролики", "Videos", "videos", "/videos"],
   ["План и автопилот", "Plan and autopilot", "plan", null],
   ["Аналитика", "Analytics", "analytics", null],
   ["Агент-маркетолог", "Marketing agent", "agent", null],
@@ -109,15 +109,12 @@ export function AppShell({
         <p className="mx-[11px] mt-3 text-[10px] font-bold tracking-widest text-faint">
           {t("КОНТЕНТ-ЗАВОД", "CONTENT FACTORY")}
         </p>
-        <button
-          disabled
-          className="mt-4 rounded-[10px] bg-action px-3 py-2 text-left font-bold text-white disabled:cursor-default"
+        <Link
+          href={projectId ? `/projects/${projectId}/videos/new` : "/videos?create=1"}
+          className="mt-4 rounded-[10px] bg-action px-3 py-2 font-bold text-white"
         >
           ＋ {t("Создать ролик", "Create video")}
-          <small className="block pl-4 text-[10px] font-medium">
-            {pending}
-          </small>
-        </button>
+        </Link>
         <p className="mx-[11px] mt-5 mb-2 text-[10px] font-bold tracking-[.1em] text-faint uppercase">
           {t("Рабочее пространство", "Workspace")}
         </p>
@@ -147,8 +144,8 @@ export function AppShell({
                 aria-current={section === label ? "page" : undefined}
                 className="flex min-h-11 items-center gap-[11px] rounded-[10px] px-[11px] py-2 font-semibold text-muted aria-[current=page]:bg-selected aria-[current=page]:text-selected-ink [&:not([aria-current]):hover]:bg-control [&:not([aria-current]):hover]:text-ink"
                 href={
-                  href === "/knowledge" && projectId
-                    ? `/projects/${projectId}/knowledge`
+                  (href === "/knowledge" || href === "/videos") && projectId
+                    ? `/projects/${projectId}${href}`
                     : href
                 }
                 key={label}

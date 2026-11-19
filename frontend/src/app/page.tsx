@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { fetchCurrentUser } from "@/lib/backend";
@@ -67,18 +68,17 @@ export default async function Home({
               )}
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-4 text-xs">
+              <Link className="rounded-[10px] bg-action px-4 py-2 font-bold text-white" href="/videos?create=1">＋ {t("Создать ролик", "Create video")}</Link>
               {[
-                t("Создать ролик", "Create video"),
                 t("Анализ ниши", "Niche analysis"),
                 t("Спросить агента", "Ask the agent"),
-              ].map((label, index) => (
+              ].map((label) => (
                 <button
                   type="button"
                   disabled
                   key={label}
-                  className={`disabled:cursor-default font-bold ${index === 0 ? "rounded-[10px] bg-action px-4 py-2 text-white" : "text-left text-muted"}`}
+                  className="text-left font-bold text-muted disabled:cursor-default"
                 >
-                  {index === 0 && <span aria-hidden="true">＋ </span>}
                   {label}
                   {status}
                 </button>
@@ -151,18 +151,13 @@ export default async function Home({
               <WorkspaceIcon name="videos" />
               {t("Последние ролики", "Latest videos")}
             </h2>
-            <button
-              disabled
-              className="text-right text-xs font-bold text-muted disabled:cursor-default"
-            >
-              {t("Все ролики", "All videos")} →{status}
-            </button>
+            <Link href="/videos" className="text-right text-xs font-bold text-accent">{t("Все ролики", "All videos")} →</Link>
           </div>
           <div
             className={`${card} grid min-h-36 place-content-center justify-items-center gap-2 text-muted`}
           >
             <WorkspaceIcon name="videos" className="size-10" />
-            <p>{t("Роликов пока нет", "No videos yet")}</p>
+            <Link href="/videos">{t("Открыть библиотеку проекта", "Open project library")}</Link>
           </div>
         </section>
         <div className="mt-7 grid grid-cols-3 gap-3 max-[950px]:grid-cols-1">

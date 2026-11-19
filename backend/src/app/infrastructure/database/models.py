@@ -196,3 +196,22 @@ class MediaUploadModel(Base):
     sha256: Mapped[str] = mapped_column(String(64))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     completed_version: Mapped[int | None]
+
+
+class VideoModel(Base):
+    __tablename__ = "videos"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(180))
+    status: Mapped[str] = mapped_column(String(16))
+    settings: Mapped[dict] = mapped_column(JSONB)
+    script: Mapped[str] = mapped_column(Text)
+    caption: Mapped[str] = mapped_column(Text)
+    journal: Mapped[list[str]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

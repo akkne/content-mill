@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.application.knowledge_ports import KnowledgeRepository
 from app.domain.project import Project, ProjectContext
+from app.domain.video import Video, VideoSource
 
 
 class ProjectRepository(Protocol):
@@ -23,7 +24,19 @@ class ProjectRepository(Protocol):
     ) -> bool: ...
 
 
+class VideoRepository(Protocol):
+    def finish_due(self, project: UUID) -> None: ...
+    def list_videos(self, project: UUID, status: str, query: str) -> list[Video]: ...
+    def get(self, project: UUID, video: UUID, lock: bool) -> Video | None: ...
+    def save(self, video: Video) -> None: ...
+    def delete(self, video: Video) -> None: ...
+    def sources(
+        self, project: UUID, ids: list[UUID] | None = None
+    ) -> list[VideoSource]: ...
+
+
 class ProjectUnitOfWork(Protocol):
+    videos: VideoRepository
     knowledge: KnowledgeRepository
     repository: ProjectRepository
 
