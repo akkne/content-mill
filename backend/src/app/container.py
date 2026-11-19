@@ -6,11 +6,13 @@ import httpx
 from app.application.auth_service import AuthService
 from app.application.knowledge_service import KnowledgeService
 from app.application.project_service import ProjectService
+from app.application.voice_library import VoiceLibrary
 from app.infrastructure.database.knowledge_unit_of_work import (
     SqlAlchemyKnowledgeUnitOfWork,
 )
 from app.infrastructure.database.project_unit_of_work import SqlAlchemyProjectUnitOfWork
 from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
+from app.infrastructure.database.voice_library import SqlVoiceLibrary
 from app.infrastructure.elevenlabs import ElevenLabsCatalog
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
@@ -37,3 +39,7 @@ def voice_catalog() -> ElevenLabsCatalog:
     return ElevenLabsCatalog(
         os.getenv("ELEVENLABS_API_KEY", ""), httpx.Client(timeout=8)
     )
+
+
+def voice_library() -> VoiceLibrary:
+    return VoiceLibrary(SqlVoiceLibrary(), voice_catalog())

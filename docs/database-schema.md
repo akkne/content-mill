@@ -11,6 +11,8 @@ erDiagram
     login_attempts
     users ||--o{ auth_sessions : user_id
     auth_sessions ||--o{ access_tokens : session_id
+    users ||--o{ library_voices : owner_id
+    library_voices |o--o{ knowledge_nodes : library_voice_id
     users ||--o{ projects : owner_id
     projects ||--o| project_contexts : project_id
     projects ||--o{ knowledge_nodes : project_id
@@ -110,6 +112,7 @@ PK обозначает первичный ключ, FK — внешний кл�
 | `folder_role` | `varchar(32)` | да | — |
 | `description` | `text` | да | — |
 | `elevenlabs_voice_id` | `varchar(160)` | да | — |
+| `library_voice_id` | `uuid` | да | FK → `library_voices.id` |
 | `linked_voice_id` | `uuid` | да | FK → `knowledge_nodes.id` |
 | `voice_gender` | `varchar(16)` | да | — |
 | `catalog_languages` | `jsonb` | да | — |
@@ -152,3 +155,8 @@ PK обозначает первичный ключ, FK — внешний кл�
 | `completed_version` | `integer` | да | — |
 
 Индекс `ix_media_uploads_expires_at` по полям `expires_at`.
+
+
+### library_voices
+
+Личные голоса. Первичный ключ `id` (UUID), владелец `owner_id` (обязательный индексированный FK на users с каскадным удалением), обязательное имя `name` (varchar 160). Необязательные поля: `description` и `voice_preview_url` (text), `elevenlabs_voice_id` и `voice_model` (varchar 160), `voice_gender` (varchar 16), `voice_language` (varchar 80), `catalog_languages` (jsonb). Индекс по knowledge_nodes.library_voice_id используется при чтении назначений.

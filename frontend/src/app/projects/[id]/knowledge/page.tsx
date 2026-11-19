@@ -1,4 +1,5 @@
 import { backLink, content, eyebrow, pageLead, pageTitle } from "@/app/ui-styles";
+import { LibraryTiles } from "@/app/knowledge/library-tiles";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -43,6 +44,7 @@ export default async function KnowledgePage({ params }: { params: Promise<{ id: 
           projectId={id}
           projectName={project.name}
         />
+        <LibraryTiles />
       </main>
     </AppShell>
   );

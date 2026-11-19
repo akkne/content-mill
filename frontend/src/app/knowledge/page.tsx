@@ -1,4 +1,5 @@
 import { content, pageLead, pageTitle, projectCard, projectGrid, secondaryButton } from "@/app/ui-styles";
+import { LibraryTiles } from "@/app/knowledge/library-tiles";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -34,6 +35,7 @@ export default async function KnowledgeProjects() {
             Создать первый проект
           </Link>
         )}
+        <LibraryTiles />
       </main>
     </AppShell>
   );

@@ -101,6 +101,23 @@ class ProjectContextModel(Base):
     source_version_ids: Mapped[list] = mapped_column(JSONB, default=list)
 
 
+class LibraryVoiceModel(Base):
+    __tablename__ = "library_voices"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(160))
+    description: Mapped[str | None] = mapped_column(Text)
+    elevenlabs_voice_id: Mapped[str | None] = mapped_column(String(160))
+    voice_gender: Mapped[str | None] = mapped_column(String(16))
+    catalog_languages: Mapped[list[str] | None] = mapped_column(JSONB)
+    voice_language: Mapped[str | None] = mapped_column(String(80))
+    voice_model: Mapped[str | None] = mapped_column(String(160))
+    voice_preview_url: Mapped[str | None] = mapped_column(Text)
+
+
 class KnowledgeNodeModel(Base):
     __tablename__ = "knowledge_nodes"
     __table_args__ = (
@@ -124,6 +141,9 @@ class KnowledgeNodeModel(Base):
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    library_voice_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("library_voices.id", name="knowledge_library_voice_fk"), index=True
+    )
     folder_role: Mapped[str | None] = mapped_column(String(32))
     description: Mapped[str | None] = mapped_column(Text)
     elevenlabs_voice_id: Mapped[str | None] = mapped_column(String(160))

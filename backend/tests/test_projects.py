@@ -588,8 +588,7 @@ def test_starter_folders_and_reusable_voice(login):
             return {n["name"] for n in tree if n["parent_id"] == by_name[parent]["id"]}
 
         assert children("Бренд") == {"Товары", "Формат", "Правила бренда"}
-        assert children("Голоса") == {"Основной голос"}
-        assert by_name["Основной голос"]["folder_role"] == "voice"
+        assert not children("Голоса")
         assert "Описание аватара.md" in children("Основной аватар")
         assert not children("Товары")
         assert children("Материалы") == {"Аудио", "Видео", "Изображения"}
@@ -612,18 +611,27 @@ def test_starter_folders_and_reusable_voice(login):
                 base, json={"parent_id": parent, "kind": "folder", "name": name}
             )
 
-        voice = folder(by_name["Голоса"]["id"], "Алиса").json()
+        assert folder(by_name["Голоса"]["id"], "Алиса").status_code == 422
+        personal = client.post(
+            "/api/v1/voices", json={"name": "Алиса", "voice_id": "voice-42"}
+        ).json()
+        voice = client.patch(
+            f"/api/v1/voices/{personal['id']}/projects", json={"add": [project["id"]]}
+        ).json()[0]
         profile = {
+            "voice_gender": "female",
             "description": "Спокойный тембр",
             "voice_language": "русский",
             "voice_model": "eleven_multilingual_v2",
             "elevenlabs_voice_id": "voice-42",
         }
-        saved = client.put(
-            f"{base}/{voice['id']}/profile", json=profile, headers={"If-Match": "1"}
-        )
+        saved = client.patch(f"/api/v1/voices/{personal['id']}", json=profile)
         assert saved.status_code == 200
         assert all(saved.json()[key] == value for key, value in profile.items())
+        assert (
+            client.get(f"{base}/{voice['id']}").json()["description"]
+            == profile["description"]
+        )
         avatar = folder(by_name["Аватары"]["id"], "Ведущая").json()
         sections = client.get(base, params={"parent_id": avatar["id"]}).json()["items"]
         assert {n["name"] for n in sections} == children("Основной аватар")
@@ -668,7 +676,9 @@ def test_starter_folders_and_reusable_voice(login):
 
 def test_voice_catalog_and_manual_import(login):
     import httpx
-    from app.container import voice_catalog
+    from app.application.voice_library import VoiceLibrary
+    from app.container import voice_catalog, voice_library
+    from app.infrastructure.database.voice_library import SqlVoiceLibrary
     from app.infrastructure.elevenlabs import ElevenLabsCatalog
 
     calls = []
@@ -699,13 +709,13 @@ def test_voice_catalog_and_manual_import(login):
     ):
         catalog = ElevenLabsCatalog("test", provider)
         app.dependency_overrides[voice_catalog] = lambda: catalog
+        app.dependency_overrides[voice_library] = lambda: VoiceLibrary(
+            SqlVoiceLibrary(), catalog
+        )
         try:
             project = client.post("/api/v1/projects", json={"name": "Каталог"}).json()
-            nodes = f"/api/v1/projects/{project['id']}/nodes"
-            tree = client.get(nodes + "/tree").json()["items"]
-            folder = next(n["id"] for n in tree if n["folder_role"] == "voices")
-            path = f"{nodes}/{folder}/voices"
-            assert client.get(path, headers=stranger).status_code == 404
+            path = "/api/v1/voices"
+            assert client.get(path, headers=stranger).json() == []
             assert not calls
             params = {
                 "query": "Anna",
@@ -713,7 +723,7 @@ def test_voice_catalog_and_manual_import(login):
                 "gender": "female",
                 "cursor": "p",
             }
-            page = client.get(path, params=params).json()
+            page = client.get(path + "/catalog", params=params).json()
             assert page["next_cursor"] == "page2"
             assert page["items"][0]["languages"] == ["ru"]
             assert dict(calls[0].url.params) == {
@@ -724,7 +734,7 @@ def test_voice_catalog_and_manual_import(login):
                 "gender": "female",
                 "next_page_token": "p",
             }
-            assert client.get(path, params=params).json() == page
+            assert client.get(path + "/catalog", params=params).json() == page
             assert len(calls) == 1
             data = {"name": "Анна", "voice_id": "one", "from_catalog": True}
             saved = client.post(path, json=data).json()
@@ -732,11 +742,34 @@ def test_voice_catalog_and_manual_import(login):
             assert saved["elevenlabs_voice_id"] == "one"
             assert saved["voice_preview_url"] == "https://example.test/demo.mp3"
             assert calls[-1].url.params["voice_ids"] == "one"
-            assert client.post(path, json=data).status_code == 409
+            assert client.get(path, headers=stranger).json() == []
+            membership = f"{path}/{saved['id']}/projects"
+            other = client.post("/api/v1/projects", json={"name": "Другой"}).json()[
+                "id"
+            ]
+            foreign = client.post(
+                "/api/v1/projects", headers=stranger, json={"name": "Чужой"}
+            ).json()["id"]
             assert (
-                client.post(f"{nodes}/{saved['id']}/voices", json=data).status_code
-                == 422
+                client.patch(
+                    membership, headers=stranger, json={"add": [project["id"]]}
+                ).status_code
+                == 404
             )
+            assert (
+                client.patch(membership, json={"add": [other, foreign]}).status_code
+                == 404
+            )
+            assert client.get(path).json()[0]["project_ids"] == []
+            ids = [project["id"], other]
+            first = client.patch(membership, json={"add": ids}).json()
+            assert len(first) == 2
+            assert client.patch(membership, json={"add": ids}).json() == first
+            assert set(client.get(path).json()[0]["project_ids"]) == set(ids)
+            assert client.patch(membership, json={"remove": ids}).status_code == 200
+            assert client.get(path).json()[0]["project_ids"] == []
+            restored = client.patch(membership, json={"add": ids}).json()
+            assert [n["id"] for n in restored] == [n["id"] for n in first]
             assert (
                 client.post(path, json=data | {"voice_id": "missing"}).status_code
                 == 404
@@ -744,7 +777,7 @@ def test_voice_catalog_and_manual_import(login):
             app.dependency_overrides[voice_catalog] = lambda: ElevenLabsCatalog(
                 "", provider
             )
-            assert client.get(path).status_code == 503
+            assert client.get(path + "/catalog").status_code == 503
             manual = client.post(
                 path, json={"name": "Свой", "voice_id": "two", "gender": "male"}
             )
@@ -752,3 +785,4 @@ def test_voice_catalog_and_manual_import(login):
             assert manual.json()["voice_gender"] == "male"
         finally:
             app.dependency_overrides.pop(voice_catalog)
+            app.dependency_overrides.pop(voice_library)

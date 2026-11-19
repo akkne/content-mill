@@ -43,17 +43,6 @@ export async function mediaPreview(project: string, id: string, version?: number
   return { data: { ...download.data, versions: history.data.items } };
 }
 
-export async function saveProfile(project: string, id: string, revision: number, profile: { voice_gender: string | null; description: string; voice_model: string; voice_language: string; elevenlabs_voice_id: string | null } | { linked_voice_id: string | null }) {
+export async function saveProfile(project: string, id: string, revision: number, profile: { linked_voice_id: string | null }) {
   return request<KnowledgeNode>(project, `nodes/${encodeURIComponent(id)}/profile`, "PUT", profile, revision);
-}
-
-export type CatalogVoice = { id: string; name: string; description: string; languages: string[]; gender: string | null; preview_url: string | null };
-export type VoicePage = { items: CatalogVoice[]; next_cursor: string | null };
-
-export async function listVoices(project: string, folder: string, filters: Record<string, string>) {
-  return request<VoicePage>(project, `nodes/${encodeURIComponent(folder)}/voices?${new URLSearchParams(filters)}`);
-}
-
-export async function addVoice(project: string, folder: string, body: { name: string; voice_id: string; from_catalog: boolean; gender: string | null }) {
-  return request<KnowledgeNode>(project, `nodes/${encodeURIComponent(folder)}/voices`, "POST", body);
 }
