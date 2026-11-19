@@ -8,3 +8,4 @@
 | [0002. Голоса проекта и каталог ElevenLabs](0002-elevenlabs-voices.md) | 2026-11-19 |
 | [0003. Личная библиотека голосов](0003-personal-voice-library.md) | 2026-11-19 |
 | [0004. Навигация по личным библиотекам](0004-knowledge-library-navigation.md) | 2026-11-19 |
+| [0005. Иллюстрации личных библиотек](0005-library-illustrations.md) | 2026-11-19 |
