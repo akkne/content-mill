@@ -3,6 +3,7 @@ from typing import Self
 
 from sqlalchemy.orm import Session
 
+from app.infrastructure.database.agent_repository import SqlAgentRepository
 from app.infrastructure.database.knowledge_repository import (
     SqlAlchemyKnowledgeRepository,
 )
@@ -18,6 +19,7 @@ class SqlAlchemyProjectUnitOfWork:
 
     def __enter__(self) -> Self:
         self.session = session_factory()()
+        self.agent = SqlAgentRepository(self.session)
         self.videos = VideoRepository(self.session)
         self.knowledge = SqlAlchemyKnowledgeRepository(self.session)
         self.repository = SqlAlchemyProjectRepository(self.session)

@@ -8,6 +8,7 @@ import { fetchCurrentUser } from "@/lib/backend";
 import { loadContext, loadProject } from "@/lib/projects";
 import { accessCookie } from "@/lib/session";
 import { ProjectSettings } from "./project-settings";
+import { AgentAccess } from "./agent-access";
 import { ContextEditor } from "./context-editor";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           будет изменить. Контекст сохраняется в проекте и будет доступен при создании контента.
         </p>
         <ProjectSettings project={project} />
+        <AgentAccess projectId={project.id} />
         <ContextEditor initial={context} />
       </main>
     </AppShell>

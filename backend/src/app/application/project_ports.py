@@ -3,6 +3,7 @@ from contextlib import AbstractContextManager
 from typing import Protocol, Self
 from uuid import UUID
 
+from app.application.agent_ports import AgentRepository
 from app.application.knowledge_ports import KnowledgeRepository
 from app.domain.project import Project, ProjectContext
 from app.domain.video import Video, VideoSource
@@ -36,6 +37,7 @@ class VideoRepository(Protocol):
 
 
 class ProjectUnitOfWork(Protocol):
+    agent: AgentRepository
     videos: VideoRepository
     knowledge: KnowledgeRepository
     repository: ProjectRepository

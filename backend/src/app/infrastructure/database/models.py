@@ -215,3 +215,14 @@ class VideoModel(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ProjectAgentTokenModel(Base):
+    __tablename__ = "project_agent_tokens"
+
+    project_id: Mapped[UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
