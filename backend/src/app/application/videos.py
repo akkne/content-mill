@@ -106,7 +106,7 @@ class VideoService:
             if not current:
                 raise ProjectNotFound
             work.videos.finish_due(project)
-            items = work.videos.list(project, status, query)
+            items = work.videos.list_videos(project, status, query)
             work.commit()
             return {"project": current.name, "items": items}
 

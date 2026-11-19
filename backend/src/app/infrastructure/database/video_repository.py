@@ -42,7 +42,7 @@ class VideoRepository:
             .values(status="ready", ready_at=None)
         )
 
-    def list(self, project: UUID, status: str, query: str) -> list[Video]:
+    def list_videos(self, project: UUID, status: str, query: str) -> list[Video]:
         stmt = select(VideoModel).where(VideoModel.project_id == project)
         if status != "all":
             stmt = stmt.where(VideoModel.status == status)
