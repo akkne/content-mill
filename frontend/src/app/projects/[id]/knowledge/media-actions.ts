@@ -26,7 +26,7 @@ export async function beginUpload(project: string, file: { name: string; mime_ty
 }
 
 export async function finishUpload(project: string, id: string) {
-  return request<{ node: KnowledgeNode }>(project, `files/uploads/${encodeURIComponent(id)}/complete`, "POST");
+  return request<{ node: KnowledgeNode; version: DocumentVersion }>(project, `files/uploads/${encodeURIComponent(id)}/complete`, "POST");
 }
 
 export async function exampleFiles(project: string) {

@@ -8,11 +8,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.container import knowledge_service
+from app.domain.project import ProjectNotFound
+from app.domain.video import InvalidVideo, VideoNotFound
 from app.presentation.http.auth import router as auth_router
 from app.presentation.http.knowledge import router as knowledge_router
 from app.presentation.http.media import router as media_router
 from app.presentation.http.projects import router as projects_router
 from app.presentation.http.search import router as search_router
+from app.presentation.http.videos import router as videos_router
 from app.presentation.http.voices import router as voices_router
 
 
@@ -36,6 +39,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Content Mill API", lifespan=lifespan)
+app.include_router(videos_router)
 app.include_router(media_router)
 app.include_router(voices_router)
 app.include_router(auth_router)
@@ -64,6 +68,17 @@ def handle_http_error(_: Request, error: HTTPException) -> JSONResponse:
             }
         },
     )
+
+
+@app.exception_handler(ProjectNotFound)
+@app.exception_handler(VideoNotFound)
+def missing_resource(request: Request, error: Exception) -> JSONResponse:
+    return handle_http_error(request, HTTPException(404, "Проект или ролик не найден"))
+
+
+@app.exception_handler(InvalidVideo)
+def invalid_video(request: Request, error: InvalidVideo) -> JSONResponse:
+    return handle_http_error(request, HTTPException(422, str(error)))
 
 
 @app.exception_handler(RequestValidationError)

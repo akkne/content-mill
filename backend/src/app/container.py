@@ -6,6 +6,7 @@ import httpx
 from app.application.auth_service import AuthService
 from app.application.knowledge_service import KnowledgeService
 from app.application.project_service import ProjectService
+from app.application.videos import VideoService
 from app.application.voice_library import VoiceLibrary
 from app.infrastructure.database.knowledge_unit_of_work import (
     SqlAlchemyKnowledgeUnitOfWork,
@@ -14,6 +15,7 @@ from app.infrastructure.database.project_unit_of_work import SqlAlchemyProjectUn
 from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
 from app.infrastructure.database.voice_library import SqlVoiceLibrary
 from app.infrastructure.elevenlabs import ElevenLabsCatalog
+from app.infrastructure.mock_video_generator import MockVideoGenerator
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
 from app.infrastructure.storage.s3_documents import S3DocumentStore
@@ -43,3 +45,7 @@ def voice_catalog() -> ElevenLabsCatalog:
 
 def voice_library() -> VoiceLibrary:
     return VoiceLibrary(SqlVoiceLibrary(), voice_catalog())
+
+
+def video_service() -> VideoService:
+    return VideoService(SqlAlchemyProjectUnitOfWork, MockVideoGenerator())
