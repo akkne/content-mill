@@ -1,10 +1,10 @@
 import Link from "next/link";
 
 const tile =
-  "flex aspect-square w-full max-w-52 flex-col justify-between rounded-3xl border p-5 text-left sm:p-7";
+  "flex aspect-square w-full min-w-0 flex-col justify-between rounded-3xl border p-5 text-left sm:p-7";
 export function LibraryTiles() {
   return (
-    <div className="mt-7 grid max-w-[440px] grid-cols-2 gap-4">
+    <div className="mt-12 grid w-full grid-cols-2 gap-4 sm:mt-16">
       <Link
         href="/knowledge/voices"
         className={`${tile} border-line bg-tint text-accent hover:border-accent`}
