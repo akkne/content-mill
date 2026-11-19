@@ -34,6 +34,7 @@ def as_node(model: KnowledgeNodeModel) -> KnowledgeNode:
         model.voice_gender,
         model.catalog_languages,
         model.voice_preview_url,
+        model.library_voice_id,
     )
 
 

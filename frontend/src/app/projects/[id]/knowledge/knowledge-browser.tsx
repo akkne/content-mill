@@ -353,8 +353,8 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
             </div>
           </div>
           {addingProfile && role === "voices" && folderId && (
-            <VoicePicker project={projectId} folder={folderId} onClose={() => setAddingProfile(false)}
-              onSave={node => { setNodes(previous => [...previous, node]); setAddingProfile(false); enter(node.id); }} />
+            <VoicePicker project={projectId} onClose={() => setAddingProfile(false)}
+              onSave={(node, items) => { setNodes(items); enter(node.id); }} />
           )}
           {addingProfile && role === "avatars" && (
             <form className="mb-5 flex flex-wrap items-end gap-2" onSubmit={event => {

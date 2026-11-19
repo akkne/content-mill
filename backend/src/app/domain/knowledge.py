@@ -30,6 +30,7 @@ class KnowledgeNode:
     voice_gender: str | None = None
     catalog_languages: list[str] | None = None
     voice_preview_url: str | None = None
+    library_voice_id: UUID | None = None
 
 
 @dataclass(frozen=True)

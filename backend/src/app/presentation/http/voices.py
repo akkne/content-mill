@@ -2,41 +2,35 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
 from app.application.voice_catalog import (
     CatalogError,
-    CatalogVoice,
     VoiceCatalog,
     VoicePage,
 )
-from app.container import voice_catalog
-from app.domain.knowledge import InvalidNodeOperation, NodeConflict, NodeNotFound
+from app.application.voice_library import VoiceLibrary
+from app.container import voice_catalog, voice_library
+from app.domain.knowledge import InvalidNodeOperation, NodeNotFound
 from app.domain.project import ProjectNotFound
-from app.presentation.http.knowledge import CurrentUser, RenameInput, Service, translate
+from app.presentation.http.knowledge import CurrentUser, RenameInput, translate
 
-router = APIRouter(prefix="/api/v1/projects/{project_id}/nodes/{folder_id}/voices")
+router = APIRouter(prefix="/api/v1/voices")
 Catalog = Annotated[VoiceCatalog, Depends(voice_catalog)]
 Gender = Literal["male", "female"]
 
 
-def check_folder(
-    project_id: UUID, folder_id: UUID, user: CurrentUser, service: Service
-):
-    try:
-        folder = service.get_node(project_id, user.id, folder_id)
-        if folder.folder_role != "voices":
-            raise InvalidNodeOperation("Откройте папку «Голоса»")
-    except (ProjectNotFound, NodeNotFound, InvalidNodeOperation) as error:
-        raise translate(error) from error
+Library = Annotated[VoiceLibrary, Depends(voice_library)]
 
 
 @router.get("")
+def library_list(user: CurrentUser, library: Library):
+    return library.repository.list_owned(user.id)
+
+
+@router.get("/catalog")
 def search(
-    project_id: UUID,
-    folder_id: UUID,
     user: CurrentUser,
-    service: Service,
     catalog: Catalog,
     query: str = Query("", max_length=160),
     exact: bool = False,
@@ -44,7 +38,6 @@ def search(
     gender: Gender | None = None,
     cursor: str = Query("", max_length=2048),
 ) -> VoicePage:
-    check_folder(project_id, folder_id, user, service)
     try:
         return catalog.search(
             query.strip(), exact, language.strip(), gender or "", cursor
@@ -60,28 +53,56 @@ class SaveVoice(RenameInput):
     from_catalog: bool = False
     gender: Gender | None = Field(default=None)
 
+    description: str = Field(default="", max_length=4000)
+    language: str = Field(default="", max_length=80)
+    model: str | None = Field(default=None, max_length=160)
+
 
 @router.post("", status_code=201)
-def save(
-    project_id: UUID,
-    folder_id: UUID,
-    payload: SaveVoice,
-    user: CurrentUser,
-    service: Service,
-    catalog: Catalog,
-):
-    check_folder(project_id, folder_id, user, service)
+def save(payload: SaveVoice, user: CurrentUser, library: Library):
     try:
-        voice = CatalogVoice(
-            payload.voice_id, payload.name, "", [], payload.gender, None
+        return library.create(
+            user.id,
+            payload.name,
+            payload.voice_id,
+            payload.from_catalog,
+            payload.description,
+            payload.language,
+            payload.gender,
+            payload.model,
         )
-        if payload.from_catalog:
-            page = catalog.search(payload.voice_id, True, "", "", "")
-            if not page.items:
-                raise CatalogError(404, "Голос больше не доступен в каталоге")
-            voice = page.items[0]
-        return service.add_voice(project_id, user.id, folder_id, payload.name, voice)
     except CatalogError as error:
         raise HTTPException(error.status, str(error)) from error
-    except (ProjectNotFound, NodeNotFound, InvalidNodeOperation, NodeConflict) as error:
+    except InvalidNodeOperation as error:
+        raise translate(error) from error
+
+
+class AssignProjects(BaseModel):
+    add: set[UUID] = Field(default_factory=set)
+    remove: set[UUID] = Field(default_factory=set)
+
+
+@router.patch("/{voice_id}/projects")
+def assign(
+    voice_id: UUID, payload: AssignProjects, user: CurrentUser, library: Library
+):
+    try:
+        return library.assign(user.id, voice_id, payload.add, payload.remove)
+    except (ProjectNotFound, NodeNotFound, InvalidNodeOperation) as error:
+        raise translate(error) from error
+
+
+class VoiceDetails(BaseModel):
+    description: str = Field(max_length=4000)
+    voice_language: str = Field(max_length=80)
+    voice_gender: Gender | None
+    voice_model: str = Field(max_length=160)
+    elevenlabs_voice_id: str | None = Field(max_length=160)
+
+
+@router.patch("/{voice_id}")
+def edit(voice_id: UUID, payload: VoiceDetails, user: CurrentUser, library: Library):
+    try:
+        return library.repository.edit(user.id, voice_id, payload.model_dump())
+    except NodeNotFound as error:
         raise translate(error) from error

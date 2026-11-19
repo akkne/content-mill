@@ -8,7 +8,6 @@ from app.application.knowledge_ports import (
     KnowledgeUnitOfWork,
     KnowledgeUnitOfWorkFactory,
 )
-from app.application.voice_catalog import CatalogVoice
 from app.domain.knowledge import (
     AVATAR_DESCRIPTION,
     AVATAR_FOLDERS,
@@ -104,10 +103,11 @@ class KnowledgeService:
             self._owned(work, project_id, owner_id)
             parent = self._parent(work, project_id, parent_id, kind)
             self._unique(work.repository.list(project_id), parent_id, name)
+            if parent and parent.folder_role == "voices" and kind == "folder":
+                raise InvalidNodeOperation("Выберите голос из личной библиотеки")
             role = None
             if parent and kind == "folder":
                 role = {
-                    "voices": "voice",
                     "avatars": "avatar",
                     "wardrobe": "outfit",
                 }.get(parent.folder_role)
@@ -126,41 +126,6 @@ class KnowledgeService:
                     )
             work.commit()
             return node
-
-    def add_voice(
-        self,
-        project_id: UUID,
-        owner_id: UUID,
-        parent_id: UUID,
-        name: str,
-        voice: CatalogVoice,
-    ) -> KnowledgeNode:
-        with self.unit_of_work() as work:
-            self._owned(work, project_id, owner_id)
-            parent = self._parent(work, project_id, parent_id, "folder")
-            if not parent or parent.folder_role != "voices":
-                raise InvalidNodeOperation(
-                    "Голос можно добавить только в папку «Голоса»"
-                )
-            self._unique(work.repository.list(project_id), parent_id, name)
-            node = work.repository.create(
-                project_id, parent_id, "folder", name, "voice"
-            )
-            saved = work.repository.change(
-                project_id,
-                node.id,
-                node.revision,
-                elevenlabs_voice_id=voice.id,
-                description=voice.description,
-                catalog_languages=voice.languages,
-                voice_language=next(iter(voice.languages), None),
-                voice_gender=voice.gender,
-                voice_preview_url=voice.preview_url,
-            )
-            if saved is None:
-                raise RevisionConflict
-            work.commit()
-            return saved
 
     def change_node(
         self,
@@ -478,20 +443,9 @@ class KnowledgeService:
             if node is None or node.folder_role != role:
                 raise NodeNotFound
             if role == "voice":
-                parent = (
-                    work.repository.get(project_id, node.parent_id)
-                    if node.parent_id
-                    else None
+                raise InvalidNodeOperation(
+                    "Настройки голоса редактируются в личной библиотеке"
                 )
-                if not parent or parent.folder_role != "voices":
-                    raise InvalidNodeOperation(
-                        "Сначала переместите голос в папку «Голоса»"
-                    )
-                if (
-                    "elevenlabs_voice_id" in fields
-                    and fields["elevenlabs_voice_id"] != node.elevenlabs_voice_id
-                ):
-                    fields.update(voice_preview_url=None, catalog_languages=None)
             voice_id = fields.get("linked_voice_id")
             if isinstance(voice_id, UUID):
                 voice = work.repository.get(project_id, voice_id)
