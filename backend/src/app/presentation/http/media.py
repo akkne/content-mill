@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header, Query
@@ -94,36 +94,6 @@ def download(
         raise translate(error) from error
 
 
-class VoiceInput(RenameInput):
-    language: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
-    ]
-    model: str | None = Field(default=None, max_length=160)
-
-
-@router.patch("/nodes/{node_id}/voice")
-def voice(
-    project_id: UUID,
-    node_id: UUID,
-    payload: VoiceInput,
-    user: CurrentUser,
-    service: Service,
-    if_match: str | None = Header(default=None),
-):
-    try:
-        return service.edit_voice(
-            project_id,
-            user.id,
-            node_id,
-            expected_revision(if_match),
-            payload.name,
-            payload.language,
-            payload.model,
-        )
-    except media_errors as error:
-        raise translate(error) from error
-
-
 @router.post("/files/examples", status_code=201)
 def examples(project_id: UUID, user: CurrentUser, service: Service):
     try:
@@ -142,11 +112,12 @@ class AvatarProfile(BaseModel):
 class VoiceProfile(BaseModel):
     model_config = ConfigDict(extra="forbid")
     description: str = Field(max_length=4000)
+    voice_gender: Literal["male", "female"] | None = None
     voice_language: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
+        str, StringConstraints(strip_whitespace=True, max_length=80)
     ]
     voice_model: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)
+        str, StringConstraints(strip_whitespace=True, max_length=160)
     ]
     elevenlabs_voice_id: str | None = Field(default=None, max_length=160)
 
@@ -168,7 +139,11 @@ def profile(
             node_id,
             expected_revision(if_match),
             role,
-            **payload.model_dump(),
+            **payload.model_dump(
+                exclude={"voice_gender"}
+                if role == "voice" and "voice_gender" not in payload.model_fields_set
+                else set()
+            ),
         )
     except media_errors as error:
         raise translate(error) from error

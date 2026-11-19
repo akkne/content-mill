@@ -13,6 +13,7 @@ from app.presentation.http.knowledge import router as knowledge_router
 from app.presentation.http.media import router as media_router
 from app.presentation.http.projects import router as projects_router
 from app.presentation.http.search import router as search_router
+from app.presentation.http.voices import router as voices_router
 
 
 async def cleanup_loop():
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Content Mill API", lifespan=lifespan)
 app.include_router(media_router)
+app.include_router(voices_router)
 app.include_router(auth_router)
 app.include_router(projects_router)
 app.include_router(knowledge_router)

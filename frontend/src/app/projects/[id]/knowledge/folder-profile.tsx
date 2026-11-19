@@ -20,7 +20,7 @@ export function FolderProfile({ project, folder, voices, onSave }: {
       const data = new FormData(event.currentTarget);
       const value = (key: string) => String(data.get(key) ?? "").trim();
       const profile = voice
-        ? { description: value("description"), voice_language: value("language"), voice_model: value("model"), elevenlabs_voice_id: value("voiceId") || null }
+        ? { voice_gender: value("gender") || null, description: value("description"), voice_language: value("language"), voice_model: value("model"), elevenlabs_voice_id: value("voiceId") || null }
         : { linked_voice_id: value("linkedVoice") || null };
       setMessage("");
       start(async () => {
@@ -33,11 +33,18 @@ export function FolderProfile({ project, folder, voices, onSave }: {
         <label className={fieldLabel}>Описание голоса
           <textarea className={field} name="description" maxLength={4000} defaultValue={folder.description ?? ""} />
         </label>
+        {folder.voice_preview_url && <audio aria-label="Пример ElevenLabs" controls preload="none" src={folder.voice_preview_url} />}
+        {!!folder.catalog_languages?.length && <p>Языки ElevenLabs · {folder.catalog_languages.join(", ")}</p>}
+        <label className={fieldLabel}>Пол голоса
+          <select className={field} name="gender" defaultValue={folder.voice_gender ?? ""}>
+            <option value="">Не указан</option><option value="male">Мужской</option><option value="female">Женский</option>
+          </select>
+        </label>
         <label className={fieldLabel}>Язык
-          <input className={field} name="language" required maxLength={80} defaultValue={folder.voice_language ?? ""} />
+          <input className={field} name="language" maxLength={80} defaultValue={folder.voice_language ?? ""} />
         </label>
         <label className={fieldLabel}>Модель ElevenLabs
-          <input className={field} name="model" required maxLength={160} defaultValue={folder.voice_model ?? ""} />
+          <input className={field} name="model" maxLength={160} defaultValue={folder.voice_model ?? ""} />
         </label>
         <label className={fieldLabel}>ID голоса в ElevenLabs
           <input className={field} name="voiceId" maxLength={160} defaultValue={folder.elevenlabs_voice_id ?? ""} />

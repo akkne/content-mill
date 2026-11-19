@@ -27,6 +27,9 @@ class KnowledgeNode:
     description: str | None = None
     elevenlabs_voice_id: str | None = None
     linked_voice_id: UUID | None = None
+    voice_gender: str | None = None
+    catalog_languages: list[str] | None = None
+    voice_preview_url: str | None = None
 
 
 @dataclass(frozen=True)

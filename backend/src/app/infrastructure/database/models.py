@@ -130,6 +130,9 @@ class KnowledgeNodeModel(Base):
     linked_voice_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("knowledge_nodes.id", name="knowledge_nodes_linked_voice_fk")
     )
+    voice_gender: Mapped[str | None] = mapped_column(String(16))
+    catalog_languages: Mapped[list[str] | None] = mapped_column(JSONB)
+    voice_preview_url: Mapped[str | None] = mapped_column(Text)
     voice_language: Mapped[str | None] = mapped_column(String(80))
     voice_model: Mapped[str | None] = mapped_column(String(160))
 

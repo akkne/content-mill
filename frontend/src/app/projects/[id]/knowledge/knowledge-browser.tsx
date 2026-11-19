@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { DocumentEditor } from "./document-editor";
 import Markdown from "react-markdown";
 import { FolderProfile } from "./folder-profile";
+import { VoicePicker } from "./voice-picker";
 import { MediaPreview } from "./media-preview";
 import { exampleFiles } from "./media-actions";
 import { acceptedMedia, uploadMedia } from "./upload-media";
@@ -351,13 +352,17 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
               </button>
             </div>
           </div>
-          {addingProfile && (role === "voices" || role === "avatars") && (
+          {addingProfile && role === "voices" && folderId && (
+            <VoicePicker project={projectId} folder={folderId} onClose={() => setAddingProfile(false)}
+              onSave={node => { setNodes(previous => [...previous, node]); setAddingProfile(false); enter(node.id); }} />
+          )}
+          {addingProfile && role === "avatars" && (
             <form className="mb-5 flex flex-wrap items-end gap-2" onSubmit={event => {
               event.preventDefault();
               const name = profileName.trim();
               if (name && !pending) mutate("create", { parentId: folderId, name, kind: "folder" });
             }}>
-              <label className={fieldLabel}>{role === "voices" ? "Имя голоса" : "Имя аватара"}
+              <label className={fieldLabel}>Имя аватара
                 <input className={field} autoFocus required maxLength={160} value={profileName}
                   onChange={event => setProfileName(event.target.value)} />
               </label>
@@ -472,7 +477,6 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
           key={media.id}
           project={projectId}
           node={media}
-          voiceSample={!!media.parent_id && byId.get(media.parent_id)?.folder_role === "voice"}
           path={nodePath(media, byId, projectName)}
           onChange={(updated) =>
             setNodes((previous) => previous.map((n) => (n.id === updated.id ? updated : n)))

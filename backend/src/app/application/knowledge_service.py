@@ -8,6 +8,7 @@ from app.application.knowledge_ports import (
     KnowledgeUnitOfWork,
     KnowledgeUnitOfWorkFactory,
 )
+from app.application.voice_catalog import CatalogVoice
 from app.domain.knowledge import (
     AVATAR_DESCRIPTION,
     AVATAR_FOLDERS,
@@ -126,6 +127,41 @@ class KnowledgeService:
             work.commit()
             return node
 
+    def add_voice(
+        self,
+        project_id: UUID,
+        owner_id: UUID,
+        parent_id: UUID,
+        name: str,
+        voice: CatalogVoice,
+    ) -> KnowledgeNode:
+        with self.unit_of_work() as work:
+            self._owned(work, project_id, owner_id)
+            parent = self._parent(work, project_id, parent_id, "folder")
+            if not parent or parent.folder_role != "voices":
+                raise InvalidNodeOperation(
+                    "Голос можно добавить только в папку «Голоса»"
+                )
+            self._unique(work.repository.list(project_id), parent_id, name)
+            node = work.repository.create(
+                project_id, parent_id, "folder", name, "voice"
+            )
+            saved = work.repository.change(
+                project_id,
+                node.id,
+                node.revision,
+                elevenlabs_voice_id=voice.id,
+                description=voice.description,
+                catalog_languages=voice.languages,
+                voice_language=next(iter(voice.languages), None),
+                voice_gender=voice.gender,
+                voice_preview_url=voice.preview_url,
+            )
+            if saved is None:
+                raise RevisionConflict
+            work.commit()
+            return saved
+
     def change_node(
         self,
         project_id: UUID,
@@ -145,7 +181,13 @@ class KnowledgeService:
             nodes = work.repository.list(project_id)
             destination = parent_id if move else node.parent_id
             if move:
-                self._parent(work, project_id, parent_id, node.kind)
+                target = self._parent(work, project_id, parent_id, node.kind)
+                if node.folder_role == "voice" and (
+                    not target or target.folder_role != "voices"
+                ):
+                    raise InvalidNodeOperation(
+                        "Голос должен находиться в папке «Голоса»"
+                    )
                 parent = parent_id
                 by_id = {item.id: item for item in nodes}
                 while parent is not None:
@@ -421,37 +463,6 @@ class KnowledgeService:
                 self.store.delete(upload.staging_key)
             work.commit()
 
-    def edit_voice(
-        self,
-        project_id: UUID,
-        owner_id: UUID,
-        node_id: UUID,
-        revision: int,
-        name: str,
-        language: str,
-        model: str | None,
-    ) -> KnowledgeNode:
-        with self.unit_of_work() as work:
-            self._owned(work, project_id, owner_id)
-            node = work.repository.get(project_id, node_id)
-            if node is None or node.kind != "audio":
-                raise NodeNotFound
-            self._unique(
-                work.repository.list(project_id), node.parent_id, name, node.id
-            )
-            updated = work.repository.change(
-                project_id,
-                node_id,
-                revision,
-                name=name,
-                voice_language=language,
-                voice_model=model,
-            )
-            if updated is None:
-                raise RevisionConflict
-            work.commit()
-            return updated
-
     def edit_profile(
         self,
         project_id: UUID,
@@ -466,6 +477,21 @@ class KnowledgeService:
             node = work.repository.get(project_id, node_id)
             if node is None or node.folder_role != role:
                 raise NodeNotFound
+            if role == "voice":
+                parent = (
+                    work.repository.get(project_id, node.parent_id)
+                    if node.parent_id
+                    else None
+                )
+                if not parent or parent.folder_role != "voices":
+                    raise InvalidNodeOperation(
+                        "Сначала переместите голос в папку «Голоса»"
+                    )
+                if (
+                    "elevenlabs_voice_id" in fields
+                    and fields["elevenlabs_voice_id"] != node.elevenlabs_voice_id
+                ):
+                    fields.update(voice_preview_url=None, catalog_languages=None)
             voice_id = fields.get("linked_voice_id")
             if isinstance(voice_id, UUID):
                 voice = work.repository.get(project_id, voice_id)
