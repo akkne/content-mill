@@ -3,11 +3,11 @@
 import { eyebrow, kbDocumentFoot, kbDocumentHead, kbEmpty, secondaryButton } from "@/app/ui-styles";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { KnowledgeNode } from "@/lib/knowledge";
-import { mediaPreview, updateVoice } from "./media-actions";
+import { mediaPreview } from "./media-actions";
 import { acceptedMedia, uploadMedia } from "./upload-media";
 
-export function MediaPreview({ project, node, voiceSample, path, onChange, onClose }: {
-  voiceSample: boolean; project: string; node: KnowledgeNode; path: string; onChange: (node: KnowledgeNode) => void; onClose: () => void;
+export function MediaPreview({ project, node, path, onChange, onClose }: {
+  project: string; node: KnowledgeNode; path: string; onChange: (node: KnowledgeNode) => void; onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [number, setNumber] = useState<number>();
@@ -122,47 +122,8 @@ export function MediaPreview({ project, node, voiceSample, path, onChange, onClo
             }}
           />
         </label>
+        {node.kind === "audio" && (node.voice_language || node.voice_model) && <p className="text-muted">{[node.voice_language, node.voice_model].filter(Boolean).join(" · ")}</p>}
         {pending && <span role="status">Сохраняем…</span>}
-        {node.kind === "audio" && !voiceSample && (
-          <details>
-            <summary>Параметры голоса{node.voice_language && ` · ${node.voice_language}`}</summary>
-            <form
-              className="grid gap-3 px-[22px] py-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const data = new FormData(event.currentTarget);
-                start(async () => {
-                  const result = await updateVoice(
-                    project,
-                    node.id,
-                    node.revision,
-                    String(data.get("name")),
-                    String(data.get("language")),
-                    String(data.get("model")),
-                  );
-                  if (result.data) onChange(result.data);
-                  else setError(result.error);
-                });
-              }}
-            >
-              <label>
-                Имя голоса
-                <input name="name" required maxLength={160} defaultValue={node.name} />
-              </label>
-              <label>
-                Язык
-                <input name="language" required maxLength={80} defaultValue={node.voice_language || ""} />
-              </label>
-              <label>
-                Модель ElevenLabs (необязательно)
-                <input name="model" maxLength={160} defaultValue={node.voice_model || ""} />
-              </label>
-              <button className={secondaryButton} disabled={pending}>
-                Сохранить голос
-              </button>
-            </form>
-          </details>
-        )}
         {error && (
           <div role="alert">
             {error} <button onClick={() => setAttempt(attempt + 1)}>Обновить ссылку</button>

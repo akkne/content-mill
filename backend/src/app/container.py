@@ -1,3 +1,8 @@
+import os
+from functools import lru_cache
+
+import httpx
+
 from app.application.auth_service import AuthService
 from app.application.knowledge_service import KnowledgeService
 from app.application.project_service import ProjectService
@@ -6,6 +11,7 @@ from app.infrastructure.database.knowledge_unit_of_work import (
 )
 from app.infrastructure.database.project_unit_of_work import SqlAlchemyProjectUnitOfWork
 from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
+from app.infrastructure.elevenlabs import ElevenLabsCatalog
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
 from app.infrastructure.storage.s3_documents import S3DocumentStore
@@ -24,3 +30,10 @@ def project_service() -> ProjectService:
 
 def knowledge_service() -> KnowledgeService:
     return KnowledgeService(SqlAlchemyKnowledgeUnitOfWork, S3DocumentStore())
+
+
+@lru_cache(maxsize=1)
+def voice_catalog() -> ElevenLabsCatalog:
+    return ElevenLabsCatalog(
+        os.getenv("ELEVENLABS_API_KEY", ""), httpx.Client(timeout=8)
+    )

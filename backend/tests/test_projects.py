@@ -558,16 +558,14 @@ def test_media_upload_version_visibility_and_voice(login):
             assert latest["url"] != old["url"]
             assert store.objects[old["url"]] == data
             rev = saved2["node"]["revision"]
-            voice = client.patch(
+            retired = client.patch(
                 path + "/voice",
                 json={"name": "Анна", "language": "ru", "model": "example"},
                 headers=owner | {"If-Match": str(rev)},
-            ).json()
-            assert voice["voice_language"] == "ru"
+            )
+            assert retired.status_code == 404
             assert (
-                client.delete(
-                    path, headers=owner | {"If-Match": str(voice["revision"])}
-                ).status_code
+                client.delete(path, headers=owner | {"If-Match": str(rev)}).status_code
                 == 204
             )
             assert client.get(path + "/download", headers=owner).status_code == 404
@@ -666,3 +664,91 @@ def test_starter_folders_and_reusable_voice(login):
             == 204
         )
         assert client.get(f"{base}/{avatar['id']}").json()["linked_voice_id"] is None
+
+
+def test_voice_catalog_and_manual_import(login):
+    import httpx
+    from app.container import voice_catalog
+    from app.infrastructure.elevenlabs import ElevenLabsCatalog
+
+    calls = []
+
+    def lookup(request):
+        calls.append(request)
+        assert request.headers["xi-api-key"] == "test"
+        return httpx.Response(
+            200,
+            json={
+                "voices": [
+                    {
+                        "voice_id": "one",
+                        "name": "Anna",
+                        "labels": {"gender": "female", "language": "ru"},
+                        "preview_url": "https://example.test/demo.mp3",
+                    }
+                ],
+                "has_more": not request.url.params.get("voice_ids"),
+                "next_page_token": "page2",
+            },
+        )
+
+    owner, stranger = login(), login()
+    with (
+        httpx.Client(transport=httpx.MockTransport(lookup)) as provider,
+        TestClient(app, headers=owner) as client,
+    ):
+        catalog = ElevenLabsCatalog("test", provider)
+        app.dependency_overrides[voice_catalog] = lambda: catalog
+        try:
+            project = client.post("/api/v1/projects", json={"name": "Каталог"}).json()
+            nodes = f"/api/v1/projects/{project['id']}/nodes"
+            tree = client.get(nodes + "/tree").json()["items"]
+            folder = next(n["id"] for n in tree if n["folder_role"] == "voices")
+            path = f"{nodes}/{folder}/voices"
+            assert client.get(path, headers=stranger).status_code == 404
+            assert not calls
+            params = {
+                "query": "Anna",
+                "language": "ru",
+                "gender": "female",
+                "cursor": "p",
+            }
+            page = client.get(path, params=params).json()
+            assert page["next_cursor"] == "page2"
+            assert page["items"][0]["languages"] == ["ru"]
+            assert dict(calls[0].url.params) == {
+                "page_size": "20",
+                "include_total_count": "false",
+                "search": "Anna",
+                "language": "ru",
+                "gender": "female",
+                "next_page_token": "p",
+            }
+            assert client.get(path, params=params).json() == page
+            assert len(calls) == 1
+            data = {"name": "Анна", "voice_id": "one", "from_catalog": True}
+            saved = client.post(path, json=data).json()
+            assert saved["voice_gender"] == "female"
+            assert saved["elevenlabs_voice_id"] == "one"
+            assert saved["voice_preview_url"] == "https://example.test/demo.mp3"
+            assert calls[-1].url.params["voice_ids"] == "one"
+            assert client.post(path, json=data).status_code == 409
+            assert (
+                client.post(f"{nodes}/{saved['id']}/voices", json=data).status_code
+                == 422
+            )
+            assert (
+                client.post(path, json=data | {"voice_id": "missing"}).status_code
+                == 404
+            )
+            app.dependency_overrides[voice_catalog] = lambda: ElevenLabsCatalog(
+                "", provider
+            )
+            assert client.get(path).status_code == 503
+            manual = client.post(
+                path, json={"name": "Свой", "voice_id": "two", "gender": "male"}
+            )
+            assert manual.status_code == 201
+            assert manual.json()["voice_gender"] == "male"
+        finally:
+            app.dependency_overrides.pop(voice_catalog)

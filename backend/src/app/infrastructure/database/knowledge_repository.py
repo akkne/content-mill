@@ -31,6 +31,9 @@ def as_node(model: KnowledgeNodeModel) -> KnowledgeNode:
         model.description,
         model.elevenlabs_voice_id,
         model.linked_voice_id,
+        model.voice_gender,
+        model.catalog_languages,
+        model.voice_preview_url,
     )
 
 

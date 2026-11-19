@@ -7,6 +7,9 @@ export type KnowledgeNode = {
   project_id: string;
   parent_id: string | null;
   kind: "folder" | "document" | "image" | "audio" | "video" | "file";
+  voice_gender: string | null;
+  catalog_languages: string[] | null;
+  voice_preview_url: string | null;
   voice_language: string | null;
   folder_role: string | null;
   description: string | null;

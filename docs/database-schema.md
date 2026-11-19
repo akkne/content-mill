@@ -111,6 +111,9 @@ PK обозначает первичный ключ, FK — внешний кл�
 | `description` | `text` | да | — |
 | `elevenlabs_voice_id` | `varchar(160)` | да | — |
 | `linked_voice_id` | `uuid` | да | FK → `knowledge_nodes.id` |
+| `voice_gender` | `varchar(16)` | да | — |
+| `catalog_languages` | `jsonb` | да | — |
+| `voice_preview_url` | `text` | да | — |
 | `voice_language` | `varchar(80)` | да | — |
 | `voice_model` | `varchar(160)` | да | — |
 
