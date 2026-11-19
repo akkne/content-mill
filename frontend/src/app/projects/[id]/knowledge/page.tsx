@@ -1,4 +1,5 @@
-import { backLink, content, eyebrow, pageLead, pageTitle } from "@/app/ui-styles";
+import { KnowledgeHeader } from "@/app/knowledge/knowledge-header";
+import { backLink, content, pageTitle } from "@/app/ui-styles";
 import { LibraryTiles } from "@/app/knowledge/library-tiles";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -33,11 +34,7 @@ export default async function KnowledgePage({ params }: { params: Promise<{ id: 
         <Link className={backLink} href={`/projects/${id}`}>
           ← Контекст проекта
         </Link>
-        <span className={eyebrow}>{project.name}</span>
-        <h1 className={pageTitle}>База знаний</h1>
-        <p className={pageLead}>
-          Материалы бренда, товаров и каждого ролика в одном дереве. Дважды нажмите файл, чтобы открыть его.
-        </p>
+        <KnowledgeHeader project={project.name} description="Материалы бренда, товаров и роликов. Дважды нажмите файл, чтобы открыть его." />
         <KnowledgeBrowser
           initialSources={{ ids: context.source_version_ids, revision: context.revision }}
           initial={nodes}

@@ -1,4 +1,5 @@
-import { content, pageLead, pageTitle, projectCard, projectGrid, secondaryButton } from "@/app/ui-styles";
+import { KnowledgeHeader } from "@/app/knowledge/knowledge-header";
+import { content, projectCard, projectGrid, secondaryButton } from "@/app/ui-styles";
 import { LibraryTiles } from "@/app/knowledge/library-tiles";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -17,19 +18,16 @@ export default async function KnowledgeProjects() {
   return (
     <AppShell userName={user.display_name} section="База знаний">
       <main className={content} id="main-content">
-        <h1 className={pageTitle}>База знаний</h1>
+        <KnowledgeHeader description={projects.length ? "Выберите проект, чтобы открыть его папки и файлы." : "Создайте проект, чтобы собрать материалы бренда и роликов в одном месте."} />
         {projects.length ? (
-          <>
-            <p className={pageLead}>Выберите проект, чтобы открыть его папки и файлы.</p>
-            <div className={projectGrid}>
-              {projects.map((p) => (
-                <Link className={projectCard} href={`/projects/${p.id}/knowledge`} key={p.id}>
-                  <strong className="text-base">{p.name}</strong>
-                  <span className="font-bold text-accent">Открыть папки →</span>
-                </Link>
-              ))}
-            </div>
-          </>
+          <div className={projectGrid}>
+            {projects.map((p) => (
+              <Link className={projectCard} href={`/projects/${p.id}/knowledge`} key={p.id}>
+                <strong className="text-base">{p.name}</strong>
+                <span className="font-bold text-accent">Открыть папки →</span>
+              </Link>
+            ))}
+          </div>
         ) : (
           <Link className={secondaryButton} href="/projects">
             Создать первый проект
