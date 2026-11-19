@@ -1,0 +1,29 @@
+import Image from "next/image";
+import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { AppShell } from "@/app/app-shell";
+import { backLink, content } from "@/app/ui-styles";
+import { fetchCurrentUser } from "@/lib/backend";
+import { accessCookie } from "@/lib/session";
+
+export default async function AvatarsPage() {
+  const token = (await cookies()).get(accessCookie)?.value;
+  const user = token && await fetchCurrentUser(token);
+  if (!user) redirect("/login");
+
+  return (
+    <AppShell userName={user.display_name} section="База знаний">
+      <main className={content} id="main-content">
+        <Link className={backLink} href="/knowledge">← База знаний</Link>
+        <header className="flex items-center justify-between gap-4 overflow-hidden rounded-[22px] border border-line bg-hero px-6 py-8 shadow-panel sm:px-9">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Аватары</h1>
+            <p className="mt-3 text-sm leading-relaxed text-muted">Личная библиотека аватаров в разработке.</p>
+          </div>
+          <Image src="/library/portrait.jpg" alt="" width={120} height={150} className="mr-2 w-20 rotate-6 rounded-sm border-4 border-white shadow-panel sm:w-28" />
+        </header>
+      </main>
+    </AppShell>
+  );
+}
