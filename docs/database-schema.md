@@ -1,0 +1,151 @@
+# Схема базы данных Content Mill
+
+PostgreSQL хранит учётные записи, проекты, дерево базы знаний и метаданные файлов. Содержимое версий хранится в S3 по ключу `document_versions.storage_key`. Структуру задают [модели SQLAlchemy](../backend/src/app/infrastructure/database/models.py), историю изменений ведёт [Alembic](../backend/src/migrations/versions/).
+
+## Связи таблиц
+
+Подписи линий указывают поле внешнего ключа в дочерней таблице. Таблица `login_attempts` хранит попытки входа по `attempt_key` независимо от наличия учётной записи.
+
+```mermaid
+erDiagram
+    login_attempts
+    users ||--o{ auth_sessions : user_id
+    auth_sessions ||--o{ access_tokens : session_id
+    users ||--o{ projects : owner_id
+    projects ||--o| project_contexts : project_id
+    projects ||--o{ knowledge_nodes : project_id
+    knowledge_nodes |o--o{ knowledge_nodes : parent_id
+    knowledge_nodes |o--o{ knowledge_nodes : linked_voice_id
+    knowledge_nodes ||--o{ document_versions : node_id
+    projects ||--o{ media_uploads : project_id
+```
+
+У корневого узла `parent_id` пуст. Поле `linked_voice_id` связывает аватар с папкой голоса. Список `project_contexts.source_version_ids` содержит идентификаторы выбранных версий документов в JSONB. Для этого списка и для полей `media_uploads.parent_id` и `media_uploads.node_id` внешние ключи в БД не заданы.
+
+## Поля и ограничения
+
+PK обозначает первичный ключ, FK — внешний ключ. Типы указаны для PostgreSQL.
+
+### `users`
+
+| Поле | Тип | Допускает NULL | Ключ |
+| --- | --- | --- | --- |
+| `id` | `uuid` | нет | PK |
+| `email` | `varchar(254)` | нет | UNIQUE |
+| `display_name` | `text` | нет | — |
+| `password_hash` | `text` | нет | — |
+| `created_at` | `timestamp with time zone` | нет | — |
+
+### `auth_sessions`
+
+| Поле | Тип | Допускает NULL | Ключ |
+| --- | --- | --- | --- |
+| `id` | `uuid` | нет | PK |
+| `user_id` | `uuid` | нет | FK → `users.id` |
+| `family_id` | `uuid` | нет | — |
+| `refresh_hash` | `text` | нет | UNIQUE |
+| `expires_at` | `timestamp with time zone` | нет | — |
+| `revoked_at` | `timestamp with time zone` | да | — |
+| `rotated_at` | `timestamp with time zone` | да | — |
+| `created_at` | `timestamp with time zone` | нет | — |
+
+Индекс `auth_sessions_family_idx` по полям `family_id`.
+
+### `access_tokens`
+
+| Поле | Тип | Допускает NULL | Ключ |
+| --- | --- | --- | --- |
+| `token_hash` | `text` | нет | PK |
+| `session_id` | `uuid` | нет | FK → `auth_sessions.id` |
+| `expires_at` | `timestamp with time zone` | нет | — |
+
+### `login_attempts`
+
+| Поле | Тип | Допускает NULL | Ключ |
+| --- | --- | --- | --- |
+| `id` | `uuid` | нет | PK |
+| `attempt_key` | `text` | нет | — |
+| `attempted_at` | `timestamp with time zone` | нет | — |
+
+Индекс `login_attempts_key_idx` по полям `attempt_key, attempted_at`.
+
+### `projects`
+
+| Поле | Тип | Допускает NULL | Ключ |
+| --- | --- | --- | --- |
+| `id` | `uuid` | нет | PK |
+| `owner_id` | `uuid` | нет | FK → `users.id` |
+| `name` | `varchar(160)` | нет | — |
+| `revision` | `integer` | нет | — |
+| `created_at` | `timestamp with time zone` | нет | — |
+
+Индекс `projects_owner_created_idx` по полям `owner_id, created_at, id`.
+
+### `project_contexts`
+
+| Поле | Тип | Допускает NULL | Ключ |
+| --- | --- | --- | --- |
+| `project_id` | `uuid` | нет | PK, FK → `projects.id` |
+| `revision` | `integer` | нет | — |
+| `description` | `text` | нет | — |
+| `audiences` | `jsonb` | нет | — |
+| `products` | `jsonb` | нет | — |
+| `facts` | `jsonb` | нет | — |
+| `tone_of_voice` | `text` | нет | — |
+| `forbidden_terms` | `jsonb` | нет | — |
+| `source_version_ids` | `jsonb` | нет | — |
+
+### `knowledge_nodes`
+
+| Поле | Тип | Допускает NULL | Ключ |
+| --- | --- | --- | --- |
+| `id` | `uuid` | нет | PK |
+| `project_id` | `uuid` | нет | FK → `projects.id` |
+| `parent_id` | `uuid` | да | FK → `knowledge_nodes.id` |
+| `kind` | `varchar(16)` | нет | — |
+| `name` | `varchar(160)` | нет | — |
+| `revision` | `integer` | нет | — |
+| `created_at` | `timestamp with time zone` | нет | — |
+| `archived_at` | `timestamp with time zone` | да | — |
+| `folder_role` | `varchar(32)` | да | — |
+| `description` | `text` | да | — |
+| `elevenlabs_voice_id` | `varchar(160)` | да | — |
+| `linked_voice_id` | `uuid` | да | FK → `knowledge_nodes.id` |
+| `voice_language` | `varchar(80)` | да | — |
+| `voice_model` | `varchar(160)` | да | — |
+
+Индекс `knowledge_nodes_project_parent_idx` по полям `project_id, parent_id`.
+
+### `document_versions`
+
+| Поле | Тип | Допускает NULL | Ключ |
+| --- | --- | --- | --- |
+| `id` | `uuid` | нет | PK |
+| `node_id` | `uuid` | нет | FK → `knowledge_nodes.id` |
+| `version` | `integer` | нет | — |
+| `format` | `varchar(16)` | нет | — |
+| `size_bytes` | `integer` | нет | — |
+| `sha256` | `varchar(64)` | нет | — |
+| `storage_key` | `text` | нет | UNIQUE |
+| `search_text` | `text` | да | — |
+| `created_at` | `timestamp with time zone` | нет | — |
+
+Уникальный индекс `document_versions_node_version_idx` по полям `node_id, version`.
+
+### `media_uploads`
+
+| Поле | Тип | Допускает NULL | Ключ |
+| --- | --- | --- | --- |
+| `id` | `uuid` | нет | PK |
+| `project_id` | `uuid` | нет | FK → `projects.id` (ON DELETE CASCADE) |
+| `parent_id` | `uuid` | да | — |
+| `node_id` | `uuid` | да | — |
+| `revision` | `integer` | да | — |
+| `name` | `varchar(160)` | нет | — |
+| `mime_type` | `varchar(64)` | нет | — |
+| `size_bytes` | `integer` | нет | — |
+| `sha256` | `varchar(64)` | нет | — |
+| `expires_at` | `timestamp with time zone` | нет | — |
+| `completed_version` | `integer` | да | — |
+
+Индекс `ix_media_uploads_expires_at` по полям `expires_at`.
