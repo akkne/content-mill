@@ -6,10 +6,12 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.routing import Route
 
 from app.container import knowledge_service
 from app.domain.project import ProjectNotFound
 from app.domain.video import InvalidVideo, VideoNotFound
+from app.presentation.http.agent_tokens import router as agent_tokens_router
 from app.presentation.http.auth import router as auth_router
 from app.presentation.http.knowledge import router as knowledge_router
 from app.presentation.http.media import router as media_router
@@ -17,6 +19,7 @@ from app.presentation.http.projects import router as projects_router
 from app.presentation.http.search import router as search_router
 from app.presentation.http.videos import router as videos_router
 from app.presentation.http.voices import router as voices_router
+from app.presentation.mcp import ProjectMcpEndpoint, create_mcp
 
 
 async def cleanup_loop():
@@ -30,15 +33,22 @@ async def cleanup_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(cleanup_loop())
-    try:
-        yield
-    finally:
-        task.cancel()
-        await asyncio.gather(task, return_exceptions=True)
+    mcp = create_mcp()
+    app.state.mcp_app = mcp.streamable_http_app()
+    async with mcp.session_manager.run():
+        task = asyncio.create_task(cleanup_loop())
+        try:
+            yield
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
 
 app = FastAPI(title="Content Mill API", lifespan=lifespan)
+app.router.routes.append(
+    Route("/mcp", endpoint=ProjectMcpEndpoint(), methods=["POST", "GET", "DELETE"])
+)
+app.include_router(agent_tokens_router)
 app.include_router(videos_router)
 app.include_router(media_router)
 app.include_router(voices_router)

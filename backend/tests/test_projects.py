@@ -1,8 +1,10 @@
 import os
-from datetime import UTC, datetime
+from base64 import b64decode
+from datetime import UTC, datetime, timedelta
 from hashlib import sha256
+from io import BytesIO
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from alembic import command
@@ -17,6 +19,7 @@ from app.infrastructure.database.models import (
     AccessTokenModel,
     DocumentVersionModel,
     KnowledgeNodeModel,
+    ProjectAgentTokenModel,
     ProjectContextModel,
     ProjectModel,
     RefreshSessionModel,
@@ -24,9 +27,11 @@ from app.infrastructure.database.models import (
     VideoModel,
 )
 from app.infrastructure.database.session import session_factory
+from app.infrastructure.examples.library import example_entries
 from app.infrastructure.storage.s3_documents import S3DocumentStore
 from app.main import app
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import delete, select, update
 
 
@@ -886,3 +891,95 @@ def test_project_video_lifecycle(login):
         assert act("duplicate").json()["status"] == "draft"
         assert act("delete").status_code == 200
         assert client.get(path, headers=owner).status_code == 404
+
+
+def test_project_mcp_tools_and_scope(login):
+    owner, stranger = login(), login()
+    with TestClient(app, base_url="http://localhost") as client:
+
+        def create(headers):
+            pid = client.post(
+                "/api/v1/projects", headers=headers, json={"name": "Студия"}
+            ).json()["id"]
+            return f"/api/v1/projects/{pid}"
+
+        project = create(owner)
+        other = create(stranger)
+        endpoint = project + "/mcp-token"
+
+        def issue(path, headers):
+            response = client.post(path + "/mcp-token", headers=headers)
+            assert response.status_code == 201
+            return {
+                "Authorization": "Bearer " + response.json()["token"],
+                "Accept": "application/json, text/event-stream",
+            }
+
+        token = issue(project, owner)
+
+        def rpc(headers, method, params):
+            return client.post(
+                "/mcp",
+                headers=headers,
+                json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+            )
+
+        def call(headers, name, **args):
+            return rpc(headers, "tools/call", {"name": name, "arguments": args}).json()[
+                "result"
+            ]
+
+        assert client.post(endpoint, headers=stranger).status_code == 404
+        assert client.get("/api/v1/me", headers=token).status_code == 401
+        assert rpc(owner, "tools/list", {}).status_code == 401
+        assert (
+            rpc(
+                token,
+                "initialize",
+                {
+                    "protocolVersion": "2025-11-25",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test", "version": "1"},
+                },
+            ).status_code
+            == 200
+        )
+        assert {
+            item["name"]
+            for item in rpc(token, "tools/list", {}).json()["result"]["tools"]
+        } == {"find_assets", "read_document", "preview_asset"}
+        reply = call(token, "find_assets", query="Промпты", limit=1)
+        assert not reply["isError"], reply
+        result = reply["structuredContent"]
+        assert result["next_offset"] == 1
+        asset = result["items"][0]
+        assert asset["path"].startswith("Промпты/")
+        vid = asset["version_id"]
+        text = call(token, "read_document", version_id=vid, limit=8)[
+            "structuredContent"
+        ]
+        assert len(text["text"]) == 8 and text["next_offset"] == 8
+        assert call(issue(other, stranger), "read_document", version_id=vid)["isError"]
+        project_id = UUID(project.rsplit("/", 1)[1])
+        user_id = UUID(client.get("/api/v1/me", headers=owner).json()["id"])
+        knowledge_service().import_examples(project_id, user_id, example_entries())
+        for kind in ("image", "video"):
+            row = call(token, "find_assets", kind=kind)["structuredContent"]["items"][0]
+            block = call(token, "preview_asset", version_id=row["version_id"])[
+                "content"
+            ][0]
+            assert block["type"] == "image" and block["mimeType"] == "image/jpeg"
+            assert max(Image.open(BytesIO(b64decode(block["data"]))).size) <= 768
+        replacement = issue(project, owner)
+        assert rpc(token, "tools/list", {}).status_code == 401
+        assert client.delete(endpoint, headers=owner).status_code == 204
+        assert rpc(replacement, "tools/list", {}).status_code == 401
+        expired = issue(project, owner)
+        with session_factory()() as session:
+            session.execute(
+                update(ProjectAgentTokenModel)
+                .where(ProjectAgentTokenModel.project_id == project_id)
+                .values(expires_at=datetime.now(UTC) - timedelta(seconds=1))
+            )
+            session.commit()
+        assert rpc(expired, "tools/list", {}).status_code == 401

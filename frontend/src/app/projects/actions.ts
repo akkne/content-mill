@@ -61,3 +61,17 @@ export async function renameProject(id: string, revision: number, name: string) 
     return "Сервер недоступен. Повторите сохранение позже.";
   }
 }
+
+export async function manageAgentToken(id: string, action: "issue" | "revoke"): Promise<{token?: string; message: string}> {
+  try {
+    const response = await projectRequest(`/api/v1/projects/${encodeURIComponent(id)}/mcp-token`, {
+      method: action === "issue" ? "POST" : "DELETE",
+    });
+    if (!response.ok) return {message: "Не удалось изменить доступ агента."};
+    if (action === "revoke") return {message: "Доступ отозван."};
+    const {token, expires_at} = await response.json();
+    return {token, message: `Действует до ${new Date(expires_at).toISOString()}.`};
+  } catch {
+    return {message: "Сервер недоступен. Попробуйте ещё раз."};
+  }
+}

@@ -3,11 +3,13 @@ from functools import lru_cache
 
 import httpx
 
+from app.application.agent_files import AgentFiles
 from app.application.auth_service import AuthService
 from app.application.knowledge_service import KnowledgeService
 from app.application.project_service import ProjectService
 from app.application.videos import VideoService
 from app.application.voice_library import VoiceLibrary
+from app.infrastructure.asset_preview import AssetPreview
 from app.infrastructure.database.knowledge_unit_of_work import (
     SqlAlchemyKnowledgeUnitOfWork,
 )
@@ -52,3 +54,7 @@ def voice_library() -> VoiceLibrary:
 
 def video_service() -> VideoService:
     return VideoService(SqlAlchemyProjectUnitOfWork, MockVideoGenerator())
+
+
+def agent_files() -> AgentFiles:
+    return AgentFiles(SqlAlchemyProjectUnitOfWork, S3DocumentStore(), AssetPreview())
