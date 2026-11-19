@@ -1,3 +1,4 @@
+from contextlib import ExitStack
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
@@ -8,6 +9,7 @@ from app.application.knowledge_ports import (
     KnowledgeUnitOfWork,
     KnowledgeUnitOfWorkFactory,
 )
+from app.application.seed_documents import create_entry
 from app.domain.knowledge import (
     AVATAR_DESCRIPTION,
     AVATAR_FOLDERS,
@@ -460,43 +462,15 @@ class KnowledgeService:
     def import_examples(
         self, project_id: UUID, owner_id: UUID, entries: list[ExampleEntry]
     ) -> list[KnowledgeNode]:
-        keys = []
-        with self.unit_of_work() as work:
+        with self.unit_of_work() as work, ExitStack() as cleanup:
             self._owned(work, project_id, owner_id)
             self._unique(work.repository.list(project_id), None, entries[0].name)
             nodes = {}
-            try:
-                for entry in entries:
-                    parent = nodes[entry.parent].id if entry.parent else None
-                    node = work.repository.create(
-                        project_id, parent, entry.kind, entry.name
-                    )
-                    if entry.kind != "folder":
-                        key = (
-                            f"projects/{project_id}/nodes/{node.id}/versions/{uuid4()}"
-                        )
-                        mime = {"markdown": "text/markdown", "plain": "text/plain"}.get(
-                            entry.format, entry.format
-                        )
-                        self.store.put(key, entry.content, mime)
-                        keys.append(key)
-                        version = work.repository.add_version(
-                            node.id,
-                            node.revision,
-                            1,
-                            entry.format,
-                            len(entry.content),
-                            sha256(entry.content).hexdigest(),
-                            key,
-                            entry.content.decode() if entry.kind == "document" else "",
-                        )
-                        if version is None:
-                            raise RevisionConflict
-                        node = replace(node, revision=node.revision + 1)
-                    nodes[entry.id] = node
-                work.commit()
-            except Exception:
-                for key in keys:
-                    self.store.delete(key)
-                raise
+            for entry in entries:
+                parent = nodes[entry.parent].id if entry.parent else None
+                nodes[entry.id] = create_entry(
+                    project_id, parent, entry, work.repository, self.store, cleanup
+                )
+            work.commit()
+            cleanup.pop_all()
             return list(nodes.values())

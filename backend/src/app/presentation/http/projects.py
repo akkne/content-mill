@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from app.application.project_service import ProjectService
 from app.container import project_service
 from app.domain.auth import User
+from app.domain.knowledge import DocumentStorageError
 from app.domain.project import (
     Fact,
     InvalidCursor,
@@ -74,7 +75,10 @@ def list_projects(
 def create_project(
     payload: ProjectInput, user: CurrentUser, service: Service
 ) -> ProjectResponse:
-    project = service.create_project(user.id, payload.name)
+    try:
+        project = service.create_project(user.id, payload.name)
+    except DocumentStorageError as error:
+        raise HTTPException(503, "Хранилище документов недоступно") from error
     return ProjectResponse.model_validate(project, from_attributes=True)
 
 

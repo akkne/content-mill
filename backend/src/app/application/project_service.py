@@ -1,8 +1,11 @@
+from contextlib import ExitStack
 from dataclasses import replace
 from uuid import UUID
 
+from app.application.knowledge_ports import DocumentStore
 from app.application.project_ports import ProjectUnitOfWorkFactory
-from app.domain.knowledge import AVATAR_DESCRIPTION, AVATAR_FOLDERS
+from app.application.seed_documents import create_entry
+from app.domain.knowledge import AVATAR_DESCRIPTION, AVATAR_FOLDERS, ExampleEntry
 from app.domain.project import (
     InvalidSourceVersion,
     Project,
@@ -23,22 +26,6 @@ STARTER_FOLDERS = (
     "Референсы",
     "Формулы роликов",
     "Промпты",
-    *(
-        f"Промпты/{name}"
-        for name in (
-            "Общие",
-            "Бриф и источники",
-            "Сценарий и хуки",
-            "Раскадровка",
-            "Голос",
-            "Аватар",
-            "Медиаматериалы",
-            "Анимации",
-            "Монтаж и субтитры",
-            "Рендер и проверка",
-            "Варианты и публикация",
-        )
-    ),
     "Ролики",
     "Ролики/CM-000123",
     "Ролики/CM-000123/Документы",
@@ -51,8 +38,15 @@ STARTER_FOLDERS = (
 
 
 class ProjectService:
-    def __init__(self, unit_of_work: ProjectUnitOfWorkFactory) -> None:
+    def __init__(
+        self,
+        unit_of_work: ProjectUnitOfWorkFactory,
+        prompts: tuple[ExampleEntry, ...],
+        store: DocumentStore,
+    ) -> None:
         self.unit_of_work = unit_of_work
+        self.prompts = prompts
+        self.store = store
 
     def list_projects(
         self, owner_id: UUID, limit: int = 20, cursor: UUID | None = None
@@ -61,7 +55,7 @@ class ProjectService:
             return work.repository.list_owned(owner_id, limit, cursor)
 
     def create_project(self, owner_id: UUID, name: str) -> Project:
-        with self.unit_of_work() as work:
+        with self.unit_of_work() as work, ExitStack() as cleanup:
             project = work.repository.create(owner_id, name.strip())
             folders: dict[str, UUID] = {}
             roles = {
@@ -89,7 +83,28 @@ class ProjectService:
                 "document",
                 AVATAR_DESCRIPTION,
             )
+            for entry in self.prompts:
+                stage = entry.parent
+                if stage is None:
+                    raise ValueError("Starter prompt requires a stage folder")
+                if stage not in folders:
+                    folder = work.knowledge.create(
+                        project.id,
+                        folders["Промпты"],
+                        "folder",
+                        stage.rsplit("/", 1)[1],
+                    )
+                    folders[stage] = folder.id
+                create_entry(
+                    project.id,
+                    folders[stage],
+                    entry,
+                    work.knowledge,
+                    self.store,
+                    cleanup,
+                )
             work.commit()
+            cleanup.pop_all()
             return project
 
     def get_project(self, project_id: UUID, owner_id: UUID) -> Project:
