@@ -1079,6 +1079,7 @@ def test_managed_script_runs_without_mcp(login, monkeypatch, provider):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CONTENT_MILL_SCRIPT_MODEL", raising=False)
+    monkeypatch.delenv("CONTENT_MILL_SCRIPT_PROVIDER", raising=False)
     calls = []
     foreign_version = uuid4()
 

@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.routing import Route
 
+from app.application.script_jobs import ScriptWriter
 from app.container import knowledge_service, script_writer
 from app.domain.project import ProjectNotFound
 from app.domain.video import InvalidVideo, VideoNotFound
@@ -32,8 +33,7 @@ async def cleanup_loop():
             logging.getLogger(__name__).exception("Failed to clean expired uploads")
 
 
-async def script_loop():
-    writer = script_writer()
+async def script_loop(writer: ScriptWriter):
     while True:
         try:
             worked = await asyncio.to_thread(writer.run_next)
@@ -45,12 +45,13 @@ async def script_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    writer = script_writer()
     mcp = create_mcp()
     app.state.mcp_app = mcp.streamable_http_app()
     async with mcp.session_manager.run():
         tasks = [
             asyncio.create_task(cleanup_loop()),
-            asyncio.create_task(script_loop()),
+            asyncio.create_task(script_loop(writer)),
         ]
         try:
             yield

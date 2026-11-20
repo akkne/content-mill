@@ -7,3 +7,5 @@
 [Модели](https://platform.claude.com/docs/en/about-claude/models/overview) · [Messages API](https://platform.claude.com/docs/en/api/messages/create) · [Ошибки и размеры](https://platform.claude.com/docs/en/api/errors) · [Изменения](https://platform.claude.com/docs/en/release-notes/overview) · [Адаптер](../../backend/src/app/infrastructure/claude_script.py)
 
 На 20 ноября 2026 модель имеет статус Legacy, принимает текст и изображения, контекст до 1M токенов, выход до 128K токенов. [Спецификация модели](https://platform.claude.com/docs/en/models/sonnet-4-6/overview)
+
+`CONTENT_MILL_SCRIPT_PROVIDER=claude` выбирает Claude Code 2.1.316 в режиме --print с той же моделью. Текст и JPEG передаются через stream-json, авторизация использует серверный ANTHROPIC_API_KEY. [Выбор CLI](../decisions/0015-script-cli-provider.md)
