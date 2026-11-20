@@ -11,6 +11,8 @@ import {
 } from "react";
 
 import { WorkspaceIcon } from "./workspace-icon";
+import { useInterfaceLanguage } from "./interface-language";
+import { selectInterfaceLanguage } from "./language-action";
 import { logoutAction } from "./login/actions";
 
 const themeKey = "sazi-content-theme";
@@ -48,13 +50,14 @@ export function AppShell({
   children,
   userName,
   section = "Главная",
-  english = false,
 }: {
   children: React.ReactNode;
   userName: string;
   section?: string;
-  english?: boolean;
 }) {
+  const language = useInterfaceLanguage();
+  const english = language === "en";
+  const [changingLanguage, startLanguageChange] = useTransition();
   const t = (ru: string, en: string) => (english ? en : ru);
   const pending = t("Ещё не реализовано", "Not yet implemented");
   const home = section === "Главная";
@@ -224,28 +227,20 @@ export function AppShell({
             </span>
           </div>
           <div className="flex items-center gap-3">
-            {home && (
-              <div
-                aria-label={t("Язык интерфейса", "Interface language")}
-                className="flex gap-1 rounded-[9px] border border-line bg-control p-1"
-              >
-                {[
-                  ["RU", "/"],
-                  ["EN", "/?lang=en"],
-                ].map(([label, href]) => (
-                  <Link
-                    key={label}
-                    href={href}
-                    aria-current={
-                      (label === "EN") === english ? "true" : undefined
-                    }
-                    className="rounded-md px-2 py-1 text-[11px] font-bold text-muted aria-current:bg-surface aria-current:text-ink"
-                  >
-                    {label}
-                  </Link>
-                ))}
-              </div>
-            )}
+            <div role="group" aria-label={t("Язык интерфейса", "Interface language")} className="flex gap-1 rounded-[9px] border border-line bg-control p-1">
+              {(["ru", "en"] as const).map(choice => (
+                <button
+                  key={choice}
+                  type="button"
+                  aria-pressed={language === choice}
+                  disabled={changingLanguage}
+                  onClick={() => startLanguageChange(() => selectInterfaceLanguage(choice))}
+                  className="rounded-md px-2 py-1 text-[11px] font-bold text-muted aria-pressed:bg-surface aria-pressed:text-ink"
+                >
+                  {choice.toUpperCase()}
+                </button>
+              ))}
+            </div>
             <div className="flex rounded-[9px] border border-line bg-control p-1">
               {(["light", "dark"] as const).map((choice) => {
                 const label =

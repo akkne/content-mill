@@ -15,3 +15,4 @@
 | [0009. Доступ агента к материалам проекта по запросу](0009-agent-file-access.md) | 2026-11-19 |
 | [0010. Доступ Claude Code и Codex CLI к проекту](0010-project-mcp.md) | 2026-11-19 |
 | [0011. Озвучка ElevenLabs через Lumean](0011-lumean-speech.md) | 2026-11-20 |
+| [0012. Язык интерфейса и каталога голосов](0012-voice-catalog-language.md) | 2026-11-20 |
