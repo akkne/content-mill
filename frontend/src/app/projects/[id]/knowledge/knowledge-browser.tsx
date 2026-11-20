@@ -1,4 +1,5 @@
 "use client";
+import { useTranslator, useInterfaceLanguage } from "@/app/interface-language";
 
 import { eyebrow, field, fieldLabel, formError, kbDocumentFoot, kbDocumentHead, kbEmpty, primaryButton, secondaryButton } from "@/app/ui-styles";
 import type { CSSProperties } from "react";
@@ -30,6 +31,8 @@ function FileIcon() {
 }
 
 export function KnowledgeBrowser({ initial, initialSources, projectId, projectName }: { initialSources: ContextSources; initial: KnowledgeNode[]; projectId: string; projectName: string }) {
+  const locale = useInterfaceLanguage();
+  const t = useTranslator();
   const picker = useRef<HTMLInputElement>(null);
   const [mediaId, setMediaId] = useState<string | null>(null);
   const [sources, setSources] = useState(initialSources);
@@ -56,18 +59,18 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
   const selected = selectedId ? byId.get(selectedId) : undefined;
   const folder = folderId ? byId.get(folderId) : undefined;
   const role = folder?.folder_role ?? "";
-  const labelsByRole: Record<string, string> = { avatars: "Аватар", voices: "Голос", wardrobe: "Предмет одежды" };
-  const folderLabel = labelsByRole[role] ?? "Папка";
+  const labelsByRole: Record<string, string> = { avatars: t("Аватар", "Avatar"), voices: t("Голос", "Voice"), wardrobe: t("Предмет одежды", "Clothing item") };
+  const folderLabel = labelsByRole[role] ?? t("Папка", "Folder");
   const mediaOnly = ["voice", "photos", "outfit"].includes(role);
   const folders = nodes.filter((node) => node.kind === "folder");
   const orderedFolders: KnowledgeNode[] = [];
   function visit(parentId: string | null) {
-    folders.filter((node) => node.parent_id === parentId).sort((a, b) => a.name.localeCompare(b.name, "ru"))
+    folders.filter((node) => node.parent_id === parentId).sort((a, b) => a.name.localeCompare(b.name, locale))
       .forEach((node) => { orderedFolders.push(node); visit(node.id); });
   }
   visit(null);
-  const visible = nodes.filter((node) => query ? (searchIds ? searchIds.includes(node.id) : node.name.toLocaleLowerCase("ru").includes(query.toLocaleLowerCase("ru"))) : node.parent_id === folderId)
-    .sort((a, b) => Number(b.kind === "folder") - Number(a.kind === "folder") || a.name.localeCompare(b.name, "ru"));
+  const visible = nodes.filter((node) => query ? (searchIds ? searchIds.includes(node.id) : node.name.toLocaleLowerCase(locale).includes(query.toLocaleLowerCase(locale))) : node.parent_id === folderId)
+    .sort((a, b) => Number(b.kind === "folder") - Number(a.kind === "folder") || a.name.localeCompare(b.name, locale));
   const crumbs: KnowledgeNode[] = [];
   let ancestor = folder;
   while (ancestor) { crumbs.unshift(ancestor); ancestor = ancestor.parent_id ? byId.get(ancestor.parent_id) : undefined; }
@@ -123,14 +126,14 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
       setAddingProfile(true);
       return;
     }
-    const name = window.prompt(`Введите название («${folderLabel}»)`);
+    const name = window.prompt(t(`Введите название («${folderLabel}»)`, `Enter a name (“${folderLabel}”)`));
     if (name?.trim()) mutate("create", { parentId: folderId, name: name.trim(), kind: "folder" });
   }
 
   function createDocument() {
-    const name = window.prompt("Название документа (.md или .txt)", "Новый документ.md");
+    const name = window.prompt(t("Название документа (.md или .txt)", "Document name (.md or .txt)"), t("Новый документ.md", "New document.md"));
     if (!name) return;
-    if (!/\.(md|txt)$/i.test(name.trim())) { setError("Документ должен иметь расширение .md или .txt."); return; }
+    if (!/\.(md|txt)$/i.test(name.trim())) { setError(t("Документ должен иметь расширение .md или .txt.", "Use the .md or .txt extension.")); return; }
     mutate("create", { parentId: folderId, name: name.trim(), kind: "document" });
   }
 
@@ -179,14 +182,14 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
       if (result.context) {
         setSources({ ids: result.context.source_version_ids, revision: result.context.revision });
       } else {
-        setDocumentError(result.error ?? "Не удалось сохранить источники контекста.");
+        setDocumentError(result.error ?? t("Не удалось сохранить источники контекста.", "Could not save context sources."));
       }
     });
   }
 
   function rename() {
     if (!selected) return;
-    const name = window.prompt("Новое название", selected.name);
+    const name = window.prompt(t("Новое название", "New name"), selected.name);
     if (name?.trim() && name.trim() !== selected.name) mutate("rename", { nodeId: selected.id, revision: selected.revision, name: name.trim() });
   }
 
@@ -196,7 +199,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
   }
 
   function archive() {
-    if (selected && window.confirm(`Архивировать «${selected.name}»${selected.kind === "folder" ? " вместе с содержимым" : ""}?`)) {
+    if (selected && window.confirm(t(`Архивировать «${selected.name}»${selected.kind === "folder" ? " вместе с содержимым" : ""}?`, `Archive “${selected.name}”${selected.kind === "folder" ? " including its contents" : ""}?`))) {
       mutate("archive", { nodeId: selected.id, revision: selected.revision });
     }
   }
@@ -225,7 +228,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
         }
         setFolderId(parent);
         changeQuery("");
-      } catch (e) { setError(e instanceof Error ? e.message : "Не удалось загрузить файл."); }
+      } catch (e) { setError(e instanceof Error ? e.message : t("Не удалось загрузить файл.", "Could not upload the file.")); }
     });
   }
 
@@ -250,16 +253,16 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
     });
   }
 
-  const labels = { folder: "Папка", document: "Документ", image: "Изображение", video: "Видео", audio: "Аудио", file: "PDF" };
+  const labels = { folder: t("Папка", "Folder"), document: t("Документ", "Document"), image: t("Изображение", "Image"), video: t("Видео", "Video"), audio: t("Аудио", "Audio"), file: "PDF" };
   return (
     <section
       className="min-h-[560px] overflow-hidden rounded-[18px] border border-line bg-surface"
-      aria-label="База знаний проекта"
+      aria-label={t("База знаний проекта", "Project knowledge base")}
     >
       <div className="flex items-center justify-between gap-4 border-b border-line px-[22px] py-4 max-[761px]:flex-wrap">
         <nav
           className="flex flex-wrap gap-1 text-muted [&_button]:py-[3px] [&_button]:font-bold [&_button]:text-ink"
-          aria-label="Путь к папке"
+          aria-label={t("Путь к папке", "Folder path")}
         >
           <button onClick={() => enter(null)} type="button">
             {projectName}
@@ -276,10 +279,10 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
         </nav>
         <input
           className="w-full max-w-60 min-h-9 rounded-[9px] border border-line bg-control px-2.5 py-[7px] text-ink"
-          aria-label="Поиск папок и документов"
+          aria-label={t("Поиск папок и документов", "Search folders and documents")}
           maxLength={200}
           onChange={(event) => changeQuery(event.target.value)}
-          placeholder="Поиск по названию и тексту"
+          placeholder={t("Поиск по названию и тексту", "Search names and text")}
           type="search"
           value={query}
         />
@@ -287,9 +290,9 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
       <div className="grid min-h-[500px] grid-cols-[230px_minmax(0,1fr)] max-[761px]:grid-cols-1">
         <aside
           className="flex max-h-[75vh] flex-col gap-[3px] overflow-auto border-r border-line px-2.5 py-[18px] max-[761px]:max-h-[180px] max-[761px]:border-r-0 max-[761px]:border-b"
-          aria-label="Папки"
+          aria-label={t("Папки", "Folders")}
         >
-          <strong className="px-3 pb-3 text-[10px] tracking-[.1em] text-faint">ПАПКИ</strong>
+          <strong className="px-3 pb-3 text-[10px] tracking-[.1em] text-faint">{t("ПАПКИ", "FOLDERS")}</strong>
           <button
             className={folderButton}
             onDragOver={(event) => event.preventDefault()}
@@ -324,9 +327,9 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
         >
           <div className="mb-5 flex items-center justify-between gap-[15px] max-[901px]:flex-col max-[901px]:items-start">
             <div>
-              <span className={eyebrow}>{query ? "Результаты поиска" : "Содержимое папки"}</span>
-              <h2 className="my-1 text-xl">{query ? "Поиск" : (folder?.name ?? projectName)}</h2>
-              <p className="text-muted">{searching ? "Ищем…" : `${visible.length} элементов`}</p>
+              <span className={eyebrow}>{query ? t("Результаты поиска", "Search results") : t("Содержимое папки", "Folder contents")}</span>
+              <h2 className="my-1 text-xl">{query ? t("Поиск", "Search") : (folder?.name ?? projectName)}</h2>
+              <p className="text-muted">{searching ? t("Ищем…", "Searching…") : t(`${visible.length} элементов`, `${visible.length} items`)}</p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 max-[901px]:justify-start">
               <input
@@ -335,20 +338,20 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                 type="file"
                 multiple
                 accept={role === "voice" ? "audio/*" : ["photos", "outfit"].includes(role) ? "image/*" : acceptedMedia}
-                aria-label="Выберите файлы для загрузки"
+                aria-label={t("Выберите файлы для загрузки", "Select files to upload")}
                 onChange={(event) => {
                   upload(Array.from(event.target.files || []), folderId);
                   event.target.value = "";
                 }}
               />
               <button className={secondaryButton} disabled={pending || role === "wardrobe"} onClick={() => picker.current?.click()}>
-                Загрузить файл
+                {t("Загрузить файл", "Upload file")}
               </button>
               <button className={secondaryButton} disabled={pending || mediaOnly} onClick={create} type="button">
                 + {folderLabel}
               </button>
               <button className={primaryButton} disabled={pending || mediaOnly || role === "wardrobe"} onClick={createDocument} type="button">
-                + Документ
+                {t("+ Документ", "+ Document")}
               </button>
             </div>
           </div>
@@ -362,12 +365,12 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
               const name = profileName.trim();
               if (name && !pending) mutate("create", { parentId: folderId, name, kind: "folder" });
             }}>
-              <label className={fieldLabel}>Имя аватара
+              <label className={fieldLabel}>{t("Имя аватара", "Avatar name")}
                 <input className={field} autoFocus required maxLength={160} value={profileName}
                   onChange={event => setProfileName(event.target.value)} />
               </label>
-              <button className={primaryButton} disabled={pending || !profileName.trim()}>Создать</button>
-              <button className={secondaryButton} type="button" disabled={pending} onClick={() => setAddingProfile(false)}>Отмена</button>
+              <button className={primaryButton} disabled={pending || !profileName.trim()}>{t("Создать", "Create")}</button>
+              <button className={secondaryButton} type="button" disabled={pending} onClick={() => setAddingProfile(false)}>{t("Отмена", "Cancel")}</button>
             </form>
           )}
           {!query && folder && (folder.folder_role === "avatar" || folder.folder_role === "voice") && (
@@ -377,10 +380,10 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
           )}
           {folderId === null && !query && !nodes.some((n) => !n.parent_id && n.name === "Пример проекта") && (
             <button className={`${secondaryButton} mb-3`} onClick={examples} disabled={pending}>
-              Добавить примеры материалов
+              {t("Добавить примеры материалов", "Add sample materials")}
             </button>
           )}
-          {pending && <span role="status"> Выполняется…</span>}
+          {pending && <span role="status"> {t("Выполняется…", "Working…")}</span>}
           <div className="grid gap-[5px]">
             {visible.length ? (
               visible.map((node) => (
@@ -423,7 +426,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                 </button>
               ))
             ) : (
-              <p className={kbEmpty}>Здесь пока нет файлов и папок.</p>
+              <p className={kbEmpty}>{t("Здесь пока нет файлов и папок.", "This folder is empty.")}</p>
             )}
           </div>
           {searchError && (
@@ -436,13 +439,13 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
               <strong>{selected.name}</strong>
               <div className="flex flex-wrap items-center gap-2">
                 <button className={secondaryButton} onClick={() => open(selected)} type="button">
-                  Открыть
+                  {t("Открыть", "Open")}
                 </button>
                 <button className={secondaryButton} disabled={pending} onClick={rename} type="button">
-                  Переименовать
+                  {t("Переименовать", "Rename")}
                 </button>
                 <label className="flex items-center gap-[7px] text-muted">
-                  Переместить в{" "}
+                  {t("Переместить в", "Move to")}{" "}
                   <select
                     className="min-h-9 rounded-[9px] border border-line bg-control px-2.5 py-[7px] text-ink"
                     disabled={pending}
@@ -460,7 +463,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                   </select>
                 </label>
                 <button className={secondaryButton} disabled={pending} onClick={archive} type="button">
-                  Архивировать
+                  {t("Архивировать", "Archive")}
                 </button>
               </div>
             </div>
@@ -504,13 +507,13 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
           >
             <div className={kbDocumentHead}>
               <div>
-                <span className={eyebrow}>Документ</span>
+                <span className={eyebrow}>{t("Документ", "Document")}</span>
                 <h2 className="mt-1 text-lg" id="kb-document-title">
-                  {byId.get(openId)?.name ?? "Документ"}
+                  {byId.get(openId)?.name ?? t("Документ", "Document")}
                 </h2>
               </div>
               <button
-                aria-label="Закрыть документ"
+                aria-label={t("Закрыть документ", "Close document")}
                 autoFocus
                 className={`${secondaryButton} text-[22px]`}
                 onClick={() => {
@@ -541,15 +544,15 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                       </article>
                     ) : (
                       <pre className="wrap-anywhere p-[26px] font-mono leading-[1.8] whitespace-pre-wrap">
-                        {document.content || "Документ пуст."}
+                        {document.content || t("Документ пуст.", "The document is empty.")}
                       </pre>
                     )}
                   </div>
                   <aside className="flex flex-col gap-[5px] border-l border-line px-3 py-5 max-[561px]:max-h-[150px] max-[561px]:overflow-auto max-[561px]:border-t max-[561px]:border-l-0">
                     <small className="block text-muted">
-                      {document.format === "plain" ? "Текст" : "Markdown"} · {shownVersion?.size_bytes ?? 0} Б
+                      {document.format === "plain" ? t("Текст", "Text") : "Markdown"} · {shownVersion?.size_bytes ?? 0} {t("Б", "B")}
                     </small>
-                    <strong className="px-2 pb-2 text-[11px]">История версий</strong>
+                    <strong className="px-2 pb-2 text-[11px]">{t("История версий", "Version history")}</strong>
                     {versions.map((item) => (
                       <button
                         className="rounded-lg p-2 text-left text-ink hover:bg-tint hover:text-accent aria-[current=page]:bg-tint aria-[current=page]:text-accent"
@@ -558,17 +561,17 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                         onClick={() => openDocument(openId, item.version)}
                         type="button"
                       >
-                        Версия {item.version}
+                        {t("Версия", "Version")} {item.version}
                         <small className="block text-muted">
-                          {new Date(item.created_at).toLocaleString("ru-RU")}
+                          {new Date(item.created_at).toLocaleString(locale)}
                         </small>
                       </button>
                     ))}
-                    {versions.length === 0 && <p className="text-muted">Версий пока нет.</p>}
+                    {versions.length === 0 && <p className="text-muted">{t("Версий пока нет.", "No versions yet.")}</p>}
                   </aside>
                 </div>
                 <div className={kbDocumentFoot}>
-                  <span>Версия {document.version || "не сохранён"}</span>
+                  <span>{t("Версия", "Version")} {document.version || t("не сохранён", "unsaved")}</span>
                   <div className="flex items-center gap-2">
                     {shownVersion && !editing && (
                       <button
@@ -578,12 +581,12 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                         onClick={toggleSource}
                         type="button"
                       >
-                        {linked ? "Убрать из источников контекста" : "Добавить в источники контекста"}
+                        {linked ? t("Убрать из источников контекста", "Remove from context sources") : t("Добавить в источники контекста", "Add to context sources")}
                       </button>
                     )}
                     {document.version > 0 && document.version !== versions[0]?.version && (
                       <button className={secondaryButton} onClick={() => openDocument(openId)} type="button">
-                        Текущая версия
+                        {t("Текущая версия", "Current version")}
                       </button>
                     )}
                     {editing ? (
@@ -596,7 +599,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                           }}
                           type="button"
                         >
-                          Отменить
+                          {t("Отменить", "Cancel")}
                         </button>
                         <button
                           className={primaryButton}
@@ -604,7 +607,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                           onClick={saveOpenDocument}
                           type="button"
                         >
-                          {pending ? "Сохраняем…" : "Сохранить"}
+                          {pending ? t("Сохраняем…", "Saving…") : t("Сохранить", "Save")}
                         </button>
                       </>
                     ) : (
@@ -617,7 +620,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                           }}
                           type="button"
                         >
-                          Редактировать
+                          {t("Редактировать", "Edit")}
                         </button>
                       )
                     )}
@@ -626,7 +629,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
               </>
             ) : (
               <p className={kbEmpty}>
-                {pending ? "Открываем документ…" : documentError || "Не удалось открыть документ."}
+                {pending ? t("Открываем документ…", "Opening document…") : documentError || t("Не удалось открыть документ.", "Could not open the document.")}
               </p>
             )}
             {documentError && document && (

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { InterfaceLanguage } from "@/lib/interface-language";
+import { translator, type InterfaceLanguage } from "@/lib/interface-language";
 
 const InterfaceLanguageContext = createContext<InterfaceLanguage>("ru");
 
@@ -14,4 +14,8 @@ export function InterfaceLanguageProvider({ language, children }: {
 
 export function useInterfaceLanguage() {
   return useContext(InterfaceLanguageContext);
+}
+
+export function useTranslator() {
+  return translator(useInterfaceLanguage());
 }

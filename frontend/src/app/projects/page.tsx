@@ -1,3 +1,4 @@
+import { getTranslator } from "@/lib/server-language";
 import { content, eyebrow, formError, pageLead, pageTitle, projectCard, projectGrid, sectionTitle, workPanel } from "@/app/ui-styles";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -12,24 +13,25 @@ import { CreateProjectForm } from "./create-project-form";
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
+  const t = await getTranslator();
   const access = (await cookies()).get(accessCookie)?.value;
   if (!access) redirect("/login");
   const user = await fetchCurrentUser(access);
   if (!user) redirect("/login");
   let projects: Project[];
   let error = "";
-  try { projects = await loadProjects(); } catch { projects = []; error = "Не удалось загрузить список проектов. Обновите страницу."; }
+  try { projects = await loadProjects(); } catch { projects = []; error = t("Не удалось загрузить список проектов. Обновите страницу.", "Could not load projects. Refresh the page."); }
   return (
     <AppShell userName={user.display_name} section="Проекты">
       <main className={content} id="main-content">
-        <span className={eyebrow}>Рабочее пространство</span>
-        <h1 className={pageTitle}>Проекты</h1>
-        <p className={pageLead}>Создайте проект для клиента и соберите его контекст в одном месте.</p>
+        <span className={eyebrow}>{t("Рабочее пространство", "Workspace")}</span>
+        <h1 className={pageTitle}>{t("Проекты", "Projects")}</h1>
+        <p className={pageLead}>{t("Создайте проект для клиента и соберите его контекст в одном месте.", "Create a client project to keep its context in one place.")}</p>
         <section className={workPanel}>
-          <h2 className="mb-3.5 text-[17px]">Новый проект</h2>
+          <h2 className="mb-3.5 text-[17px]">{t("Новый проект", "New project")}</h2>
           <CreateProjectForm />
         </section>
-        <h2 className={sectionTitle}>Ваши проекты</h2>
+        <h2 className={sectionTitle}>{t("Ваши проекты", "Your projects")}</h2>
         {error && (
           <p className={formError} role="alert">
             {error}
@@ -37,7 +39,7 @@ export default async function ProjectsPage() {
         )}
         {projects.length === 0 && !error ? (
           <p className="rounded-[14px] border border-dashed border-line p-8 text-muted">
-            Проектов пока нет. Создайте первый проект выше.
+            {t("Проектов пока нет. Создайте первый проект выше.", "No projects yet. Create your first one above.")}
           </p>
         ) : (
           <div className={projectGrid}>
@@ -50,7 +52,7 @@ export default async function ProjectsPage() {
                   {project.name.slice(0, 1).toUpperCase()}
                 </span>
                 <strong className="text-base">{project.name}</strong>
-                <span className="font-bold text-accent">Открыть контекст →</span>
+                <span className="font-bold text-accent">{t("Открыть контекст →", "Open context →")}</span>
               </Link>
             ))}
           </div>

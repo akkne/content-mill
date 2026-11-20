@@ -1,4 +1,6 @@
 "use server";
+import { apiError } from "@/lib/api-error";
+import { getTranslator } from "@/lib/server-language";
 
 import { revalidatePath } from "next/cache";
 import { projectRequest } from "@/lib/projects";
@@ -31,6 +33,7 @@ async function request<T>(
   method = "GET",
   body?: object,
 ): Promise<Reply<T>> {
+  const t = await getTranslator();
   try {
     const response = await projectRequest(`/api/v1/voices${suffix}`, {
       method,
@@ -44,9 +47,9 @@ async function request<T>(
     }
     return response.ok
       ? { data }
-      : { error: data.error?.message || "Не удалось выполнить запрос" };
+      : { error: apiError(t, data.error?.message, t("Не удалось выполнить запрос", "Request failed")) };
   } catch {
-    return { error: "Сервер недоступен. Повторите попытку." };
+    return { error: t("Сервер недоступен. Повторите попытку.", "Server unavailable. Try again.") };
   }
 }
 export async function listSaved() {
@@ -87,14 +90,15 @@ export async function editVoice(
 }
 
 export async function addToOpenProject(id: string, project: string) {
+  const t = await getTranslator();
   const assigned = await assignVoice(id, [project], []);
   if (!assigned.data?.[0])
-    return { error: assigned.error ?? "Не удалось назначить голос" };
+    return { error: assigned.error ?? t("Не удалось назначить голос", "Could not assign the voice") };
   try {
     return { node: assigned.data[0], items: await loadKnowledge(project) };
   } catch {
     return {
-      error: "Голос назначен. Обновите страницу, чтобы загрузить папку.",
+      error: t("Голос назначен. Обновите страницу, чтобы загрузить папку.", "Voice assigned. Refresh the page to load the folder."),
     };
   }
 }

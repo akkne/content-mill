@@ -1,3 +1,4 @@
+import { getTranslator } from "@/lib/server-language";
 import {
   pageTitle,
   pageLead,
@@ -15,17 +16,18 @@ export default async function Videos({
 }: {
   searchParams: Promise<{ create?: string }>;
 }) {
+  const t = await getTranslator();
   const projects = await loadProjects();
   const suffix = (await searchParams).create === "1" ? "/new" : "";
   const href = (id: string) => `/projects/${id}/videos${suffix}`;
   if (projects.length === 1) redirect(href(projects[0].id));
   return (
     <VideoShell>
-      <h1 className={pageTitle}>{suffix ? "Создать ролик" : "Ролики"}</h1>
+      <h1 className={pageTitle}>{suffix ? t("Создать ролик", "Create video") : t("Ролики", "Videos")}</h1>
       <p className={pageLead}>
         {projects.length
-          ? "Выберите проект."
-          : "Создайте проект, чтобы подготовить первый ролик."}
+          ? t("Выберите проект.", "Select a project.")
+          : t("Создайте проект, чтобы подготовить первый ролик.", "Create a project to prepare your first video.")}
       </p>
       {projects.length ? (
         <div className={projectGrid}>
@@ -33,14 +35,14 @@ export default async function Videos({
             <Link className={projectCard} key={p.id} href={href(p.id)}>
               <strong>{p.name}</strong>
               <span className="text-accent">
-                {suffix ? "Создать ролик" : "Открыть ролики"} →
+                {suffix ? t("Создать ролик", "Create video") : t("Открыть ролики", "Open videos")} →
               </span>
             </Link>
           ))}
         </div>
       ) : (
         <Link className={secondaryButton} href="/projects">
-          Создать проект
+          {t("Создать проект", "Create project")}
         </Link>
       )}
     </VideoShell>

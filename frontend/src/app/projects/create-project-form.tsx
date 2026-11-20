@@ -1,4 +1,5 @@
 "use client";
+import { useTranslator } from "@/app/interface-language";
 
 import { projectField, fieldLabel, formError, primaryButton, projectCreateRow } from "@/app/ui-styles";
 import { useState, useTransition } from "react";
@@ -6,6 +7,7 @@ import { useState, useTransition } from "react";
 import { createProject } from "./actions";
 
 export function CreateProjectForm() {
+  const t = useTranslator();
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   return (
@@ -18,7 +20,7 @@ export function CreateProjectForm() {
       }}
     >
       <label className={fieldLabel} htmlFor="project-name">
-        Название
+        {t("Название", "Name")}
       </label>
       <div className={projectCreateRow}>
         <input
@@ -26,11 +28,11 @@ export function CreateProjectForm() {
           id="project-name"
           maxLength={160}
           name="name"
-          placeholder="Например, бренд одежды"
+          placeholder={t("Например, бренд одежды", "For example, a clothing brand")}
           required
         />
         <button className={`${primaryButton} flex-none`} disabled={pending} type="submit">
-          {pending ? "Создаём…" : "Создать проект"}
+          {pending ? t("Создаём…", "Creating…") : t("Создать проект", "Create project")}
         </button>
       </div>
       {error && (

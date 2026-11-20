@@ -1,8 +1,10 @@
+import { getTranslator } from "@/lib/server-language";
 import Link from "next/link";
 import { eyebrow } from "@/app/ui-styles";
 import { LoginForm } from "./login-form";
 
-export function AuthPage({ register = false }: { register?: boolean }) {
+export async function AuthPage({ register = false }: { register?: boolean }) {
+  const t = await getTranslator();
   return (
     <main className="grid min-h-screen place-items-center p-6">
       <section
@@ -16,13 +18,13 @@ export function AuthPage({ register = false }: { register?: boolean }) {
             mill <small className="text-sm font-medium tracking-normal text-muted">studio</small>
           </span>
         </div>
-        <span className={eyebrow}>Рабочее пространство</span>
+        <span className={eyebrow}>{t("Рабочее пространство", "Workspace")}</span>
         <h1 className="my-[9px] text-[28px] leading-[1.3]" id="login-title">
-          {register ? "Регистрация в Content Mill" : "Вход в Content Mill"}
+          {register ? t("Регистрация в Content Mill", "Register for Content Mill") : t("Вход в Content Mill", "Sign in to Content Mill")}
         </h1>
         <LoginForm register={register} />
         <Link className="mt-5 inline-block underline underline-offset-4" href={register ? "/login" : "/register"}>
-          {register ? "Уже есть аккаунт? Войти" : "Создать аккаунт"}
+          {register ? t("Уже есть аккаунт? Войти", "Already have an account? Sign in") : t("Создать аккаунт", "Create account")}
         </Link>
       </section>
     </main>

@@ -1,3 +1,4 @@
+import { getTranslator } from "@/lib/server-language";
 import "server-only";
 import { notFound } from "next/navigation";
 import { projectRequest } from "./projects";
@@ -56,8 +57,9 @@ export async function videoRequest(project: string, path = "", body?: object) {
 }
 
 export async function loadVideos<T>(project: string, path = ""): Promise<T> {
+  const t = await getTranslator();
   const response = await videoRequest(project, path);
   if (response.status === 404) notFound();
-  if (!response.ok) throw new Error("Не удалось загрузить ролики проекта");
+  if (!response.ok) throw new Error(t("Не удалось загрузить ролики проекта", "Could not load project videos"));
   return response.json();
 }

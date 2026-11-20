@@ -18,11 +18,11 @@ export function genderName(gender: string | null, locale: InterfaceLanguage = "r
 export function languagesOf(voice: {
   voice_language: string | null;
   catalog_languages: string[] | null;
-}) {
+}, locale: InterfaceLanguage) {
   return (
     [...new Set([voice.voice_language, ...(voice.catalog_languages ?? [])])]
       .filter((v): v is string => Boolean(v))
-      .map(code => languageName(code))
+      .map(code => languageName(code, locale))
       .join(", ") || "—"
   );
 }

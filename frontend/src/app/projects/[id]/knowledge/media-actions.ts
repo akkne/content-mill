@@ -1,4 +1,5 @@
 "use server";
+import { getTranslator } from "@/lib/server-language";
 
 import type { KnowledgeNode } from "@/lib/knowledge";
 import { projectRequest } from "@/lib/projects";
@@ -7,6 +8,7 @@ import type { DocumentVersion } from "./actions";
 type Reply<T> = { data: T; error?: never } | { data?: never; error: string };
 
 async function request<T>(project: string, suffix: string, method = "GET", body?: object, revision?: number): Promise<Reply<T>> {
+  const t = await getTranslator();
   try {
     const response = await projectRequest(`/api/v1/projects/${encodeURIComponent(project)}/${suffix}`, {
       method,
@@ -14,10 +16,10 @@ async function request<T>(project: string, suffix: string, method = "GET", body?
       body: body ? JSON.stringify(body) : undefined,
     });
     const data = await response.json();
-    if (!response.ok) return { error: data.error?.message || "Не удалось выполнить операцию." };
+    if (!response.ok) return { error: data.error?.message || t("Не удалось выполнить операцию.", "Operation failed.") };
     return { data };
   } catch {
-    return { error: "Сервер недоступен. Повторите попытку позже." };
+    return { error: t("Сервер недоступен. Повторите попытку позже.", "Server unavailable. Try again later.") };
   }
 }
 

@@ -1,4 +1,5 @@
 "use client";
+import { useTranslator, useInterfaceLanguage } from "@/app/interface-language";
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -20,6 +21,8 @@ export function VoicePicker({
   onClose: () => void;
   onSave: (node: KnowledgeNode, items: KnowledgeNode[]) => void;
 }) {
+  const locale = useInterfaceLanguage();
+  const t = useTranslator();
   const dialog = useRef<HTMLDialogElement>(null);
   const [items, setItems] = useState<SavedVoice[]>();
   const [error, setError] = useState("");
@@ -43,7 +46,7 @@ export function VoicePicker({
     start(async () => {
       const result = await addToOpenProject(id, project);
       if (result.items && result.node) onSave(result.node, result.items);
-      else setError(result.error ?? "Не удалось добавить голос");
+      else setError(result.error ?? t("Не удалось добавить голос", "Could not add voice"));
     });
   }
   return (
@@ -58,28 +61,28 @@ export function VoicePicker({
     >
       <header className="mb-6 flex flex-wrap items-center gap-3">
         <h2 id="select-voice-title" className="mr-auto text-2xl font-semibold">
-          Голоса из библиотеки
+          {t("Голоса из библиотеки", "Library voices")}
         </h2>
         <Link className={primaryButton} href="/knowledge/voices?create=1">
-          Создать новый голос
+          {t("Создать новый голос", "Create new voice")}
         </Link>
         <button
           className={secondaryButton}
           disabled={saving}
           onClick={onClose}
-          aria-label="Закрыть"
+          aria-label={t("Закрыть", "Close")}
         >
           ×
         </button>
       </header>
       {error && <p role="alert">{error}</p>}
-      {!items && !error && <p role="status">Загружаем голоса…</p>}
+      {!items && !error && <p role="status">{t("Загружаем голоса…", "Loading voices…")}</p>}
       {items && (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm [&_td]:border-t [&_td]:border-line [&_td]:p-3 [&_th]:p-3">
             <thead className="bg-tint text-muted">
               <tr>
-                {["Название", "Описание", "Язык", "Пол", ""].map((h) => (
+                {[t("Название", "Name"), t("Описание", "Description"), t("Язык", "Language"), t("Пол", "Gender"), ""].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -89,8 +92,8 @@ export function VoicePicker({
                 <tr key={v.id}>
                   <td className="font-bold">{v.name}</td>
                   <td>{v.description || "—"}</td>
-                  <td>{languagesOf(v)}</td>
-                  <td>{genderName(v.voice_gender)}</td>
+                  <td>{languagesOf(v, locale)}</td>
+                  <td>{genderName(v.voice_gender, locale)}</td>
                   <td>
                     <button
                       className={secondaryButton}
@@ -98,8 +101,8 @@ export function VoicePicker({
                       disabled={saving || v.project_ids.includes(project)}
                     >
                       {v.project_ids.includes(project)
-                        ? "Добавлен"
-                        : "Добавить"}
+                        ? t("Добавлен", "Added")
+                        : t("Добавить", "Add")}
                     </button>
                   </td>
                 </tr>
@@ -108,7 +111,7 @@ export function VoicePicker({
           </table>
           {!items.length && (
             <p className="py-8 text-center text-muted">
-              В библиотеке пока нет голосов.
+              {t("В библиотеке пока нет голосов.", "Your voice library is empty.")}
             </p>
           )}
         </div>

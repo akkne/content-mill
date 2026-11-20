@@ -1,4 +1,5 @@
 "use server";
+import { getTranslator } from "@/lib/server-language";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -15,12 +16,13 @@ export async function registerAction(_: string, formData: FormData): Promise<str
 }
 
 async function authenticate(mode: "login" | "register", formData: FormData): Promise<string> {
+  const t = await getTranslator();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  if (!email || !password) return "Введите почту и пароль";
+  if (!email || !password) return t("Введите почту и пароль", "Enter your email and password");
 
   const displayName = mode === "register" ? String(formData.get("display_name") ?? "").trim() : undefined;
-  if (mode === "register" && !displayName) return "Введите имя";
+  if (mode === "register" && !displayName) return t("Введите имя", "Enter your name");
 
   let response: Response;
   try {
@@ -31,18 +33,19 @@ async function authenticate(mode: "login" | "register", formData: FormData): Pro
       cache: "no-store",
     });
   } catch {
-    return "Сервер недоступен. Повторите попытку позже";
+    return t("Сервер недоступен. Повторите попытку позже", "Server unavailable. Try again later");
   }
-  if (response.status === 429) return "Слишком много попыток. Повторите через 15 минут";
-  if (response.status === 401) return "Неверная почта или пароль";
-  if (response.status === 409) return "Не удалось зарегистрировать эту почту. Попробуйте войти";
-  if (response.status === 422) return "Проверьте введённые данные";
-  if (!response.ok) return "Сервер недоступен. Повторите попытку позже";
+  if (response.status === 429) return t("Слишком много попыток. Повторите через 15 минут", "Too many attempts. Try again in 15 minutes");
+  if (response.status === 401) return t("Неверная почта или пароль", "Incorrect email or password");
+  if (response.status === 409) return t("Не удалось зарегистрировать эту почту. Попробуйте войти", "Could not register this email. Try signing in");
+  if (response.status === 422) return t("Проверьте введённые данные", "Check the information you entered");
+  if (!response.ok) return t("Сервер недоступен. Повторите попытку позже", "Server unavailable. Try again later");
   await setSession(await response.json() as TokenPair);
   redirect("/");
 }
 
 export async function logoutAction(): Promise<string> {
+  const t = await getTranslator();
   const refreshToken = (await cookies()).get(refreshCookie)?.value;
   if (refreshToken) {
     try {
@@ -52,9 +55,9 @@ export async function logoutAction(): Promise<string> {
         body: JSON.stringify({ refresh_token: refreshToken }),
         cache: "no-store",
       });
-      if (!response.ok) return "Не удалось завершить сессию. Повторите попытку";
+      if (!response.ok) return t("Не удалось завершить сессию. Повторите попытку", "Could not end the session. Try again");
     } catch {
-      return "Сервер недоступен. Повторите выход позже";
+      return t("Сервер недоступен. Повторите выход позже", "Server unavailable. Try signing out later");
     }
   }
   await clearSession();

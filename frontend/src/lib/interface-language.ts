@@ -11,3 +11,9 @@ export const languageCookieOptions = {
   httpOnly: true,
   maxAge: 365 * 24 * 60 * 60,
 } as const;
+
+export type Translate = (ru: string, en: string) => string;
+
+export function translator(language: InterfaceLanguage): Translate {
+  return (ru, en) => language === "en" ? en : ru;
+}

@@ -1,4 +1,5 @@
 "use client";
+import { useTranslator } from "@/app/interface-language";
 
 import { field, formError, primaryButton } from "@/app/ui-styles";
 import { useActionState } from "react";
@@ -6,18 +7,19 @@ import { useActionState } from "react";
 import { loginAction, registerAction } from "./actions";
 
 export function LoginForm({ register }: { register: boolean }) {
+  const t = useTranslator();
   const [error, action, pending] = useActionState(register ? registerAction : loginAction, "");
 
   return (
     <form action={action} className="grid gap-2">
       {register && (
         <>
-          <label className="mt-[9px] font-bold" htmlFor="display_name">Ваше имя</label>
+          <label className="mt-[9px] font-bold" htmlFor="display_name">{t("Ваше имя", "Your name")}</label>
           <input className={`${field} min-h-11`} autoComplete="name" id="display_name" name="display_name" maxLength={120} required />
         </>
       )}
       <label className="mt-[9px] font-bold" htmlFor="email">
-        Электронная почта
+        {t("Электронная почта", "Email address")}
       </label>
       <input
         className={`${field} min-h-11`}
@@ -28,7 +30,7 @@ export function LoginForm({ register }: { register: boolean }) {
         type="email"
       />
       <label className="mt-[9px] font-bold" htmlFor="password">
-        Пароль
+        {t("Пароль", "Password")}
       </label>
       <input
         className={`${field} min-h-11`}
@@ -41,14 +43,14 @@ export function LoginForm({ register }: { register: boolean }) {
         required
         type="password"
       />
-      {register && <p className="text-sm text-muted" id="password-hint">Минимум 15 символов</p>}
+      {register && <p className="text-sm text-muted" id="password-hint">{t("Минимум 15 символов", "At least 15 characters")}</p>}
       {error && (
         <p aria-live="polite" className={formError} role="alert">
           {error}
         </p>
       )}
       <button className={`${primaryButton} mt-[15px]`} disabled={pending} type="submit">
-        {register ? (pending ? "Создаём аккаунт…" : "Создать аккаунт") : (pending ? "Входим…" : "Войти")}
+        {register ? (pending ? t("Создаём аккаунт…", "Creating account…") : t("Создать аккаунт", "Create account")) : (pending ? t("Входим…", "Signing in…") : t("Войти", "Sign in"))}
       </button>
     </form>
   );

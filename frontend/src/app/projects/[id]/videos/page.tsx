@@ -1,3 +1,5 @@
+import { optionLabel } from "./video-labels";
+import { getTranslator } from "@/lib/server-language";
 import Link from "next/link";
 import {
   pageTitle,
@@ -7,7 +9,8 @@ import {
   workPanel,
 } from "@/app/ui-styles";
 import { loadVideos, type VideoCard } from "@/lib/videos";
-import { Cover, statuses, badge } from "./cover";
+import { Cover } from "./cover";
+import { statuses, badge } from "./video-labels";
 
 export default async function Library({
   params,
@@ -16,9 +19,10 @@ export default async function Library({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
+  const t = await getTranslator();
   const { id } = await params;
   const query = await searchParams;
-  const status = Object.hasOwn(statuses, query.status ?? "")
+  const status = Object.hasOwn(statuses(t), query.status ?? "")
     ? query.status!
     : "all";
   const q = (query.q ?? "").slice(0, 180);
@@ -30,23 +34,23 @@ export default async function Library({
   return (
     <>
       <Link className="text-sm text-accent" href="/videos">
-        {project} · Сменить проект
+        {project} {t("· Сменить проект", "· Switch project")}
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className={pageTitle}>Ролики</h1>
+        <h1 className={pageTitle}>{t("Ролики", "Videos")}</h1>
         <Link className={primaryButton} href={base + "/new"}>
-          ＋ Создать ролик
+          {t("＋ Создать ролик", "＋ Create video")}
         </Link>
       </div>
       <p className={pageLead}>
-        Здесь собраны черновики, ролики в работе и готовые публикации.
+        {t("Здесь собраны черновики, ролики в работе и готовые публикации.", "Browse drafts, videos in progress and finished posts.")}
       </p>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <nav
-          aria-label="Статус ролика"
+          aria-label={t("Статус ролика", "Video status")}
           className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface p-1"
         >
-          {Object.entries(statuses).map(([key, label]) => (
+          {Object.entries(statuses(t)).map(([key, label]) => (
             <Link
               key={key}
               aria-current={status === key ? "page" : undefined}
@@ -66,10 +70,10 @@ export default async function Library({
             name="q"
             maxLength={180}
             defaultValue={q}
-            placeholder="Найти ролик"
-            aria-label="Найти ролик"
+            placeholder={t("Найти ролик", "Find video")}
+            aria-label={t("Найти ролик", "Find video")}
           />
-          <button className="text-accent">Найти</button>
+          <button className="text-accent">{t("Найти", "Find")}</button>
         </form>
       </div>
       {items.length ? (
@@ -82,10 +86,10 @@ export default async function Library({
               </h2>
               <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
                 <span className="rounded-full bg-selected px-2 py-1 text-selected-ink">
-                  {badge[v.status]}
+                  {badge(t)[v.status]}
                 </span>
-                {v.platform} ·{" "}
-                {new Date(v.created_at).toLocaleDateString("ru", {
+                {optionLabel(v.platform, t)} ·{" "}
+                {new Date(v.created_at).toLocaleDateString(t("ru", "en"), {
                   day: "numeric",
                   month: "short",
                   timeZone: "Europe/Moscow",
@@ -96,8 +100,7 @@ export default async function Library({
         </div>
       ) : (
         <p className={workPanel + " text-center text-muted"}>
-          Пока нет роликов с такими параметрами. Измените фильтр или создайте
-          новый.
+          {t("Пока нет роликов с такими параметрами. Измените фильтр или создайте новый.", "No matching videos. Change the filter or create a video.")}
         </p>
       )}
     </>

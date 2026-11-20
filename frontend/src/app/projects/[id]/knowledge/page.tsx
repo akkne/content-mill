@@ -1,3 +1,4 @@
+import { getTranslator } from "@/lib/server-language";
 import { KnowledgeHeader } from "@/app/knowledge/knowledge-header";
 import { backLink, content, pageTitle } from "@/app/ui-styles";
 import { LibraryTiles } from "@/app/knowledge/library-tiles";
@@ -15,6 +16,7 @@ import { KnowledgeBrowser } from "./knowledge-browser";
 export const dynamic = "force-dynamic";
 
 export default async function KnowledgePage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getTranslator();
   const access = (await cookies()).get(accessCookie)?.value;
   if (!access) redirect("/login");
   const user = await fetchCurrentUser(access);
@@ -26,15 +28,15 @@ export default async function KnowledgePage({ params }: { params: Promise<{ id: 
   try {
     [project, nodes, context] = await Promise.all([loadProject(id), loadKnowledge(id), loadContext(id)]);
   } catch {
-    return <AppShell userName={user.display_name} section="База знаний"><main className={content} id="main-content"><h1 className={pageTitle}>Проект недоступен</h1><Link href="/projects">Вернуться к проектам</Link></main></AppShell>;
+    return <AppShell userName={user.display_name} section="База знаний"><main className={content} id="main-content"><h1 className={pageTitle}>{t("Проект недоступен", "Project unavailable")}</h1><Link href="/projects">{t("Вернуться к проектам", "Back to projects")}</Link></main></AppShell>;
   }
   return (
     <AppShell userName={user.display_name} section="База знаний">
       <main className={content} id="main-content">
         <Link className={backLink} href={`/projects/${id}`}>
-          ← Контекст проекта
+          {t("← Контекст проекта", "← Project context")}
         </Link>
-        <KnowledgeHeader project={project.name} description="Материалы бренда, товаров и роликов. Дважды нажмите файл, чтобы открыть его." />
+        <KnowledgeHeader project={project.name} description={t("Материалы бренда, товаров и роликов. Дважды нажмите файл, чтобы открыть его.", "Brand, product and video materials. Double-click a file to open it.")} />
         <KnowledgeBrowser
           initialSources={{ ids: context.source_version_ids, revision: context.revision }}
           initial={nodes}

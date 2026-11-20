@@ -60,7 +60,7 @@ export function AppShell({
   const [changingLanguage, startLanguageChange] = useTransition();
   const t = (ru: string, en: string) => (english ? en : ru);
   const pending = t("Ещё не реализовано", "Not yet implemented");
-  const home = section === "Главная";
+  const currentSection = navigation.find(([label]) => label === section);
   const projectId = useParams().id;
   const theme = useSyncExternalStore(subscribeToTheme, getTheme, () => "light");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -222,7 +222,7 @@ export function AppShell({
             <span className="text-xs text-muted">
               mill <span aria-hidden="true">/</span>{" "}
               <strong className="text-ink">
-                {home ? t("Главная", "Home") : section}
+                {currentSection ? t(currentSection[0], currentSection[1]) : section}
               </strong>
             </span>
           </div>

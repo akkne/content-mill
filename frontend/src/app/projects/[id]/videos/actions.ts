@@ -1,4 +1,6 @@
 "use server";
+import { apiError } from "@/lib/api-error";
+import { getTranslator } from "@/lib/server-language";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -9,6 +11,7 @@ export async function saveVideo(
   video: string | null,
   data: FormData,
 ): Promise<string> {
+  const t = await getTranslator();
   const action = String(data.get("action") || "");
   const body = video
     ? { action, value: data.get("value") || "" }
@@ -24,10 +27,10 @@ export async function saveVideo(
   try {
     const res = await videoRequest(project, path, body);
     const result = await res.json();
-    if (!res.ok) return result.error?.message || "Не удалось сохранить ролик";
+    if (!res.ok) return apiError(t, result.error?.message, t("Не удалось сохранить ролик", "Could not save video"));
     id = result.id;
   } catch {
-    return "Сервер недоступен. Попробуйте ещё раз.";
+    return t("Сервер недоступен. Попробуйте ещё раз.", "Server unavailable. Try again.");
   }
   const base = `/projects/${project}/videos`;
   revalidatePath(base, "layout");

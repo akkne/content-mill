@@ -1,4 +1,5 @@
 "use client";
+import { useTranslator } from "@/app/interface-language";
 
 import { useState, useTransition } from "react";
 import {
@@ -18,6 +19,7 @@ export function VoiceEditor({
   onSave: (value: SavedVoice) => void;
   onCancel: () => void;
 }) {
+  const t = useTranslator();
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
   return (
@@ -41,7 +43,7 @@ export function VoiceEditor({
       }}
     >
       <label className={fieldLabel}>
-        Описание
+        {t("Описание", "Description")}
         <textarea
           className={field}
           name="description"
@@ -50,7 +52,7 @@ export function VoiceEditor({
         />
       </label>
       <label className={fieldLabel}>
-        Язык
+        {t("Язык", "Language")}
         <input
           className={field}
           name="language"
@@ -59,19 +61,19 @@ export function VoiceEditor({
         />
       </label>
       <label className={fieldLabel}>
-        Пол
+        {t("Пол", "Gender")}
         <select
           className={field}
           name="gender"
           defaultValue={voice.voice_gender ?? ""}
         >
-          <option value="">Не указан</option>
-          <option value="male">Мужской</option>
-          <option value="female">Женский</option>
+          <option value="">{t("Не указан", "Unspecified")}</option>
+          <option value="male">{t("Мужской", "Male")}</option>
+          <option value="female">{t("Женский", "Female")}</option>
         </select>
       </label>
       <label className={fieldLabel}>
-        Модель синтеза
+        {t("Модель синтеза", "Speech model")}
         <input
           className={field}
           name="model"
@@ -90,7 +92,7 @@ export function VoiceEditor({
       </label>
       <div className="flex items-end gap-2">
         <button className={primaryButton} disabled={pending}>
-          Сохранить
+          {t("Сохранить", "Save")}
         </button>
         <button
           type="button"
@@ -98,7 +100,7 @@ export function VoiceEditor({
           disabled={pending}
           onClick={onCancel}
         >
-          Отмена
+          {t("Отмена", "Cancel")}
         </button>
       </div>
       {error && <p role="alert">{error}</p>}
