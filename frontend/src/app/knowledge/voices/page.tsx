@@ -1,3 +1,4 @@
+import { getTranslator } from "@/lib/server-language";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -14,6 +15,7 @@ export default async function VoicesPage({
 }: {
   searchParams: Promise<{ create?: string }>;
 }) {
+  const t = await getTranslator();
   const token = (await cookies()).get(accessCookie)?.value;
   const user = token && (await fetchCurrentUser(token));
   if (!user) redirect("/login");
@@ -26,10 +28,10 @@ export default async function VoicesPage({
     <AppShell userName={user.display_name} section="База знаний">
       <main className={content} id="main-content">
         <Link className={backLink} href="/knowledge">
-          ← База знаний
+          {t("← База знаний", "← Knowledge base")}
         </Link>
         <h1 className="mb-6 text-4xl font-semibold tracking-tight sm:text-5xl">
-          Библиотека голосов
+          {t("Библиотека голосов", "Voice library")}
         </h1>
         {result.data ? (
           <VoiceLibrary

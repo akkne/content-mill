@@ -1,4 +1,6 @@
 "use client";
+import { optionLabel } from "../video-labels";
+import { useTranslator, useInterfaceLanguage } from "@/app/interface-language";
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -11,7 +13,8 @@ import {
 } from "@/app/ui-styles";
 import { SpeechPanel } from "@/app/knowledge/voices/speech-panel";
 import type { ProjectVideo } from "@/lib/videos";
-import { Cover, badge } from "../cover";
+import { Cover } from "../cover";
+import { badge } from "../video-labels";
 import { saveVideo } from "../actions";
 
 export function VideoEditor({
@@ -23,6 +26,8 @@ export function VideoEditor({
   project: string;
   projectId: string;
 }) {
+  const locale = useInterfaceLanguage();
+  const t = useTranslator();
   const router = useRouter();
   const working = item.status === "generating";
   useEffect(() => {
@@ -37,7 +42,7 @@ export function VideoEditor({
     original &&
     `/projects/${projectId}/knowledge/files/${original.node_id}/${original.version}`;
   const draft = item.status === "draft";
-  const [tab, setTab] = useState("Публикация");
+  const [tab, setTab] = useState("publication");
   const [confirm, setConfirm] = useState(false);
   const [notice, setNotice] = useState("");
   const [script, setScript] = useState(item.script);
@@ -50,7 +55,7 @@ export function VideoEditor({
     data.set("value", value);
     start(async () => {
       const message = await saveVideo(projectId, item.id, data);
-      setNotice(message || "Сохранено");
+      setNotice(message || t("Сохранено", "Saved"));
     });
   }
   return (
@@ -73,25 +78,25 @@ export function VideoEditor({
         )}
         <p className="text-center text-xs text-muted">
           {originalUrl
-            ? "Ваши исходные кадры"
-            : "Превью обложки · видео не сгенерировано"}
+            ? t("Ваши исходные кадры", "Your source footage")
+            : t("Превью обложки · видео не сгенерировано", "Cover preview · video has yet to be generated")}
         </p>
         <div className="flex flex-wrap justify-center gap-2">
           <a
             className={secondaryButton}
-            download="Сценарий.txt"
+            download={t("Сценарий.txt", "Script.txt")}
             href={
               "data:text/plain;charset=utf-8," + encodeURIComponent(item.script)
             }
           >
-            Скачать сценарий
+            {t("Скачать сценарий", "Download script")}
           </a>
           <a
             className={secondaryButton}
             href={`/projects/${projectId}/videos/${item.id}/cover`}
             download
           >
-            Скачать обложку
+            {t("Скачать обложку", "Download cover")}
           </a>
           {originalUrl && (
             <a
@@ -99,7 +104,7 @@ export function VideoEditor({
               href={originalUrl}
               download={original?.name}
             >
-              Исходное видео
+              {t("Исходное видео", "Source video")}
             </a>
           )}
           <button
@@ -107,55 +112,55 @@ export function VideoEditor({
             className={secondaryButton}
             onClick={() => act("duplicate")}
           >
-            Другой вариант
+            {t("Другой вариант", "Another version")}
           </button>
           <button className={secondaryButton} onClick={() => setConfirm(true)}>
-            Удалить
+            {t("Удалить", "Delete")}
           </button>
         </div>
         {confirm && (
           <div className={workPanel}>
-            <p>Удалить ролик «{item.title}»?</p>
+            <p>{t("Удалить ролик «", "Delete video «")}{item.title}»?</p>
             <button
               disabled={pending}
               className={secondaryButton}
               onClick={() => act("delete")}
             >
-              Удалить ролик
+              {t("Удалить ролик", "Delete video")}
             </button>{" "}
-            <button onClick={() => setConfirm(false)}>Отмена</button>
+            <button onClick={() => setConfirm(false)}>{t("Отмена", "Cancel")}</button>
           </div>
         )}
       </aside>
       <section className="min-w-0 space-y-4">
         <span className="inline-block rounded-full bg-selected px-3 py-1 font-bold text-selected-ink">
-          {badge[item.status]}
+          {badge(t)[item.status]}
         </span>
         {!draft && !working && (
           <div className="flex flex-wrap gap-2">
-            {["Публикация", "Сценарий", "Журнал"].map((t) => (
+            {Object.entries({ publication: t("Публикация", "Publication"), script: t("Сценарий", "Script"), log: t("Журнал", "Log") }).map(([key, label]) => (
               <button
-                aria-pressed={tab === t}
-                key={t}
+                aria-pressed={tab === key}
+                key={key}
                 className={
                   secondaryButton +
                   " aria-pressed:bg-selected aria-pressed:text-selected-ink"
                 }
                 onClick={() => {
-                  setTab(t);
+                  setTab(key);
                   setNotice("");
                 }}
               >
-                {t}
+                {label}
               </button>
             ))}
           </div>
         )}
         {working ? (
           <div className={workPanel}>
-            <h2 className="text-xl font-bold">Собираем ролик · демонстрация</h2>
+            <h2 className="text-xl font-bold">{t("Собираем ролик · демонстрация", "Assembling video · demo")}</h2>
             <progress
-              aria-label="Демо-сборка"
+              aria-label={t("Демо-сборка", "Demo build")}
               className="my-3 w-full"
               value={item.progress}
               max={100}
@@ -167,13 +172,13 @@ export function VideoEditor({
               ))}
             </ol>
           </div>
-        ) : draft || tab === "Сценарий" ? (
+        ) : draft || tab === "script" ? (
           <div className={workPanel + " grid gap-4"}>
             <h2 className="text-xl font-bold">
-              {draft ? "Черновик готов к работе" : "Сценарий ролика"}
+              {draft ? t("Черновик готов к работе", "Draft ready") : t("Сценарий ролика", "Video script")}
             </h2>
             <label className={fieldLabel}>
-              Сценарий
+              {t("Сценарий", "Script")}
               <textarea
                 className={field}
                 rows={9}
@@ -188,7 +193,7 @@ export function VideoEditor({
                 disabled={pending}
                 onClick={() => act("script", script)}
               >
-                Сохранить сценарий
+                {t("Сохранить сценарий", "Save script")}
               </button>
               {draft && (
                 <button
@@ -196,14 +201,14 @@ export function VideoEditor({
                   disabled={pending || script !== item.script}
                   onClick={() => act("assemble")}
                 >
-                  Показать демо-сборку
+                  {t("Показать демо-сборку", "Show demo build")}
                 </button>
               )}
             </div>
             {item.settings.library_voice_id && (
               <details>
                 <summary className="cursor-pointer font-semibold">
-                  Озвучить сценарий · {item.settings.voice}
+                  {t("Озвучить сценарий ·", "Narrate script ·")} {item.settings.voice}
                 </summary>
                 <SpeechPanel
                   voice={item.settings.library_voice_id}
@@ -212,10 +217,10 @@ export function VideoEditor({
               </details>
             )}
           </div>
-        ) : tab === "Журнал" ? (
+        ) : tab === "log" ? (
           <div className={workPanel}>
             <h2 className="mb-3 text-xl font-bold">
-              Журнал агента · демонстрация
+              {t("Журнал агента · демонстрация", "Agent log · demo")}
             </h2>
             <ol className="list-inside list-decimal space-y-2">
               {item.journal.map((line) => (
@@ -225,9 +230,9 @@ export function VideoEditor({
           </div>
         ) : (
           <div className={workPanel + " grid gap-4"}>
-            <h2 className="text-xl font-bold">Куда публикуем</h2>
+            <h2 className="text-xl font-bold">{t("Куда публикуем", "Publishing destination")}</h2>
             <label className={fieldLabel}>
-              Подпись к публикации
+              {t("Подпись к публикации", "Post caption")}
               <textarea
                 className={field}
                 rows={5}
@@ -242,12 +247,11 @@ export function VideoEditor({
                 className={secondaryButton}
                 onClick={() => act("caption", caption)}
               >
-                Сохранить подпись
+                {t("Сохранить подпись", "Save caption")}
               </button>
             </div>
             <p className="text-muted">
-              Демо-публикация в {item.settings.platform} сохраняется в проекте
-              без отправки в соцсеть.
+              {t("Демо-публикация в", "Demo post for")} {optionLabel(item.settings.platform, t)} {t("сохраняется в проекте без отправки в соцсеть.", "is saved in the project without posting to social media.")}
             </p>
             {item.status !== "published" && (
               <div className="flex flex-wrap items-end gap-2">
@@ -256,10 +260,10 @@ export function VideoEditor({
                   className={primaryButton}
                   onClick={() => act("publish")}
                 >
-                  Опубликовать сейчас
+                  {t("Опубликовать сейчас", "Publish now")}
                 </button>
                 <label className={fieldLabel}>
-                  Дата и время
+                  {t("Дата и время", "Date and time")}
                   <input
                     className={field}
                     type="datetime-local"
@@ -272,23 +276,23 @@ export function VideoEditor({
                   className={secondaryButton}
                   onClick={() => act("schedule", new Date(date).toISOString())}
                 >
-                  Запланировать
+                  {t("Запланировать", "Schedule")}
                 </button>
               </div>
             )}
-            <h3 className="font-bold">Публикации</h3>
+            <h3 className="font-bold">{t("Публикации", "Posts")}</h3>
             <p>
               {item.settings.publication
-                ? badge[item.status] +
+                ? badge(t)[item.status] +
                   " · " +
-                  new Date(item.settings.publication).toLocaleString("ru")
-                : "Здесь появятся запланированные и опубликованные записи."}
+                  new Date(item.settings.publication).toLocaleString(locale)
+                : t("Здесь появятся запланированные и опубликованные записи.", "Scheduled and published posts will appear here.")}
             </p>
           </div>
         )}
         {item.settings.sources.length > 0 && (
           <div className={workPanel}>
-            <h3 className="mb-2 font-bold">Материалы базы знаний</h3>
+            <h3 className="mb-2 font-bold">{t("Материалы базы знаний", "Knowledge base materials")}</h3>
             {item.settings.sources.map((s) => (
               <p key={s.id}>
                 {s.name} · v{s.version}
@@ -296,7 +300,7 @@ export function VideoEditor({
             ))}
           </div>
         )}
-        <p role="status">{pending ? "Сохранение…" : notice}</p>
+        <p role="status">{pending ? t("Сохранение…", "Saving…") : notice}</p>
       </section>
     </div>
   );

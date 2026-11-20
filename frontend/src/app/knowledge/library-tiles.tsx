@@ -1,15 +1,17 @@
+import { getTranslator } from "@/lib/server-language";
 import { LibraryIllustration } from "./library-illustration";
 import Link from "next/link";
 
-const libraries = [
-  { name: "Голоса", href: "/knowledge/voices", description: "Мои голоса и каталог ElevenLabs", kind: "voice" },
-  { name: "Аватары", href: "/knowledge/avatars", description: "Библиотека в разработке", kind: "avatar" },
-] as const;
 
-export function LibraryTiles() {
+export async function LibraryTiles() {
+  const t = await getTranslator();
+  const libraries = [
+    { name: t("Голоса", "Voices"), href: "/knowledge/voices", description: t("Мои голоса и каталог ElevenLabs", "My voices and the ElevenLabs catalog"), kind: "voice" },
+    { name: t("Аватары", "Avatars"), href: "/knowledge/avatars", description: t("Библиотека в разработке", "Library in development"), kind: "avatar" },
+  ] as const;
   return (
     <section className="mt-8" aria-labelledby="library-title">
-      <h2 id="library-title" className="mb-3.5 text-lg font-bold tracking-tight">Личные библиотеки</h2>
+      <h2 id="library-title" className="mb-3.5 text-lg font-bold tracking-tight">{t("Личные библиотеки", "Personal libraries")}</h2>
       <div className="grid gap-4 lg:grid-cols-2">
         {libraries.map(({ name, href, description, kind }) => (
           <Link key={href} href={href} className="group grid min-h-36 grid-cols-[minmax(0,1fr)_36%] overflow-hidden rounded-[18px] border border-line bg-surface shadow-panel hover:border-accent/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent motion-safe:transition-colors">

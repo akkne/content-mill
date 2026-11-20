@@ -1,4 +1,5 @@
 "use client";
+import { useTranslator } from "@/app/interface-language";
 
 import { useEffect, useState, useTransition } from "react";
 import {
@@ -42,6 +43,7 @@ export function VoiceCreator({
   onSave: (voice: SavedVoice) => void;
   initialMode: "catalog" | "manual";
 }) {
+  const t = useTranslator();
   const [mode, setMode] = useState(initialMode);
   const [description, setDescription] = useState("");
   const [manualLanguage, setManualLanguage] = useState("");
@@ -129,7 +131,7 @@ export function VoiceCreator({
 
   return (
     <section
-      aria-label="Создание голоса"
+      aria-label={t("Создание голоса", "Create a voice")}
       className="rounded-3xl border border-line bg-surface p-5 shadow-panel sm:p-7"
     >
       <fieldset disabled={saving}>
@@ -146,8 +148,8 @@ export function VoiceCreator({
               }}
             >
               {value === "catalog"
-                ? "ElevenLabs через Lumean"
-                : "Вставить ID вручную"}
+                ? t("ElevenLabs через Lumean", "ElevenLabs via Lumean")
+                : t("Вставить ID вручную", "Enter ID manually")}
             </button>
           ))}
         </div>
@@ -155,7 +157,7 @@ export function VoiceCreator({
           <>
             <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className={fieldLabel}>
-                Искать по
+                {t("Искать по", "Search by")}
                 <select
                   className={field}
                   value={exact ? "id" : "name"}
@@ -164,12 +166,12 @@ export function VoiceCreator({
                     resetPage();
                   }}
                 >
-                  <option value="name">Названию</option>
-                  <option value="id">Точному ID</option>
+                  <option value="name">{t("Названию", "Name")}</option>
+                  <option value="id">{t("Точному ID", "Exact ID")}</option>
                 </select>
               </label>
               <label className={fieldLabel}>
-                {exact ? "ID ElevenLabs" : "Название голоса"}
+                {exact ? "ID ElevenLabs" : t("Название голоса", "Voice name")}
                 <input
                   className={field}
                   value={query}
@@ -181,11 +183,11 @@ export function VoiceCreator({
                 />
               </label>
               <label className={fieldLabel}>
-                Язык
+                {t("Язык", "Language")}
                 <input
                   className={field}
                   list="voice-languages"
-                  placeholder="Все языки"
+                  placeholder={t("Все языки", "All languages")}
                   value={language}
                   maxLength={80}
                   onChange={(e) => {
@@ -202,7 +204,7 @@ export function VoiceCreator({
                 </datalist>
               </label>
               <label className={fieldLabel}>
-                Пол голоса
+                {t("Пол голоса", "Voice gender")}
                 <select
                   className={field}
                   value={gender}
@@ -211,16 +213,16 @@ export function VoiceCreator({
                     resetPage();
                   }}
                 >
-                  <option value="">Любой</option>
-                  <option value="male">Мужской</option>
-                  <option value="female">Женский</option>
+                  <option value="">{t("Любой", "Any")}</option>
+                  <option value="male">{t("Мужской", "Male")}</option>
+                  <option value="female">{t("Женский", "Female")}</option>
                 </select>
               </label>
             </div>
             {exact && !query.trim() ? (
-              <p>Введите ID голоса.</p>
+              <p>{t("Введите ID голоса.", "Enter a voice ID.")}</p>
             ) : !current ? (
-              <p role="status">Загружаем голоса…</p>
+              <p role="status">{t("Загружаем голоса…", "Loading voices…")}</p>
             ) : current.error ? (
               <div role="alert">
                 {current.error}{" "}
@@ -228,12 +230,12 @@ export function VoiceCreator({
                   className={secondaryButton}
                   onClick={() => setAttempt(attempt + 1)}
                 >
-                  Повторить
+                  {t("Повторить", "Retry")}
                 </button>
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
-                {!current.data?.items.length && <p>Голоса не найдены.</p>}
+                {!current.data?.items.length && <p>{t("Голоса не найдены.", "No voices found.")}</p>}
                 {current.data?.items.map((voice) => (
                   <article
                     key={voice.id}
@@ -241,11 +243,11 @@ export function VoiceCreator({
                   >
                     <h3 className="font-semibold">{voice.name}</h3>
                     <small className="break-all text-muted">{voice.id}</small>
-                    <p>{voice.description || "Описание не указано"}</p>
+                    <p>{voice.description || t("Описание не указано", "No description")}</p>
                     <p className="text-sm">
                       {genderName(voice.gender, locale)} ·{" "}
                       {voice.languages.map(code => languageName(code, locale)).join(", ") ||
-                        "Языки не указаны"}
+                        t("Языки не указаны", "No languages specified")}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
@@ -256,7 +258,7 @@ export function VoiceCreator({
                           setError("");
                         }}
                       >
-                        {selected?.id === voice.id ? "Выбран" : "Выбрать"}
+                        {selected?.id === voice.id ? t("Выбран", "Selected") : t("Выбрать", "Select")}
                       </button>
                       {voice.preview_url ? (
                         playing === voice.id ? (
@@ -265,18 +267,18 @@ export function VoiceCreator({
                             autoPlay
                             className="max-w-full"
                             src={voice.preview_url}
-                            aria-label={`Пример · ${voice.name}`}
+                            aria-label={t(`Пример · ${voice.name}`, `Sample · ${voice.name}`)}
                           />
                         ) : (
                           <button
                             className={secondaryButton}
                             onClick={() => setPlaying(voice.id)}
                           >
-                            Послушать
+                            {t("Послушать", "Listen")}
                           </button>
                         )
                       ) : (
-                        <small>Пример недоступен</small>
+                        <small>{t("Пример недоступен", "Sample unavailable")}</small>
                       )}
                     </div>
                   </article>
@@ -284,7 +286,7 @@ export function VoiceCreator({
               </div>
             )}
             <nav
-              aria-label="Страницы каталога"
+              aria-label={t("Страницы каталога", "Catalog pages")}
               className="my-4 flex items-center gap-3"
             >
               <button
@@ -295,9 +297,9 @@ export function VoiceCreator({
                   setPlaying("");
                 }}
               >
-                Назад
+                {t("Назад", "Back")}
               </button>
-              <span>Страница {cursors.length}</span>
+              <span>{t("Страница", "Page")} {cursors.length}</span>
               <button
                 className={secondaryButton}
                 disabled={!current?.data?.next_cursor}
@@ -307,7 +309,7 @@ export function VoiceCreator({
                   setPlaying("");
                 }}
               >
-                Далее
+                {t("Далее", "Next")}
               </button>
             </nav>
           </>
@@ -323,7 +325,7 @@ export function VoiceCreator({
             {mode === "manual" && (
               <>
                 <label className={fieldLabel}>
-                  Описание
+                  {t("Описание", "Description")}
                   <input
                     className={field}
                     value={description}
@@ -332,7 +334,7 @@ export function VoiceCreator({
                   />
                 </label>
                 <label className={fieldLabel}>
-                  Язык
+                  {t("Язык", "Language")}
                   <input
                     className={field}
                     value={manualLanguage}
@@ -341,7 +343,7 @@ export function VoiceCreator({
                   />
                 </label>
                 <label className={fieldLabel}>
-                  Модель синтеза
+                  {t("Модель синтеза", "Speech model")}
                   <input
                     className={field}
                     value={model}
@@ -350,7 +352,7 @@ export function VoiceCreator({
                   />
                 </label>
                 <label className={fieldLabel}>
-                  ID голоса ElevenLabs
+                  {t("ID голоса ElevenLabs", "ElevenLabs voice ID")}
                   <input
                     className={field}
                     value={manualId}
@@ -360,21 +362,21 @@ export function VoiceCreator({
                   />
                 </label>
                 <label className={fieldLabel}>
-                  Пол голоса
+                  {t("Пол голоса", "Voice gender")}
                   <select
                     className={field}
                     value={manualGender}
                     onChange={(e) => setManualGender(e.target.value)}
                   >
-                    <option value="">Не указан</option>
-                    <option value="male">Мужской</option>
-                    <option value="female">Женский</option>
+                    <option value="">{t("Не указан", "Unspecified")}</option>
+                    <option value="male">{t("Мужской", "Male")}</option>
+                    <option value="female">{t("Женский", "Female")}</option>
                   </select>
                 </label>
               </>
             )}
             <label className={fieldLabel}>
-              Название голоса
+              {t("Название голоса", "Voice name")}
               <input
                 className={field}
                 value={name}
@@ -384,7 +386,7 @@ export function VoiceCreator({
               />
             </label>
             <button className={primaryButton} disabled={saving}>
-              {saving ? "Сохраняем…" : "Сохранить в библиотеку"}
+              {saving ? t("Сохраняем…", "Saving…") : t("Сохранить в библиотеку", "Save to library")}
             </button>
           </form>
         )}

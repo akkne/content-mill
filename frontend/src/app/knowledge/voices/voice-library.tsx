@@ -1,4 +1,5 @@
 "use client";
+import { useTranslator, useInterfaceLanguage } from "@/app/interface-language";
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -21,6 +22,7 @@ function ProjectChecklist({
   onSave: (ids: string[]) => void;
   onCancel: () => void;
 }) {
+  const t = useTranslator();
   const [checked, setChecked] = useState(voice.project_ids);
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
@@ -45,7 +47,7 @@ function ProjectChecklist({
       disabled={pending}
       className="mt-4 rounded-xl border border-line bg-control p-4"
     >
-      <legend className="px-1 font-semibold">Проекты для «{voice.name}»</legend>
+      <legend className="px-1 font-semibold">{t("Проекты для «", "Projects for «")}{voice.name}»</legend>
       <div className="grid max-h-56 gap-2 overflow-y-auto sm:grid-cols-2">
         {projects.map((p) => (
           <label className="flex cursor-pointer items-center gap-2" key={p.id}>
@@ -60,7 +62,7 @@ function ProjectChecklist({
         ))}
         {!projects.length && (
           <Link href="/projects" className="text-accent">
-            Создать первый проект →
+            {t("Создать первый проект →", "Create your first project →")}
           </Link>
         )}
       </div>
@@ -71,10 +73,10 @@ function ProjectChecklist({
           disabled={!projects.length}
           onClick={save}
         >
-          {pending ? "Сохраняем…" : "Сохранить изменения"}
+          {pending ? t("Сохраняем…", "Saving…") : t("Сохранить изменения", "Save changes")}
         </button>
         <button className={secondaryButton} onClick={onCancel}>
-          Отмена
+          {t("Отмена", "Cancel")}
         </button>
       </div>
     </fieldset>
@@ -90,6 +92,8 @@ export function VoiceLibrary({
   projects: Project[];
   creating: boolean;
 }) {
+  const locale = useInterfaceLanguage();
+  const t = useTranslator();
   const [voices, setVoices] = useState(initial);
   const [create, setCreate] = useState(creating);
   const [query, setQuery] = useState("");
@@ -99,7 +103,7 @@ export function VoiceLibrary({
   const [playing, setPlaying] = useState("");
   const [notice, setNotice] = useState("");
   const visible = voices.filter((v) =>
-    [v.name, v.description, v.elevenlabs_voice_id, languagesOf(v)].some((s) =>
+    [v.name, v.description, v.elevenlabs_voice_id, languagesOf(v, locale)].some((s) =>
       s?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
     ),
   );
@@ -114,7 +118,7 @@ export function VoiceLibrary({
             setNotice("");
           }}
         >
-          Мои голоса · {voices.length}
+          {t("Мои голоса ·", "My voices ·")} {voices.length}
         </button>
         <button
           aria-pressed={create}
@@ -124,7 +128,7 @@ export function VoiceLibrary({
             setNotice("");
           }}
         >
-          Добавить голос
+          {t("Добавить голос", "Add voice")}
         </button>
       </div>
       {notice && (
@@ -139,27 +143,27 @@ export function VoiceLibrary({
             setVoices([v, ...voices]);
             setCreate(false);
             setQuery("");
-            setNotice(`«${v.name}» добавлен в библиотеку`);
+            setNotice(t(`«${v.name}» добавлен в библиотеку`, `“${v.name}” added to your library`));
           }}
         />
       ) : (
         <section
-          aria-label="Мои голоса"
+          aria-label={t("Мои голоса", "My voices")}
           className="rounded-3xl border border-line bg-surface p-5 shadow-panel sm:p-7"
         >
           <input
-            aria-label="Поиск по библиотеке"
+            aria-label={t("Поиск по библиотеке", "Search library")}
             className={`${field} mb-5 max-w-lg`}
             type="search"
-            placeholder="Поиск по библиотеке"
+            placeholder={t("Поиск по библиотеке", "Search library")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
           {!visible.length && (
             <p className="py-8 text-muted">
               {voices.length
-                ? "Голоса не найдены."
-                : "Здесь появятся ваши сохранённые голоса."}
+                ? t("Голоса не найдены.", "No voices found.")
+                : t("Здесь появятся ваши сохранённые голоса.", "Your saved voices will appear here.")}
             </p>
           )}
           <ul className="divide-y divide-line">
@@ -178,8 +182,7 @@ export function VoiceLibrary({
                       <p className="mt-1 text-sm">{v.description}</p>
                     )}
                     <p className="mt-1 text-sm text-muted">
-                      {languagesOf(v)} · {genderName(v.voice_gender)} ·
-                      Проектов: {v.project_ids.length}
+                      {languagesOf(v, locale)} · {genderName(v.voice_gender, locale)} {t("· Проектов:", "· Projects:")} {v.project_ids.length}
                     </p>
                   </div>
                   <button
@@ -187,14 +190,14 @@ export function VoiceLibrary({
                     aria-expanded={speech === v.id}
                     onClick={() => setSpeech(speech === v.id ? "" : v.id)}
                   >
-                    Озвучить текст
+                    {t("Озвучить текст", "Generate speech")}
                   </button>
                   {v.voice_preview_url && (
                     <button
                       className={secondaryButton}
                       onClick={() => setPlaying(playing === v.id ? "" : v.id)}
                     >
-                      {playing === v.id ? "Закрыть пример" : "Послушать"}
+                      {playing === v.id ? t("Закрыть пример", "Close sample") : t("Послушать", "Listen")}
                     </button>
                   )}
                   <button
@@ -204,7 +207,7 @@ export function VoiceLibrary({
                       setAssigning("");
                     }}
                   >
-                    Изменить
+                    {t("Изменить", "Edit")}
                   </button>
                   <button
                     className={primaryButton}
@@ -214,7 +217,7 @@ export function VoiceLibrary({
                       setEditing("");
                     }}
                   >
-                    Добавить в проект
+                    {t("Добавить в проект", "Add to project")}
                   </button>
                 </div>
                 {speech === v.id && <SpeechPanel voice={v.id} />}
@@ -252,7 +255,7 @@ export function VoiceLibrary({
                         ),
                       );
                       setAssigning("");
-                      setNotice("Список проектов сохранён");
+                      setNotice(t("Список проектов сохранён", "Project list saved"));
                     }}
                   />
                 )}

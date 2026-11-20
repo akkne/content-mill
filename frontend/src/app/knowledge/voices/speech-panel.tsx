@@ -1,4 +1,5 @@
 "use client";
+import { useTranslator } from "@/app/interface-language";
 
 import { useEffect, useState, useTransition } from "react";
 import {
@@ -9,17 +10,18 @@ import {
 } from "@/app/ui-styles";
 import { speechHistory, speechResult, synthesize } from "./actions";
 
-const labels: Record<string, string> = {
-  submitting: "Отправляем заказ…",
-  processing: "Lumean озвучивает текст…",
-  failed: "Заказ завершился без готовой дорожки.",
-  uncertain:
-    "Ответ на отправку потерян. Перед повторной оплатой сверьте номер заказа в Lumean.",
-  expired: "Срок хранения аудио в Lumean истёк.",
-  completed: "Озвучка готова",
-};
 
 function Recording({ voice, id }: { voice: string; id: string }) {
+  const t = useTranslator();
+  const labels: Record<string, string> = {
+    submitting: t("Отправляем заказ…", "Submitting order…"),
+    processing: t("Lumean озвучивает текст…", "Lumean is generating speech…"),
+    failed: t("Заказ завершился без готовой дорожки.", "The order ended without an audio track."),
+    uncertain:
+      t("Ответ на отправку потерян. Перед повторной оплатой сверьте номер заказа в Lumean.", "No confirmation received. Check the order number in Lumean before paying again."),
+    expired: t("Срок хранения аудио в Lumean истёк.", "The audio has expired in Lumean."),
+    completed: t("Озвучка готова", "Audio ready"),
+  };
   const [result, setResult] = useState<{
     status: string;
     url: string | null;
@@ -50,7 +52,7 @@ function Recording({ voice, id }: { voice: string; id: string }) {
   return (
     <div className="grid gap-2">
       <p role="status">
-        {error || (result ? labels[result.status] : "Проверяем заказ…")}
+        {error || (result ? labels[result.status] : t("Проверяем заказ…", "Checking order…"))}
       </p>
       {result?.url && (
         <>
@@ -61,7 +63,7 @@ function Recording({ voice, id }: { voice: string; id: string }) {
             target="_blank"
             rel="noreferrer"
           >
-            Открыть аудиофайл
+            {t("Открыть аудиофайл", "Open audio file")}
           </a>
         </>
       )}
@@ -70,7 +72,7 @@ function Recording({ voice, id }: { voice: string; id: string }) {
           className={secondaryButton}
           onClick={() => setAttempt(attempt + 1)}
         >
-          Обновить результат
+          {t("Обновить результат", "Refresh result")}
         </button>
       )}
     </div>
@@ -84,6 +86,7 @@ export function SpeechPanel({
   voice: string;
   initialText?: string;
 }) {
+  const t = useTranslator();
   const [text, setText] = useState(initialText);
   const [ids, setIds] = useState<string[]>([]);
   const [retry, setRetry] = useState<{ text: string; id: string }>();
@@ -137,7 +140,7 @@ export function SpeechPanel({
         }}
       >
         <label className={fieldLabel}>
-          Текст озвучки
+          {t("Текст озвучки", "Text to narrate")}
           <textarea
             className={field}
             rows={4}
@@ -148,25 +151,25 @@ export function SpeechPanel({
           />
         </label>
         <small className="text-muted">
-          {text.length} / 4000 символов · Eleven Multilingual v2
+          {text.length} {t("/ 4000 символов · Eleven Multilingual v2", "/ 4000 characters · Eleven Multilingual v2")}
         </small>
         <button
           className={primaryButton}
           disabled={pending || !text.trim() || text.length > 4000}
         >
-          {pending ? "Отправляем…" : "Озвучить за счёт баланса Lumean"}
+          {pending ? t("Отправляем…", "Sending…") : t("Озвучить за счёт баланса Lumean", "Generate speech using Lumean credit")}
         </button>
       </form>
       {error && <p role="alert">{error}</p>}
       {ids.length > 0 && (
         <label className={fieldLabel}>
-          Последние заказы
+          {t("Последние заказы", "Recent orders")}
           <select
             className={field}
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
           >
-            <option value="">Выбрать заказ</option>
+            <option value="">{t("Выбрать заказ", "Select order")}</option>
             {ids.map((id) => (
               <option key={id} value={id}>
                 {id}

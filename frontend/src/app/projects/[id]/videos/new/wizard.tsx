@@ -1,4 +1,6 @@
 "use client";
+import { optionLabel } from "../video-labels";
+import { useTranslator } from "@/app/interface-language";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
@@ -18,12 +20,6 @@ import {
 import { Cover } from "../cover";
 import { saveVideo } from "../actions";
 
-const labels = {
-  method: "Формат подачи",
-  platform: "Площадка",
-  duration: "Длительность",
-  language: "Язык",
-};
 
 export function Wizard({
   projectId,
@@ -32,6 +28,13 @@ export function Wizard({
   projectId: string;
   data: VideoOptions;
 }) {
+  const t = useTranslator();
+  const labels = {
+    method: t("Формат подачи", "Presentation style"),
+    platform: t("Площадка", "Platform"),
+    duration: t("Длительность", "Duration"),
+    language: t("Язык", "Language"),
+  };
   const [sources, setSources] = useState(data.sources);
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(0);
@@ -42,12 +45,12 @@ export function Wizard({
   const [pending, start] = useTransition();
   return (
     <>
-      <h1 className={pageTitle}>Создать ролик</h1>
+      <h1 className={pageTitle}>{t("Создать ролик", "Create video")}</h1>
       <p className={pageLead}>
-        Ваши материалы, голос бренда и подходящий формат.
+        {t("Ваши материалы, голос бренда и подходящий формат.", "Your materials, brand voice and preferred format.")}
       </p>
       <ol className="mb-5 flex flex-wrap gap-3">
-        {["Материалы", "Формат", "Запуск"].map((s, i) => (
+        {[t("Материалы", "Materials"), t("Формат", "Format"), t("Запуск", "Launch")].map((s, i) => (
           <li
             key={s}
             aria-current={step === i ? "step" : undefined}
@@ -80,13 +83,13 @@ export function Wizard({
             <div className="grid gap-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className={fieldLabel}>
-                  Проект
+                  {t("Проект", "Project")}
                   <input className={field} disabled value={data.project} />
                 </label>
                 <label className={fieldLabel}>
-                  Товар или услуга
+                  {t("Товар или услуга", "Product or service")}
                   <select className={field} name="product">
-                    <option value="">Не выбран</option>
+                    <option value="">{t("Не выбран", "None selected")}</option>
                     {data.products.map((p) => (
                       <option key={p}>{p}</option>
                     ))}
@@ -94,7 +97,7 @@ export function Wizard({
                 </label>
               </div>
               <label className={fieldLabel}>
-                Название или идея ролика
+                {t("Название или идея ролика", "Video title or idea")}
                 <input
                   required
                   className={field}
@@ -103,11 +106,11 @@ export function Wizard({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   pattern=".*\S.*"
-                  placeholder="Как подготовить ролик за один день"
+                  placeholder={t("Как подготовить ролик за один день", "How to prepare a video in one day")}
                 />
               </label>
               <label className={fieldLabel}>
-                Что показать и какую мысль донести
+                {t("Что показать и какую мысль донести", "What to show and what message to convey")}
                 <textarea
                   className={field}
                   name="brief"
@@ -116,9 +119,9 @@ export function Wizard({
                 />
               </label>
               <label className="grid gap-2 rounded-xl border border-dashed border-line p-4">
-                <strong>Свои кадры и фото товара</strong>
+                <strong>{t("Свои кадры и фото товара", "Your footage and product photos")}</strong>
                 <span className="text-muted">
-                  Файлы сохранятся в базе знаний проекта.
+                  {t("Файлы сохранятся в базе знаний проекта.", "Files will be saved to the project knowledge base.")}
                 </span>
                 <input
                   type="file"
@@ -151,18 +154,18 @@ export function Wizard({
                       setError(
                         err instanceof Error
                           ? err.message
-                          : "Не удалось загрузить файл",
+                          : t("Не удалось загрузить файл", "Could not upload file"),
                       );
                     } finally {
                       setUploading(false);
                     }
                   }}
                 />
-                {uploading && <span role="status">Загрузка файлов…</span>}
+                {uploading && <span role="status">{t("Загрузка файлов…", "Uploading files…")}</span>}
               </label>
               <fieldset className="rounded-xl border border-dashed border-line p-4">
                 <legend className="px-1 font-bold">
-                  Материалы из базы знаний
+                  {t("Материалы из базы знаний", "Knowledge base files")}
                 </legend>
                 <div className="grid max-h-60 gap-2 overflow-auto">
                   {sources.map((s) => (
@@ -179,7 +182,7 @@ export function Wizard({
                 </div>
                 {!sources.length && (
                   <p className="text-muted">
-                    В базе знаний пока нет сохранённых файлов.
+                    {t("В базе знаний пока нет сохранённых файлов.", "No files in the knowledge base yet.")}
                   </p>
                 )}
                 <Link
@@ -187,7 +190,7 @@ export function Wizard({
                   href={`/projects/${projectId}/knowledge`}
                   target="_blank"
                 >
-                  Открыть базу знаний ↗
+                  {t("Открыть базу знаний ↗", "Open knowledge base ↗")}
                 </Link>
               </fieldset>
             </div>
@@ -209,17 +212,17 @@ export function Wizard({
                   >
                     {data.options[k].map((v) => (
                       <option key={v} value={v}>
-                        {v}
-                        {k === "duration" ? " секунд" : ""}
+                        {optionLabel(v, t)}
+                        {k === "duration" ? t(" секунд", " seconds") : ""}
                       </option>
                     ))}
                   </select>
                 </label>
               ))}
               <label className={fieldLabel}>
-                Голос проекта
+                {t("Голос проекта", "Project voice")}
                 <select className={field} name="voice">
-                  <option value="">Без озвучки</option>
+                  <option value="">{t("Без озвучки", "No narration")}</option>
                   {Object.entries(data.voices).map(([id, name]) => (
                     <option key={id} value={id}>
                       {name}
@@ -228,31 +231,31 @@ export function Wizard({
                 </select>
               </label>
               <label className={fieldLabel}>
-                Соотношение сторон
+                {t("Соотношение сторон", "Aspect ratio")}
                 <input
                   className={field}
                   disabled
-                  value="9:16 · вертикальный ролик"
+                  value={t("9:16 · вертикальный ролик", "9:16 · vertical video")}
                 />
               </label>
             </div>
           </div>
           {step === 2 && (
             <div className="grid gap-3">
-              <h2 className="font-bold">Проверка перед запуском</h2>
+              <h2 className="font-bold">{t("Проверка перед запуском", "Review before launch")}</h2>
               {[
-                ["Идея", title],
-                ["Товар", review?.get("product") || "Не выбран"],
+                [t("Идея", "Idea"), title],
+                [t("Товар", "Product"), review?.get("product") || t("Не выбран", "None selected")],
                 [
-                  "Формат",
-                  review?.get("method") + " · " + review?.get("platform"),
+                  t("Формат", "Format"),
+                  optionLabel(String(review?.get("method") ?? ""), t) + " · " + optionLabel(String(review?.get("platform") ?? ""), t),
                 ],
-                ["Настройки", duration + " сек · " + review?.get("language")],
+                [t("Настройки", "Settings"), duration + t(" сек · ", " sec · ") + optionLabel(String(review?.get("language") ?? ""), t)],
                 [
-                  "Голос",
-                  data.voices[String(review?.get("voice"))] || "Без озвучки",
+                  t("Голос", "Voice"),
+                  data.voices[String(review?.get("voice"))] || t("Без озвучки", "No narration"),
                 ],
-                ["Материалы", review?.getAll("sources").length + " файлов"],
+                [t("Материалы", "Materials"), review?.getAll("sources").length + t(" файлов", " files")],
               ].map(([k, v]) => (
                 <p
                   key={String(k)}
@@ -263,8 +266,7 @@ export function Wizard({
                 </p>
               ))}
               <p className="text-muted">
-                Демо-сборка подготовит сценарий и журнал. Видеофайл появится
-                после подключения рендера.
+                {t("Демо-сборка подготовит сценарий и журнал. Видеофайл появится после подключения рендера.", "The demo build prepares a script and log. A video file will be available once rendering is connected.")}
               </p>
             </div>
           )}
@@ -277,7 +279,7 @@ export function Wizard({
                 className={secondaryButton}
                 onClick={() => setStep(step - 1)}
               >
-                ← Назад
+                {t("← Назад", "← Back")}
               </button>
             ) : (
               <button
@@ -286,7 +288,7 @@ export function Wizard({
                 value="draft"
                 className={secondaryButton}
               >
-                Сохранить черновик
+                {t("Сохранить черновик", "Save draft")}
               </button>
             )}
             <button
@@ -295,16 +297,16 @@ export function Wizard({
               type="submit"
             >
               {pending
-                ? "Сохранение…"
+                ? t("Сохранение…", "Saving…")
                 : step === 2
-                  ? "Показать демо-сборку"
-                  : "Продолжить →"}
+                  ? t("Показать демо-сборку", "Show demo build")
+                  : t("Продолжить →", "Continue →")}
             </button>
           </div>
         </form>
         <aside className={workPanel + " text-center"}>
           <p className="mb-3 text-xs font-bold tracking-widest text-muted">
-            ПРЕВЬЮ КОМПОЗИЦИИ
+            {t("ПРЕВЬЮ КОМПОЗИЦИИ", "COMPOSITION PREVIEW")}
           </p>
           <Cover
             large
@@ -312,7 +314,7 @@ export function Wizard({
             duration={duration}
             title={title}
           />
-          <p className="mt-2 text-xs text-muted">Обложка-заготовка · 9:16</p>
+          <p className="mt-2 text-xs text-muted">{t("Обложка-заготовка · 9:16", "Cover template · 9:16")}</p>
         </aside>
       </div>
     </>

@@ -1,4 +1,5 @@
 "use client";
+import { useTranslator, useInterfaceLanguage } from "@/app/interface-language";
 
 import { eyebrow, kbDocumentFoot, kbDocumentHead, kbEmpty, secondaryButton } from "@/app/ui-styles";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -9,6 +10,8 @@ import { acceptedMedia, uploadMedia } from "./upload-media";
 export function MediaPreview({ project, node, path, onChange, onClose }: {
   project: string; node: KnowledgeNode; path: string; onChange: (node: KnowledgeNode) => void; onClose: () => void;
 }) {
+  const locale = useInterfaceLanguage();
+  const t = useTranslator();
   const dialog = useRef<HTMLDialogElement>(null);
   const [number, setNumber] = useState<number>();
   const [preview, setPreview] = useState<Awaited<ReturnType<typeof mediaPreview>>["data"]>();
@@ -38,7 +41,7 @@ export function MediaPreview({ project, node, path, onChange, onClose }: {
             {node.name}
           </h2>
         </div>
-        <button aria-label="Закрыть" className={`${secondaryButton} text-[22px]`} onClick={onClose}>
+        <button aria-label={t("Закрыть", "Close")} className={`${secondaryButton} text-[22px]`} onClick={onClose}>
           ×
         </button>
       </header>
@@ -46,7 +49,7 @@ export function MediaPreview({ project, node, path, onChange, onClose }: {
         <>
           <div
             className="grid min-h-[120px] place-items-center"
-            onErrorCapture={() => setError("Не удалось открыть файл. Обновите ссылку или скачайте оригинал.")}
+            onErrorCapture={() => setError(t("Не удалось открыть файл. Обновите ссылку или скачайте оригинал.", "Could not open the file. Refresh the link or download the original."))}
           >
             {node.kind === "video" && (
               <video
@@ -67,13 +70,13 @@ export function MediaPreview({ project, node, path, onChange, onClose }: {
             )}
             {node.kind === "file" && (
               <a href={preview.url} target="_blank" rel="noreferrer">
-                Открыть PDF
+                {t("Открыть PDF", "Open PDF")}
               </a>
             )}
           </div>
           <div className={kbDocumentFoot}>
             <label>
-              Версия{" "}
+              {t("Версия", "Version")}{" "}
               <select
                 value={preview.version.version}
                 onChange={(event) => {
@@ -83,25 +86,25 @@ export function MediaPreview({ project, node, path, onChange, onClose }: {
               >
                 {preview.versions.map((v) => (
                   <option key={v.id} value={v.version}>
-                    {v.version} · {new Date(v.created_at).toLocaleString("ru-RU")}
+                    {v.version} · {new Date(v.created_at).toLocaleString(locale)}
                   </option>
                 ))}
               </select>
             </label>
             <span>
-              {preview.version.format} · {Math.ceil(preview.version.size_bytes / 1024)} КиБ
+              {preview.version.format} · {Math.ceil(preview.version.size_bytes / 1024)} {t("КиБ", "KiB")}
             </span>
             <a href={preview.url} target="_blank" rel="noreferrer">
-              Открыть оригинал ↗
+              {t("Открыть оригинал ↗", "Open original ↗")}
             </a>
           </div>
         </>
       ) : (
-        !error && <p className={kbEmpty}>Открываем файл…</p>
+        !error && <p className={kbEmpty}>{t("Открываем файл…", "Opening file…")}</p>
       )}
       <div className="grid gap-3 px-[22px] py-4 [&_input]:block [&_input]:max-w-full">
         <label>
-          Загрузить новую версию{" "}
+          {t("Загрузить новую версию", "Upload new version")}{" "}
           <input
             type="file"
             accept={acceptedMedia}
@@ -116,17 +119,17 @@ export function MediaPreview({ project, node, path, onChange, onClose }: {
                   setNumber(undefined);
                   onChange(updated);
                 } catch (e) {
-                  setError(e instanceof Error ? e.message : "Ошибка загрузки");
+                  setError(e instanceof Error ? e.message : t("Ошибка загрузки", "Upload failed"));
                 }
               });
             }}
           />
         </label>
         {node.kind === "audio" && (node.voice_language || node.voice_model) && <p className="text-muted">{[node.voice_language, node.voice_model].filter(Boolean).join(" · ")}</p>}
-        {pending && <span role="status">Сохраняем…</span>}
+        {pending && <span role="status">{t("Сохраняем…", "Saving…")}</span>}
         {error && (
           <div role="alert">
-            {error} <button onClick={() => setAttempt(attempt + 1)}>Обновить ссылку</button>
+            {error} <button onClick={() => setAttempt(attempt + 1)}>{t("Обновить ссылку", "Refresh link")}</button>
           </div>
         )}
       </div>

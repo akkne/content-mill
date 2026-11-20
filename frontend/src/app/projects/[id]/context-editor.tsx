@@ -1,4 +1,5 @@
 "use client";
+import { useTranslator } from "@/app/interface-language";
 
 import { projectField, fieldLabel, formError, primaryButton, secondaryButton, workPanel } from "@/app/ui-styles";
 import { useState, useTransition } from "react";
@@ -10,6 +11,7 @@ const lines = (items: string[]) => items.join("\n");
 const splitLines = (value: string) => value.split("\n").map((item) => item.trim()).filter(Boolean);
 
 export function ContextEditor({ initial }: { initial: ProjectContext }) {
+  const t = useTranslator();
   const [revision, setRevision] = useState(initial.revision);
   const [description, setDescription] = useState(initial.description);
   const [audiences, setAudiences] = useState(lines(initial.audiences));
@@ -32,10 +34,10 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
       });
       if (result.context) {
         setRevision(result.context.revision);
-        setStatus("Контекст сохранён");
+        setStatus(t("Контекст сохранён", "Context saved"));
         setConflict(false);
       } else {
-        setStatus(result.error ?? "Ошибка сохранения");
+        setStatus(result.error ?? t("Ошибка сохранения", "Could not save changes"));
         setConflict(Boolean(result.conflict));
       }
     });
@@ -50,48 +52,48 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
       }}
     >
       <section className={`${workPanel} grid gap-3`}>
-        <h2 className="text-[17px]">О клиенте</h2>
+        <h2 className="text-[17px]">{t("О клиенте", "About the client")}</h2>
         <label className={fieldLabel} htmlFor="context-description">
-          Описание
+          {t("Описание", "Description")}
         </label>
         <textarea
           className={`${projectField} resize-y`}
           id="context-description"
           maxLength={10000}
           onChange={(event) => setDescription(event.target.value)}
-          placeholder="Чем занимается клиент и что важно знать о бренде"
+          placeholder={t("Чем занимается клиент и что важно знать о бренде", "What the client does and what matters about the brand")}
           rows={5}
           value={description}
         />
       </section>
       <section className={`${workPanel} grid gap-3`}>
-        <h2 className="text-[17px]">Аудитория</h2>
-        <p className="text-xs leading-[1.7] text-muted">Каждую аудиторию укажите с новой строки.</p>
+        <h2 className="text-[17px]">{t("Аудитория", "Audience")}</h2>
+        <p className="text-xs leading-[1.7] text-muted">{t("Каждую аудиторию укажите с новой строки.", "Enter one audience per line.")}</p>
         <label className={fieldLabel} htmlFor="context-audiences">
-          Сегменты аудитории
+          {t("Сегменты аудитории", "Audience segments")}
         </label>
         <textarea
           className={`${projectField} resize-y`}
           id="context-audiences"
           onChange={(event) => setAudiences(event.target.value)}
-          placeholder="Начинающие предприниматели&#10;Маркетологи малых команд"
+          placeholder={t("Начинающие предприниматели\nМаркетологи малых команд", "First-time entrepreneurs\nSmall marketing teams")}
           rows={4}
           value={audiences}
         />
       </section>
       <section className={`${workPanel} grid gap-3`}>
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-[17px]">Продукты</h2>
+          <h2 className="text-[17px]">{t("Продукты", "Products")}</h2>
           <button
             className={secondaryButton}
             onClick={() => setProducts([...products, { name: "", description: "" }])}
             type="button"
           >
-            + Добавить
+            {t("+ Добавить", "+ Add")}
           </button>
         </div>
         {products.length === 0 && (
-          <p className="text-xs leading-[1.7] text-muted">Добавьте продукты или услуги клиента.</p>
+          <p className="text-xs leading-[1.7] text-muted">{t("Добавьте продукты или услуги клиента.", "Add the client's products or services.")}</p>
         )}
         {products.map((product, index) => (
           <div
@@ -99,7 +101,7 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
             key={index}
           >
             <label className={fieldLabel}>
-              Название
+              {t("Название", "Name")}
               <input
                 className={projectField}
                 maxLength={160}
@@ -112,7 +114,7 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
               />
             </label>
             <label className={fieldLabel}>
-              Описание
+              {t("Описание", "Description")}
               <input
                 className={projectField}
                 maxLength={2000}
@@ -127,7 +129,7 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
               />
             </label>
             <button
-              aria-label={`Удалить продукт ${index + 1}`}
+              aria-label={t(`Удалить продукт ${index + 1}`, `Remove product ${index + 1}`)}
               className="size-[42px] rounded-lg border border-line bg-control text-[23px] text-ink max-[561px]:w-full"
               onClick={() => setProducts(products.filter((_, i) => i !== index))}
               type="button"
@@ -139,18 +141,18 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
       </section>
       <section className={`${workPanel} grid gap-3`}>
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-[17px]">Подтверждённые факты</h2>
+          <h2 className="text-[17px]">{t("Подтверждённые факты", "Verified facts")}</h2>
           <button
             className={secondaryButton}
             onClick={() => setFacts([...facts, { text: "", source_url: null }])}
             type="button"
           >
-            + Добавить
+            {t("+ Добавить", "+ Add")}
           </button>
         </div>
         {facts.length === 0 && (
           <p className="text-xs leading-[1.7] text-muted">
-            Факты помогут сохранять точность будущих материалов.
+            {t("Факты помогут сохранять точность будущих материалов.", "Use facts to keep future materials accurate.")}
           </p>
         )}
         {facts.map((fact, index) => (
@@ -159,7 +161,7 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
             key={index}
           >
             <label className={fieldLabel}>
-              Факт
+              {t("Факт", "Fact")}
               <input
                 className={projectField}
                 maxLength={2000}
@@ -172,7 +174,7 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
               />
             </label>
             <label className={fieldLabel}>
-              Ссылка на источник
+              {t("Ссылка на источник", "Source link")}
               <input
                 className={projectField}
                 maxLength={2000}
@@ -189,7 +191,7 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
               />
             </label>
             <button
-              aria-label={`Удалить факт ${index + 1}`}
+              aria-label={t(`Удалить факт ${index + 1}`, `Remove fact ${index + 1}`)}
               className="size-[42px] rounded-lg border border-line bg-control text-[23px] text-ink max-[561px]:w-full"
               onClick={() => setFacts(facts.filter((_, i) => i !== index))}
               type="button"
@@ -200,15 +202,15 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
         ))}
       </section>
       <section className={`${workPanel} grid gap-3`}>
-        <h2 className="text-[17px]">Ограничения</h2>
+        <h2 className="text-[17px]">{t("Ограничения", "Restrictions")}</h2>
         <label className={fieldLabel} htmlFor="context-terms">
-          Запрещённые слова и темы
+          {t("Запрещённые слова и темы", "Prohibited words and topics")}
         </label>
         <textarea
           className={`${projectField} resize-y`}
           id="context-terms"
           onChange={(event) => setTerms(event.target.value)}
-          placeholder="Каждое ограничение с новой строки"
+          placeholder={t("Каждое ограничение с новой строки", "One restriction per line")}
           rows={3}
           value={terms}
         />
@@ -216,17 +218,17 @@ export function ContextEditor({ initial }: { initial: ProjectContext }) {
       <div className="flex flex-wrap items-center justify-end gap-3">
         <span
           aria-live="polite"
-          className={status && status !== "Контекст сохранён" ? formError : "mr-auto font-bold text-success"}
+          className={status && status !== t("Контекст сохранён", "Context saved") ? formError : "mr-auto font-bold text-success"}
         >
           {status}
         </span>
         {conflict && (
           <button className={secondaryButton} onClick={() => window.location.reload()} type="button">
-            Обновить страницу
+            {t("Обновить страницу", "Refresh page")}
           </button>
         )}
         <button className={primaryButton} disabled={pending || conflict} type="submit">
-          {pending ? "Сохраняем…" : "Сохранить контекст"}
+          {pending ? t("Сохраняем…", "Saving…") : t("Сохранить контекст", "Save context")}
         </button>
       </div>
     </form>

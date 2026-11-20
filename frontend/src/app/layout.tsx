@@ -1,13 +1,17 @@
+import { getTranslator } from "@/lib/server-language";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { languageCookie } from "@/lib/interface-language";
 import { InterfaceLanguageProvider } from "./interface-language";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Content Mill",
-  description: "Платформа для подготовки и анализа короткого контента",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslator();
+  return {
+    title: "Content Mill",
+    description: t("Платформа для подготовки и анализа короткого контента", "A platform for creating and analyzing short-form content"),
+  };
+}
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const language = (await cookies()).get(languageCookie)?.value === "en" ? "en" : "ru";

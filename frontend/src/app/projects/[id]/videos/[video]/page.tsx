@@ -1,3 +1,5 @@
+import { optionLabel } from "../video-labels";
+import { getTranslator } from "@/lib/server-language";
 import Link from "next/link";
 import { loadVideos, type ProjectVideo } from "@/lib/videos";
 import { loadProject } from "@/lib/projects";
@@ -9,6 +11,7 @@ export default async function VideoPage({
 }: {
   params: Promise<{ id: string; video: string }>;
 }) {
+  const t = await getTranslator();
   const { id, video } = await params;
   const [item, project] = await Promise.all([
     loadVideos<ProjectVideo>(id, "/" + encodeURIComponent(video)),
@@ -19,12 +22,12 @@ export default async function VideoPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className={pageTitle}>{item.title}</h1>
         <Link className={secondaryButton} href={`/projects/${id}/videos`}>
-          ← Все ролики
+          {t("← Все ролики", "← All videos")}
         </Link>
       </div>
       <p className={pageLead}>
-        {project.name} · {item.settings.method} · {item.settings.duration} сек ·{" "}
-        {item.settings.platform}
+        {project.name} · {optionLabel(item.settings.method, t)} · {item.settings.duration} {t("сек ·", "sec ·")}{" "}
+        {optionLabel(item.settings.platform, t)}
       </p>
       <VideoEditor item={item} project={project.name} projectId={id} />
     </>
