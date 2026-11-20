@@ -98,3 +98,28 @@ export async function addToOpenProject(id: string, project: string) {
     };
   }
 }
+
+export async function synthesize(
+  voice: string,
+  text: string,
+  requestId: string,
+) {
+  return request<{ id: string }>(
+    `/${encodeURIComponent(voice)}/speech`,
+    "POST",
+    {
+      text,
+      request_id: requestId,
+    },
+  );
+}
+
+export async function speechHistory(voice: string) {
+  return request<string[]>(`/${encodeURIComponent(voice)}/speech`);
+}
+
+export async function speechResult(voice: string, id: string) {
+  return request<{ status: string; url: string | null }>(
+    `/${encodeURIComponent(voice)}/speech/${encodeURIComponent(id)}`,
+  );
+}

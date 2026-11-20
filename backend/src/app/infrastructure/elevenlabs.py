@@ -3,7 +3,12 @@ from time import monotonic
 
 import httpx
 
-from app.application.voice_catalog import CatalogError, CatalogVoice, VoicePage
+from app.application.voice_catalog import (
+    CatalogError,
+    CatalogVoice,
+    VoiceCatalog,
+    VoicePage,
+)
 
 
 def catalog_voice(data: dict, language: str) -> CatalogVoice:
@@ -26,7 +31,8 @@ def catalog_voice(data: dict, language: str) -> CatalogVoice:
     )
 
 
-class ElevenLabsCatalog:
+# Legacy direct integration. Do not use it in the application; use Lumean instead.
+class ElevenLabsCatalog(VoiceCatalog):
     def __init__(self, key: str, client: httpx.Client):
         self.key = key
         self.client = client

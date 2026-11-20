@@ -135,7 +135,7 @@ export function VoiceCreator({
               }}
             >
               {value === "catalog"
-                ? "Каталог ElevenLabs"
+                ? "ElevenLabs через Lumean"
                 : "Вставить ID вручную"}
             </button>
           ))}

@@ -9,6 +9,7 @@ import {
   secondaryButton,
   workPanel,
 } from "@/app/ui-styles";
+import { SpeechPanel } from "@/app/knowledge/voices/speech-panel";
 import type { ProjectVideo } from "@/lib/videos";
 import { Cover, badge } from "../cover";
 import { saveVideo } from "../actions";
@@ -199,6 +200,17 @@ export function VideoEditor({
                 </button>
               )}
             </div>
+            {item.settings.library_voice_id && (
+              <details>
+                <summary className="cursor-pointer font-semibold">
+                  Озвучить сценарий · {item.settings.voice}
+                </summary>
+                <SpeechPanel
+                  voice={item.settings.library_voice_id}
+                  initialText={item.script}
+                />
+              </details>
+            )}
           </div>
         ) : tab === "Журнал" ? (
           <div className={workPanel}>

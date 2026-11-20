@@ -31,6 +31,19 @@ class VideoRepository:
     def __init__(self, session: Session):
         self.session = session
 
+    def voices(self, project: UUID) -> dict[str, str]:
+        rows = self.session.execute(
+            select(KnowledgeNodeModel.library_voice_id, KnowledgeNodeModel.name)
+            .where(
+                KnowledgeNodeModel.project_id == project,
+                KnowledgeNodeModel.archived_at.is_(None),
+                KnowledgeNodeModel.library_voice_id.is_not(None),
+                KnowledgeNodeModel.elevenlabs_voice_id.is_not(None),
+            )
+            .order_by(KnowledgeNodeModel.name)
+        )
+        return {str(key): name for key, name in rows}
+
     def finish_due(self, project: UUID) -> None:
         self.session.execute(
             update(VideoModel)

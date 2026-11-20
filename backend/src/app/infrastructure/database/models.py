@@ -104,6 +104,8 @@ class ProjectContextModel(Base):
 class LibraryVoiceModel(Base):
     __tablename__ = "library_voices"
 
+    lumean_template_id: Mapped[UUID | None] = mapped_column()
+
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     owner_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
@@ -226,3 +228,18 @@ class ProjectAgentTokenModel(Base):
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SpeechJobModel(Base):
+    __tablename__ = "speech_jobs"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    voice_id: Mapped[UUID] = mapped_column(
+        ForeignKey("library_voices.id", ondelete="CASCADE"), index=True
+    )
+    text_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16))
+    order_id: Mapped[UUID | None] = mapped_column(unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
