@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { fetchCurrentUser } from "@/lib/backend";
+import { languageCookie } from "@/lib/interface-language";
 import { accessCookie } from "@/lib/session";
 import { AppShell } from "./app-shell";
 import { OverviewMascot } from "./overview-mascot";
@@ -14,22 +15,19 @@ const heading = "flex items-center gap-2.5 text-base font-bold";
 const tag =
   "absolute flex items-center gap-[7px] whitespace-nowrap rounded-lg border border-line bg-tag px-[11px] py-[9px] text-[10px] font-semibold text-muted shadow-panel backdrop-blur-md";
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ lang?: string }>;
-}) {
-  const access = (await cookies()).get(accessCookie)?.value;
+export default async function Home() {
+  const store = await cookies();
+  const access = store.get(accessCookie)?.value;
   const user = access && (await fetchCurrentUser(access));
   if (!user) redirect("/login");
-  const english = (await searchParams).lang === "en";
+  const english = store.get(languageCookie)?.value === "en";
   const t = (ru: string, en: string) => (english ? en : ru);
   const pending = t("Ещё не реализовано", "Not yet implemented");
   const status = (
     <small className="block text-[10px] font-medium">{pending}</small>
   );
   return (
-    <AppShell userName={user.display_name} english={english}>
+    <AppShell userName={user.display_name}>
       <main
         id="main-content"
         className="mx-auto w-full max-w-[1600px] flex-1 px-8 py-[29px] motion-safe:animate-[overview-appear_.24s_ease-out] max-[950px]:px-6 max-sm:px-[17px] max-sm:py-[23px] min-[1500px]:px-[45px]"

@@ -8,6 +8,7 @@ import {
   primaryButton,
   secondaryButton,
 } from "@/app/ui-styles";
+import { useInterfaceLanguage } from "@/app/interface-language";
 import { genderName, languageName } from "./labels";
 import {
   addVoice,
@@ -47,7 +48,9 @@ export function VoiceCreator({
   const [model, setModel] = useState("");
   const [query, setQuery] = useState("");
   const [exact, setExact] = useState(false);
-  const [language, setLanguage] = useState("");
+  const locale = useInterfaceLanguage();
+  const [lastLocale, setLastLocale] = useState(locale);
+  const [language, setLanguage] = useState<string>(locale);
   const [gender, setGender] = useState("");
   const [cursors, setCursors] = useState([""]);
   const [attempt, setAttempt] = useState(0);
@@ -63,6 +66,14 @@ export function VoiceCreator({
   const [playing, setPlaying] = useState("");
   const [error, setError] = useState("");
   const [saving, startSave] = useTransition();
+  if (lastLocale !== locale) {
+    setLastLocale(locale);
+    setLanguage(locale);
+    setCursors([""]);
+    setSelected(undefined);
+    setPlaying("");
+    setError("");
+  }
   const cursor = cursors[cursors.length - 1];
   const filters = new URLSearchParams({
     query: query.trim(),
@@ -185,7 +196,7 @@ export function VoiceCreator({
                 <datalist id="voice-languages">
                   {languages.map((code) => (
                     <option key={code} value={code}>
-                      {languageName(code)}
+                      {languageName(code, locale)}
                     </option>
                   ))}
                 </datalist>
@@ -232,8 +243,8 @@ export function VoiceCreator({
                     <small className="break-all text-muted">{voice.id}</small>
                     <p>{voice.description || "Описание не указано"}</p>
                     <p className="text-sm">
-                      {genderName(voice.gender)} ·{" "}
-                      {voice.languages.map(languageName).join(", ") ||
+                      {genderName(voice.gender, locale)} ·{" "}
+                      {voice.languages.map(code => languageName(code, locale)).join(", ") ||
                         "Языки не указаны"}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">

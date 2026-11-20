@@ -3,7 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { backendUrl, type TokenPair } from "@/lib/backend";
 import { accessCookie, cookieOptions, refreshCookie } from "@/lib/session";
 
+import { isInterfaceLanguage, languageCookie, languageCookieOptions } from "@/lib/interface-language";
+
 export async function proxy(request: NextRequest) {
+  // Preserve bookmarks to the original home-page language switch.
+  const lang = request.nextUrl.searchParams.get("lang");
+  if (request.method === "GET" && request.nextUrl.pathname === "/" && isInterfaceLanguage(lang)) {
+    const url = request.nextUrl.clone();
+    url.searchParams.delete("lang");
+    const response = NextResponse.redirect(url);
+    response.cookies.set(languageCookie, lang, languageCookieOptions);
+    return response;
+  }
   const access = request.cookies.get(accessCookie)?.value;
   if (access) {
     try {

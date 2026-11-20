@@ -1,12 +1,18 @@
-const names = new Intl.DisplayNames(["ru"], { type: "language" });
-export function languageName(code: string) {
+import type { InterfaceLanguage } from "@/lib/interface-language";
+
+const names = {
+  ru: new Intl.DisplayNames(["ru"], { type: "language" }),
+  en: new Intl.DisplayNames(["en"], { type: "language" }),
+};
+export function languageName(code: string, locale: InterfaceLanguage = "ru") {
   try {
-    return names.of(code) ?? code;
+    return names[locale].of(code) ?? code;
   } catch {
     return code;
   }
 }
-export function genderName(gender: string | null) {
+export function genderName(gender: string | null, locale: InterfaceLanguage = "ru") {
+  if (locale === "en") return gender === "male" ? "Male" : gender === "female" ? "Female" : "—";
   return gender === "male" ? "Мужской" : gender === "female" ? "Женский" : "—";
 }
 export function languagesOf(voice: {
@@ -16,7 +22,7 @@ export function languagesOf(voice: {
   return (
     [...new Set([voice.voice_language, ...(voice.catalog_languages ?? [])])]
       .filter((v): v is string => Boolean(v))
-      .map(languageName)
+      .map(code => languageName(code))
       .join(", ") || "—"
   );
 }
