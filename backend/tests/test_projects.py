@@ -1066,3 +1066,89 @@ def test_lumean_speech_lifecycle(login):
             assert calls == ["templates", "orders", str(order), "url"]
         finally:
             app.dependency_overrides.pop(speech_service)
+
+
+@pytest.mark.parametrize("provider", ["codex", "claude"])
+def test_managed_script_runs_without_mcp(login, monkeypatch, provider):
+    import httpx
+    from app.container import script_writer
+    from app.infrastructure.database.models import ScriptJobModel
+
+    owner, stranger = login(), login()
+    key = "OPENAI_API_KEY" if provider == "codex" else "ANTHROPIC_API_KEY"
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("CONTENT_MILL_SCRIPT_MODEL", raising=False)
+    calls = []
+    foreign_version = uuid4()
+
+    def respond(url, *, headers, json, timeout):
+        calls.append(json)
+        if len(calls) == 1:
+            import json as codec
+
+            message = json.get("input", json.get("messages"))[0]["content"][0]["text"]
+            catalog = codec.loads(message)["catalog"]
+            output = codec.dumps(
+                {
+                    "query": "",
+                    "versions": [str(foreign_version), str(catalog[0]["version_id"])],
+                }
+            )
+        else:
+            output = "Готовый сценарий тестового ролика"
+            assert "materials" in str(json) and str(foreign_version) not in str(json)
+            assert "version_id" in str(json)
+        if provider == "codex":
+            assert url == "https://api.openai.com/v1/responses"
+            body = {
+                "status": "completed",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": output}],
+                    }
+                ],
+            }
+        else:
+            assert url == "https://api.anthropic.com/v1/messages"
+            body = {
+                "stop_reason": "end_turn",
+                "content": [{"type": "text", "text": output}],
+            }
+        return httpx.Response(200, json=body, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "post", respond)
+    client = TestClient(app)
+    project = client.post(
+        "/api/v1/projects", headers=owner, json={"name": "Сценарии"}
+    ).json()["id"]
+    path = f"/api/v1/projects/{project}/scripts"
+    brief = {"brief": "Покажи преимущества продукта"}
+    assert client.post(path, headers=owner, json=brief).status_code == 503
+    monkeypatch.setenv(key, "test-only")
+    assert client.post(path, headers=stranger, json=brief).status_code == 404
+    assert client.get(path, headers=stranger).status_code == 404
+    later = datetime.now(UTC) + timedelta(hours=1)
+    scheduled = client.post(
+        path, headers=owner, json={**brief, "run_at": later.isoformat()}
+    )
+    assert scheduled.status_code == 202
+    assert not script_writer().run_next()
+    assert (
+        client.delete(path + "/" + scheduled.json()["id"], headers=owner).status_code
+        == 204
+    )
+    queued = client.post(path, headers=owner, json=brief)
+    assert queued.status_code == 202
+    assert client.post(path, headers=owner, json=brief).status_code == 409
+    assert script_writer().run_next()
+    job = client.get(path, headers=owner).json()["items"][0]
+    assert (
+        job["status"] == "done" and job["result"] == "Готовый сценарий тестового ролика"
+    )
+    assert len(calls) == 2
+    assert not script_writer().run_next()
+    with session_factory()() as session:
+        assert session.get(ScriptJobModel, UUID(job["id"])).model == job["model"]
+        assert session.get(ProjectAgentTokenModel, UUID(project)) is None

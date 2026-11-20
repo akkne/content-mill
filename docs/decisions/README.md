@@ -16,3 +16,4 @@
 | [0010. Доступ Claude Code и Codex CLI к проекту](0010-project-mcp.md) | 2026-11-19 |
 | [0011. Озвучка ElevenLabs через Lumean](0011-lumean-speech.md) | 2026-11-20 |
 | [0012. Язык интерфейса и каталога голосов](0012-voice-catalog-language.md) | 2026-11-20 |
+| [0013. Серверная подготовка сценариев](0013-managed-scripts.md) | 2026-11-20 |

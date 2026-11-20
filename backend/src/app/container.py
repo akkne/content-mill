@@ -7,14 +7,18 @@ from app.application.agent_files import AgentFiles
 from app.application.auth_service import AuthService
 from app.application.knowledge_service import KnowledgeService
 from app.application.project_service import ProjectService
+from app.application.script_jobs import ScriptModel, ScriptWriter
 from app.application.speech import SpeechService
 from app.application.videos import VideoService
 from app.application.voice_library import VoiceLibrary
 from app.infrastructure.asset_preview import AssetPreview
+from app.infrastructure.claude_script import ClaudeScript
+from app.infrastructure.codex_script import CodexScript
 from app.infrastructure.database.knowledge_unit_of_work import (
     SqlAlchemyKnowledgeUnitOfWork,
 )
 from app.infrastructure.database.project_unit_of_work import SqlAlchemyProjectUnitOfWork
+from app.infrastructure.database.script_jobs import SqlScriptJobs
 from app.infrastructure.database.speech import SqlSpeechRepository
 from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
 from app.infrastructure.database.voice_library import SqlVoiceLibrary
@@ -64,3 +68,20 @@ def agent_files() -> AgentFiles:
 
 def speech_service() -> SpeechService:
     return SpeechService(SqlSpeechRepository(), voice_catalog())
+
+
+def script_writer() -> ScriptWriter:
+    models: dict[str, ScriptModel] = {}
+    for adapter, variable in [
+        (ClaudeScript, "ANTHROPIC_API_KEY"),
+        (CodexScript, "OPENAI_API_KEY"),
+    ]:
+        key = os.getenv(variable, "").strip()
+        if key:
+            models[adapter.model] = adapter(key)
+    selected = os.getenv("CONTENT_MILL_SCRIPT_MODEL", "").strip() or next(
+        iter(models), ""
+    )
+    return ScriptWriter(
+        SqlAlchemyProjectUnitOfWork, agent_files(), SqlScriptJobs(), models, selected
+    )
