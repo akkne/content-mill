@@ -75,3 +75,28 @@ export async function manageAgentToken(id: string, action: "issue" | "revoke"): 
     return {message: "Сервер недоступен. Попробуйте ещё раз."};
   }
 }
+
+export async function prepareScript(project: string, brief: string, runAt: string | null) {
+  try {
+    const response = await projectRequest(`/api/v1/projects/${encodeURIComponent(project)}/scripts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brief, run_at: runAt }),
+    });
+    if (!response.ok) return (await response.json()).error?.message || "Не удалось запустить задание.";
+    revalidatePath(`/projects/${project}`);
+    return "";
+  } catch {
+    return "Сервер недоступен. Попробуйте ещё раз.";
+  }
+}
+
+export async function cancelScript(project: string, job: string) {
+  try {
+    const response = await projectRequest(`/api/v1/projects/${encodeURIComponent(project)}/scripts/${encodeURIComponent(job)}`, { method: "DELETE" });
+    revalidatePath(`/projects/${project}`);
+    return response.ok ? "Задание отменено." : "Задание уже недоступно для отмены.";
+  } catch {
+    return "Сервер недоступен.";
+  }
+}

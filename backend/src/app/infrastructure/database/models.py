@@ -243,3 +243,26 @@ class SpeechJobModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class ScriptJobModel(Base):
+    __tablename__ = "script_jobs"
+    __table_args__ = (
+        Index("script_jobs_due_idx", "status", "run_at"),
+        Index("script_jobs_project_idx", "project_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE")
+    )
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    brief: Mapped[str] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(String(80))
+    status: Mapped[str] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    result: Mapped[str | None] = mapped_column(Text)

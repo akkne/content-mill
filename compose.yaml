@@ -38,6 +38,9 @@ services:
     volumes:
       - ./backend/src:/app
     environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CONTENT_MILL_SCRIPT_MODEL: ${CONTENT_MILL_SCRIPT_MODEL:-}
       MCP_PUBLIC_ORIGIN: ${MCP_PUBLIC_ORIGIN:-}
       LUMEAN_API_KEY: ${LUMEAN_API_KEY:-}
       DATABASE_URL: postgresql://content_mill:${POSTGRES_PASSWORD:-content_mill}@postgres:5432/content_mill

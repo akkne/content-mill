@@ -5,10 +5,10 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "../../app-shell";
 import { fetchCurrentUser } from "@/lib/backend";
-import { loadContext, loadProject } from "@/lib/projects";
+import { loadContext, loadProject, loadScripts } from "@/lib/projects";
 import { accessCookie } from "@/lib/session";
 import { ProjectSettings } from "./project-settings";
-import { AgentAccess } from "./agent-access";
+import { ScriptPanel } from "./script-panel";
 import { ContextEditor } from "./context-editor";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   let context;
   try { [project, context] = await Promise.all([loadProject(id), loadContext(id)]); }
   catch { return <AppShell userName={user.display_name} section="Проекты"><main className={content} id="main-content"><Link href="/projects">← Проекты</Link><h1 className={pageTitle}>Проект недоступен</h1><p>Проверьте адрес или обновите страницу.</p></main></AppShell>; }
+  const scripts = await loadScripts(id).catch(() => null);
   return (
     <AppShell userName={user.display_name} section="Проекты">
       <main className={content} id="main-content">
@@ -42,8 +43,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           будет изменить. Контекст сохраняется в проекте и будет доступен при создании контента.
         </p>
         <ProjectSettings project={project} />
-        <AgentAccess projectId={project.id} />
+        {scripts ? <ScriptPanel id={id} {...scripts} /> : <p role="status">Не удалось загрузить сценарии. Обновите страницу.</p>}
         <ContextEditor initial={context} />
+        <Link className={backLink} href={`/projects/${id}/integrations`}>Внешние интеграции</Link>
       </main>
     </AppShell>
   );

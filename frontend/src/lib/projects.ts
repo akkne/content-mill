@@ -51,3 +51,17 @@ export async function loadContext(id: string): Promise<ProjectContext> {
   if (!response.ok) throw new Error("Не удалось загрузить контекст");
   return response.json() as Promise<ProjectContext>;
 }
+
+export type ScriptJob = {
+  id: string;
+  brief: string;
+  model: string;
+  run_at: string;
+  status: "queued" | "running" | "done" | "failed" | "cancelled";
+  result: string | null;
+};
+export async function loadScripts(id: string): Promise<{ enabled: boolean; items: ScriptJob[] }> {
+  const response = await projectRequest(`/api/v1/projects/${encodeURIComponent(id)}/scripts`);
+  if (!response.ok) throw new Error("Не удалось загрузить сценарии");
+  return response.json();
+}

@@ -21,3 +21,5 @@
 Операция чтения метаданных описана в [карточке каталога ElevenLabs](elevenlabs-voice-catalog.md).
 
 Активная интеграция каталога и озвучки — [Eleven Multilingual v2 через Lumean](lumean-eleven-multilingual-v2.md).
+
+Серверные сценарии поддерживают [Claude Sonnet 4.6](anthropic-claude-sonnet-4-6.md) и [GPT-5.3-Codex](openai-gpt-5.3-codex.md). Вход и поиск материалов описаны в [решении 0013](../decisions/0013-managed-scripts.md).
