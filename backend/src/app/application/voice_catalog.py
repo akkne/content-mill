@@ -1,5 +1,5 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Protocol
 
 
 @dataclass(frozen=True)
@@ -18,7 +18,8 @@ class VoicePage:
     next_cursor: str | None
 
 
-class VoiceCatalog(Protocol):
+class VoiceCatalog(ABC):
+    @abstractmethod
     def search(
         self, query: str, exact: bool, language: str, gender: str, cursor: str
     ) -> VoicePage: ...

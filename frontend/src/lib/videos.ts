@@ -12,11 +12,11 @@ export type VideoOptions = {
   project: string;
   products: string[];
   sources: VideoSource[];
+  voices: Record<string, string>;
   options: {
     method: string[];
     platform: string[];
     duration: number[];
-    voice: string[];
     language: string[];
   };
 };
@@ -30,6 +30,8 @@ export type VideoCard = {
 };
 export type ProjectVideo = Omit<VideoCard, "duration" | "platform"> & {
   settings: {
+    library_voice_id?: string;
+    voice?: string;
     duration: number;
     platform: string;
     method: string;

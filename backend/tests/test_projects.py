@@ -672,6 +672,18 @@ def test_starter_folders_and_reusable_voice(login):
         voice = client.patch(
             f"/api/v1/voices/{personal['id']}/projects", json={"add": [project["id"]]}
         ).json()[0]
+        videos = f"/api/v1/projects/{project['id']}/videos"
+        assert client.get(videos + "/options").json()["voices"] == {
+            personal["id"]: "Алиса"
+        }
+        assert (
+            client.post(videos, json={"title": "Тест", "voice": "random"}).status_code
+            == 422
+        )
+        recording = client.post(
+            videos, json={"title": "Тест", "voice": personal["id"]}
+        ).json()
+        assert recording["settings"]["library_voice_id"] == personal["id"]
         profile = {
             "voice_gender": "female",
             "description": "Спокойный тембр",
@@ -983,3 +995,74 @@ def test_project_mcp_tools_and_scope(login):
             )
             session.commit()
         assert rpc(expired, "tools/list", {}).status_code == 401
+
+
+def test_lumean_speech_lifecycle(login):
+    import httpx
+    from app.application.speech import SpeechService
+    from app.container import speech_service
+    from app.infrastructure.database.speech import SqlSpeechRepository
+    from app.infrastructure.lumean import LumeanElevenLabs
+
+    template, order, request = uuid4(), uuid4(), uuid4()
+    calls = []
+
+    def upstream(req):
+        import json
+
+        path = req.url.path.rsplit("/", 1)[-1]
+        body = json.loads(req.content) if req.content else {}
+        assert req.headers["X-API-KEY"] == "test"
+        calls.append(path)
+        if path == "templates":
+            assert body["config"]["tts_settings"]["voice_id"] == "my-voice"
+            data = {"id": str(template)}
+        elif path == "orders":
+            assert body["template_id"] == str(template) and body["name"] == str(request)
+            data = {"id": str(order)}
+        elif path == str(order):
+            data = {"status": "completed", "result": {"files": ["final.mp3"]}}
+        elif path == "url":
+            assert body["path"] == "final.mp3"
+            data = {"url": "https://example.test/final.mp3"}
+        else:
+            pytest.fail(path)
+        return httpx.Response(200, json={"success": True, "data": data})
+
+    owner, other = login(), login()
+    with (
+        httpx.Client(transport=httpx.MockTransport(upstream)) as provider,
+        TestClient(app) as client,
+    ):
+        service = SpeechService(
+            SqlSpeechRepository(), LumeanElevenLabs("test", provider)
+        )
+        app.dependency_overrides[speech_service] = lambda: service
+        try:
+            voice = client.post(
+                "/api/v1/voices",
+                headers=owner,
+                json={"name": "Диктор", "voice_id": "my-voice"},
+            ).json()["id"]
+            path = f"/api/v1/voices/{voice}/speech"
+            payload = {"text": "Привет", "request_id": str(request)}
+            assert client.post(path, headers=other, json=payload).status_code == 404
+            for _ in range(2):
+                assert client.post(path, headers=owner, json=payload).status_code == 202
+            assert (
+                client.post(
+                    path, headers=owner, json={**payload, "text": "Другой текст"}
+                ).status_code
+                == 409
+            )
+            assert client.get(path, headers=owner).json() == [str(request)]
+            assert (
+                client.get(path + "/" + str(request), headers=other).status_code == 404
+            )
+            assert client.get(path + "/" + str(request), headers=owner).json() == {
+                "status": "completed",
+                "url": "https://example.test/final.mp3",
+            }
+            assert calls == ["templates", "orders", str(order), "url"]
+        finally:
+            app.dependency_overrides.pop(speech_service)

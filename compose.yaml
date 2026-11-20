@@ -39,7 +39,7 @@ services:
       - ./backend/src:/app
     environment:
       MCP_PUBLIC_ORIGIN: ${MCP_PUBLIC_ORIGIN:-}
-      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      LUMEAN_API_KEY: ${LUMEAN_API_KEY:-}
       DATABASE_URL: postgresql://content_mill:${POSTGRES_PASSWORD:-content_mill}@postgres:5432/content_mill
       S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL:-http://localhost:${S3_PORT:-9090}}
       S3_ENDPOINT_URL: http://s3:9090

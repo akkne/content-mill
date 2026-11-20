@@ -4,13 +4,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, StringConstraints
 
+from app.application.speech import SpeechResult, SpeechService
 from app.application.voice_catalog import (
     CatalogError,
     VoiceCatalog,
     VoicePage,
 )
 from app.application.voice_library import VoiceLibrary
-from app.container import voice_catalog, voice_library
+from app.container import speech_service, voice_catalog, voice_library
 from app.domain.knowledge import InvalidNodeOperation, NodeNotFound
 from app.domain.project import ProjectNotFound
 from app.presentation.http.knowledge import CurrentUser, RenameInput, translate
@@ -106,3 +107,39 @@ def edit(voice_id: UUID, payload: VoiceDetails, user: CurrentUser, library: Libr
         return library.repository.edit(user.id, voice_id, payload.model_dump())
     except NodeNotFound as error:
         raise translate(error) from error
+
+
+Speech = Annotated[SpeechService, Depends(speech_service)]
+
+
+class SpeechInput(BaseModel):
+    text: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)
+    ]
+    request_id: UUID
+
+
+@router.post("/{voice_id}/speech", status_code=202)
+def synthesize(
+    voice_id: UUID, payload: SpeechInput, user: CurrentUser, service: Speech
+):
+    try:
+        service.create(user.id, voice_id, payload.request_id, payload.text)
+        return {"id": payload.request_id}
+    except CatalogError as error:
+        raise HTTPException(error.status, str(error)) from error
+
+
+@router.get("/{voice_id}/speech")
+def speech_history(voice_id: UUID, user: CurrentUser, service: Speech) -> list[UUID]:
+    return service.repository.recent(user.id, voice_id)
+
+
+@router.get("/{voice_id}/speech/{request_id}")
+def speech_result(
+    voice_id: UUID, request_id: UUID, user: CurrentUser, service: Speech
+) -> SpeechResult:
+    try:
+        return service.result(user.id, voice_id, request_id)
+    except CatalogError as error:
+        raise HTTPException(error.status, str(error)) from error

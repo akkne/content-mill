@@ -7,6 +7,7 @@ from app.application.agent_files import AgentFiles
 from app.application.auth_service import AuthService
 from app.application.knowledge_service import KnowledgeService
 from app.application.project_service import ProjectService
+from app.application.speech import SpeechService
 from app.application.videos import VideoService
 from app.application.voice_library import VoiceLibrary
 from app.infrastructure.asset_preview import AssetPreview
@@ -14,9 +15,10 @@ from app.infrastructure.database.knowledge_unit_of_work import (
     SqlAlchemyKnowledgeUnitOfWork,
 )
 from app.infrastructure.database.project_unit_of_work import SqlAlchemyProjectUnitOfWork
+from app.infrastructure.database.speech import SqlSpeechRepository
 from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
 from app.infrastructure.database.voice_library import SqlVoiceLibrary
-from app.infrastructure.elevenlabs import ElevenLabsCatalog
+from app.infrastructure.lumean import LumeanElevenLabs
 from app.infrastructure.mock_video_generator import MockVideoGenerator
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
@@ -42,9 +44,9 @@ def knowledge_service() -> KnowledgeService:
 
 
 @lru_cache(maxsize=1)
-def voice_catalog() -> ElevenLabsCatalog:
-    return ElevenLabsCatalog(
-        os.getenv("ELEVENLABS_API_KEY", ""), httpx.Client(timeout=8)
+def voice_catalog() -> LumeanElevenLabs:
+    return LumeanElevenLabs(
+        os.getenv("LUMEAN_API_KEY", "").strip(), httpx.Client(timeout=8)
     )
 
 
@@ -58,3 +60,7 @@ def video_service() -> VideoService:
 
 def agent_files() -> AgentFiles:
     return AgentFiles(SqlAlchemyProjectUnitOfWork, S3DocumentStore(), AssetPreview())
+
+
+def speech_service() -> SpeechService:
+    return SpeechService(SqlSpeechRepository(), voice_catalog())

@@ -22,7 +22,6 @@ const labels = {
   method: "Формат подачи",
   platform: "Площадка",
   duration: "Длительность",
-  voice: "Голос",
   language: "Язык",
 };
 
@@ -218,6 +217,17 @@ export function Wizard({
                 </label>
               ))}
               <label className={fieldLabel}>
+                Голос проекта
+                <select className={field} name="voice">
+                  <option value="">Без озвучки</option>
+                  {Object.entries(data.voices).map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={fieldLabel}>
                 Соотношение сторон
                 <input
                   className={field}
@@ -237,13 +247,10 @@ export function Wizard({
                   "Формат",
                   review?.get("method") + " · " + review?.get("platform"),
                 ],
+                ["Настройки", duration + " сек · " + review?.get("language")],
                 [
-                  "Настройки",
-                  duration +
-                    " сек · " +
-                    review?.get("voice") +
-                    " · " +
-                    review?.get("language"),
+                  "Голос",
+                  data.voices[String(review?.get("voice"))] || "Без озвучки",
                 ],
                 ["Материалы", review?.getAll("sources").length + " файлов"],
               ].map(([k, v]) => (

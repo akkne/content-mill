@@ -160,13 +160,6 @@
     "type": "folder"
   },
   {
-    "id": "sample-audio",
-    "parent": "video-audio",
-    "name": "Пример озвучки.m4a",
-    "type": "audio",
-    "src": "sample-audio.m4a"
-  },
-  {
     "id": "video-images",
     "parent": "video-assets",
     "name": "Изображения",

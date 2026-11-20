@@ -23,7 +23,6 @@ OPTIONS = {
     ],
     "platform": ["Instagram Reels", "YouTube Shorts", "VK Клипы", "Telegram", "TikTok"],
     "duration": [15, 30, 45, 60],
-    "voice": ["Спокойный", "Энергичный", "Без озвучки"],
     "language": ["Русский", "English"],
 }
 
@@ -64,6 +63,13 @@ class VideoService:
                 p.name for p in context.products
             }:
                 raise InvalidVideo("Выберите товар из текущего проекта")
+            voice = settings.get("voice")
+            if voice and voice != "Без озвучки":
+                voices = work.videos.voices(project)
+                if voice not in voices:
+                    raise InvalidVideo("Выберите голос, назначенный этому проекту.")
+                settings["library_voice_id"] = voice
+                settings["voice"] = voices[voice]
             materials = work.videos.sources(project, sources)
             if {item.id for item in materials} != set(sources):
                 raise InvalidVideo("Один из источников недоступен в проекте")
@@ -119,6 +125,7 @@ class VideoService:
             return {
                 "project": current.name,
                 "options": OPTIONS,
+                "voices": work.videos.voices(project),
                 "products": [p.name for p in context.products],
                 "sources": [
                     {

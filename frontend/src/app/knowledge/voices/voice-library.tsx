@@ -7,6 +7,7 @@ import { field, primaryButton, secondaryButton } from "@/app/ui-styles";
 import { assignVoice, type SavedVoice } from "./actions";
 import { genderName, languagesOf } from "./labels";
 import { VoiceCreator } from "./voice-creator";
+import { SpeechPanel } from "./speech-panel";
 import { VoiceEditor } from "./voice-editor";
 
 function ProjectChecklist({
@@ -94,6 +95,7 @@ export function VoiceLibrary({
   const [query, setQuery] = useState("");
   const [assigning, setAssigning] = useState("");
   const [editing, setEditing] = useState("");
+  const [speech, setSpeech] = useState("");
   const [playing, setPlaying] = useState("");
   const [notice, setNotice] = useState("");
   const visible = voices.filter((v) =>
@@ -122,7 +124,7 @@ export function VoiceLibrary({
             setNotice("");
           }}
         >
-          Создать новый голос
+          Добавить голос
         </button>
       </div>
       {notice && (
@@ -180,6 +182,13 @@ export function VoiceLibrary({
                       Проектов: {v.project_ids.length}
                     </p>
                   </div>
+                  <button
+                    className={secondaryButton}
+                    aria-expanded={speech === v.id}
+                    onClick={() => setSpeech(speech === v.id ? "" : v.id)}
+                  >
+                    Озвучить текст
+                  </button>
                   {v.voice_preview_url && (
                     <button
                       className={secondaryButton}
@@ -208,6 +217,7 @@ export function VoiceLibrary({
                     Добавить в проект
                   </button>
                 </div>
+                {speech === v.id && <SpeechPanel voice={v.id} />}
                 {playing === v.id && v.voice_preview_url && (
                   <audio
                     autoPlay

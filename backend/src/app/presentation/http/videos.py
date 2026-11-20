@@ -25,7 +25,7 @@ class VideoInput(BaseModel):
     platform: str = "Instagram Reels"
     method: str = "Проблема → решение"
     duration: int = 30
-    voice: str = "Спокойный"
+    voice: str = Field(default="Без озвучки", max_length=160)
     language: str = "Русский"
     sources: list[UUID] = Field(default_factory=list, max_length=100)
     assemble: bool = False
