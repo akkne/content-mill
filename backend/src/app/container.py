@@ -1,4 +1,5 @@
 import os
+import shutil
 from functools import lru_cache
 
 import httpx
@@ -12,8 +13,8 @@ from app.application.speech import SpeechService
 from app.application.videos import VideoService
 from app.application.voice_library import VoiceLibrary
 from app.infrastructure.asset_preview import AssetPreview
-from app.infrastructure.claude_script import ClaudeScript
-from app.infrastructure.codex_script import CodexScript
+from app.infrastructure.claude_script import ClaudeCodeCli, ClaudeScript
+from app.infrastructure.codex_script import CodexCli, CodexScript
 from app.infrastructure.database.knowledge_unit_of_work import (
     SqlAlchemyKnowledgeUnitOfWork,
 )
@@ -72,16 +73,27 @@ def speech_service() -> SpeechService:
 
 def script_writer() -> ScriptWriter:
     models: dict[str, ScriptModel] = {}
-    for adapter, variable in [
-        (ClaudeScript, "ANTHROPIC_API_KEY"),
-        (CodexScript, "OPENAI_API_KEY"),
-    ]:
+    providers = {
+        "claude": (ClaudeScript, ClaudeCodeCli, "ANTHROPIC_API_KEY"),
+        "codex": (CodexScript, CodexCli, "OPENAI_API_KEY"),
+    }
+    provider = os.getenv("CONTENT_MILL_SCRIPT_PROVIDER", "").strip().lower()
+    if provider and provider not in providers:
+        raise ValueError("CONTENT_MILL_SCRIPT_PROVIDER must be codex, claude or empty")
+    api_models = []
+    for name, (api, cli, variable) in providers.items():
         key = os.getenv(variable, "").strip()
         if key:
-            models[adapter.model] = adapter(key)
-    selected = os.getenv("CONTENT_MILL_SCRIPT_MODEL", "").strip() or next(
-        iter(models), ""
-    )
+            models[api.model] = api(key)
+            api_models.append(api.model)
+            if shutil.which(name):
+                models[cli.model] = cli(key)
+    if provider:
+        selected = providers[provider][1].model
+    else:
+        selected = os.getenv("CONTENT_MILL_SCRIPT_MODEL", "").strip() or next(
+            iter(api_models), ""
+        )
     return ScriptWriter(
         SqlAlchemyProjectUnitOfWork, agent_files(), SqlScriptJobs(), models, selected
     )

@@ -7,3 +7,5 @@
 [Модель и тариф](https://developers.openai.com/api/docs/models/gpt-5.3-codex) · [Responses API](https://developers.openai.com/api/reference/resources/responses/methods/create) · [Изменения API](https://developers.openai.com/api/docs/changelog) · [Адаптер](../../backend/src/app/infrastructure/codex_script.py)
 
 Проверено 20 ноября 2026. OpenAI объявил о завершении обслуживания 1 апреля 2027. До этой даты потребуется подключить преемника отдельным адаптером. [График OpenAI](https://developers.openai.com/api/docs/deprecations)
+
+`CONTENT_MILL_SCRIPT_PROVIDER=codex` выбирает `codex exec` версии 0.170.0 с той же моделью. Сервер передаёт свой ключ как CODEX_API_KEY и JPEG через --image. [Выбор CLI](../decisions/0015-script-cli-provider.md)
