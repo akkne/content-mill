@@ -923,7 +923,9 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
             return b"test clip"
 
     worker.model = SimpleNamespace(generate=storyboard, generate_edit=edit)
-    worker.frames = SimpleNamespace(generate=lambda prompt, refs: b"test frame")
+    worker.frames = SimpleNamespace(
+        submit=lambda prompt, refs: "frame-id", collect=lambda op: b"test frame"
+    )
     worker.preview = SimpleNamespace(render=lambda data, fmt: b"jpeg")
     worker.clips = Clips()
     worker.editor = SimpleNamespace(
@@ -967,22 +969,22 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
         assert (
             act("script", "Авторский сценарий").json()["script"] == "Авторский сценарий"
         )
-        monkeypatch.delenv("FAL_KEY", raising=False)
+        monkeypatch.delenv("POLZA_API_KEY", raising=False)
         assert act("assemble").status_code == 503
-        monkeypatch.setenv("FAL_KEY", "test")
+        monkeypatch.setenv("POLZA_API_KEY", "test")
         assert act("assemble").json()["status"] == "generating"
         assert act("assemble").status_code == 422
         assert worker.run_next()
 
         def unavailable(prompt, refs):
-            raise ProductionError("fal_balance")
+            raise ProductionError("polza_balance")
 
-        monkeypatch.setattr(worker.frames, "generate", unavailable)
+        monkeypatch.setattr(worker.frames, "submit", unavailable)
         assert worker.run_next()
         assert client.get(path, headers=owner).json()["status"] == "failed"
         assert act("assemble").json()["status"] == "generating"
-        monkeypatch.setattr(worker.frames, "generate", lambda prompt, refs: b"frame")
-        for _ in range(8):
+        monkeypatch.setattr(worker.frames, "submit", lambda prompt, refs: "frame-id")
+        for _ in range(10):
             with session_factory().begin() as session:
                 session.execute(
                     update(VideoModel)

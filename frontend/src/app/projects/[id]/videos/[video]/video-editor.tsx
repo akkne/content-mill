@@ -49,6 +49,7 @@ export function VideoEditor({
   const stages: Record<string, string> = {
     storyboard: t("Раскадровка и промпты", "Storyboard and prompts"),
     frame: t("Стартовый кадр · Nano Banana 2.1", "First frame · Nano Banana 2.1"),
+    collect_frame: t("Ожидание стартового кадра", "Waiting for the first frame"),
     submit: t("Запуск Veo Fast", "Submitting to Veo Fast"),
     collect: t("Ожидание видео со звуком", "Waiting for video with audio"),
     edit: t("Монтажный лист · Codex", "Edit decisions · Codex"),
@@ -57,9 +58,12 @@ export function VideoEditor({
   };
   const errors: Record<string, string> = {
     clip_rejected: t("Провайдер отклонил клип. Повтор создаст новый заказ.", "The provider rejected this clip. A retry creates a new order."),
-    fal_key: t("На сервере нужен FAL_KEY.", "Set FAL_KEY on the server."),
-    fal_access: t("Проверьте доступ ключа fal к моделям.", "Check the fal key’s model access."),
-    fal_balance: t("Недостаточно средств на fal.", "Insufficient fal balance."),
+    frame_rejected: t("Провайдер отклонил кадр.", "The provider rejected the frame."),
+    legacy_operation: t("Заказ относится к прежнему провайдеру. Повтор создаст заказ в Polza AI.", "This order belongs to the previous provider. Retrying creates a Polza AI order."),
+    polza_limit: t("Достигнут лимит Polza AI. Повторите позже.", "Polza AI rate limit reached. Try again later."),
+    polza_key: t("На сервере нужен POLZA_API_KEY.", "Set POLZA_API_KEY on the server."),
+    polza_access: t("Проверьте доступ ключа Polza AI к моделям.", "Check the Polza AI key’s model access."),
+    polza_balance: t("Недостаточно средств на Polza AI.", "Insufficient Polza AI balance."),
     codex_unavailable: t("Проверьте вход Codex на сервере.", "Check the server’s Codex login."),
     interrupted: t("Обработка прервалась. Проверьте списания перед повтором.", "Processing was interrupted. Check charges before retrying."),
   };
