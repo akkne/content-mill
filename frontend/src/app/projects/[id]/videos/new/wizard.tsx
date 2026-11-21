@@ -266,7 +266,7 @@ export function Wizard({
                 </p>
               ))}
               <p className="text-muted">
-                {t("Nano Banana создаст кадры, Veo Fast — видео с речью персонажей. Генерация оплачивается через fal. Готовый MP4 появится в проекте.", "Nano Banana creates the frames and Veo Fast generates video with character dialogue. Generation is billed through fal. The final MP4 will appear in your project.")}
+                {t("Nano Banana создаст кадры, Veo Fast — видео с речью персонажей. Генерация оплачивается через Polza AI. Готовый MP4 появится в проекте.", "Nano Banana creates the frames and Veo Fast generates video with character dialogue. Generation is billed through Polza AI. The final MP4 will appear in your project.")}
               </p>
             </div>
           )}

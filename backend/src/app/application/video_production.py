@@ -77,7 +77,8 @@ class MontageModel(ScriptModel, Protocol):
 
 
 class FrameGenerator(Protocol):
-    def generate(self, prompt: str, references: list[bytes]) -> bytes: ...
+    def submit(self, prompt: str, references: list[bytes]) -> str: ...
+    def collect(self, operation: str) -> bytes | None: ...
 
 
 class ClipGenerator(Protocol):
@@ -105,7 +106,7 @@ who speaks on/off screen, verbatim dialogue in the requested language, action an
 the motivation and visual match for EVERY cut (including opening and ending).
 When the brief requests a specific music track, request speech and ambience only from Veo.
 Write the complete Nano Banana 2.1 first-frame prompt and Veo 3.1 Fast motion/audio
-prompt per scene. Bake the exact spoken words, speaker, voice continuity, timing
+prompt per scene (maximum 2000 characters including the exact dialogue). Bake the exact spoken words, speaker, voice continuity, timing
 and lip movements into the Veo prompt. Use native synchronized sound; keep speech
 inside the usable part of each shot leaving trim handles. Use empty speaker and
 dialogue for shots without speech. Reference only supplied visual version IDs.
@@ -192,9 +193,13 @@ class VideoProduction:
                 state.get("stage"),
                 type(error).__name__,
             )
-            if isinstance(error, ProductionError) and error.code == "clip_rejected":
+            if isinstance(error, ProductionError) and error.code in {
+                "clip_rejected",
+                "legacy_operation",
+                "frame_rejected",
+            }:
                 state.pop("operation", None)
-                state["stage"] = "submit"
+                state["stage"] = "frame" if error.code == "frame_rejected" else "submit"
             state["error"] = (
                 error.code if isinstance(error, ProductionError) else "stage_failed"
             )
@@ -268,7 +273,7 @@ class VideoProduction:
 
         board = Storyboard.model_validate_json(self.artifact(video, "storyboard.json"))
         index = state["index"]
-        if stage in ("frame", "submit", "collect"):
+        if stage in ("frame", "collect_frame", "submit", "collect"):
             shot = board.scenes[index]
             prefix = f"scene-{index + 1:02}"
             if stage == "frame":
@@ -283,9 +288,10 @@ class VideoProduction:
                             self.artifact(video, "scene-01.png"), "image/png"
                         )
                     )
-                frame = self.frames.generate(shot.image_prompt, refs)
-                state["stage"] = "submit"
-                return [(prefix + ".png", "image", "image/png", frame)], 0
+                state["operation"] = self.frames.submit(shot.image_prompt, refs)
+                state["stage"] = "collect_frame"
+                state["submitted"] = datetime.now(UTC).isoformat()
+                return [], 5
             if stage == "submit":
                 state["operation"] = self.clips.submit(
                     shot.video_prompt, self.artifact(video, prefix + ".png")
@@ -293,22 +299,27 @@ class VideoProduction:
                 state["stage"] = "collect"
                 state["submitted"] = datetime.now(UTC).isoformat()
                 return [], 10
-            clip = self.clips.collect(state["operation"])
-            if clip is None:
+            generator = self.frames if stage == "collect_frame" else self.clips
+            media = generator.collect(state["operation"])
+            if media is None:
                 if datetime.now(UTC) - datetime.fromisoformat(
                     state["submitted"]
                 ) > timedelta(minutes=30):
                     raise TimeoutError
                 return [], 10
+            if stage == "collect_frame":
+                state.pop("operation")
+                state["stage"] = "submit"
+                return [(prefix + ".png", "image", "image/png", media)], 0
             try:
-                self.editor.inspect(clip)
+                self.editor.inspect(media)
             except (KeyError, ValueError, RuntimeError, OSError) as error:
                 raise ProductionError("clip_rejected") from error
             state.pop("operation")
             state.update(
                 stage="edit" if index + 1 == count else "frame", index=index + 1
             )
-            return [(prefix + ".mp4", "video", "video/mp4", clip)], 0
+            return [(prefix + ".mp4", "video", "video/mp4", media)], 0
 
         clips = [self.artifact(video, f"scene-{i + 1:02}.mp4") for i in range(count)]
         if stage == "edit":
@@ -466,8 +477,8 @@ class VideoProduction:
                 shot.video_prompt = (
                     f"{shot.video_prompt}\n{shot.speaker}: {shot.dialogue}"
                 )
-                if len(shot.video_prompt) > 4000:
-                    raise ValueError("Dialogue exceeds the video prompt limit")
+            if len(shot.video_prompt) > 2000:
+                raise ValueError("Dialogue exceeds the video prompt limit")
         state.update(stage="frame", index=0)
         return [
             document("brief.json", payload),
