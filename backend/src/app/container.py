@@ -1,6 +1,7 @@
 import os
 import shutil
 from functools import lru_cache
+from pathlib import Path
 
 import httpx
 
@@ -94,6 +95,11 @@ def text_models() -> tuple[dict[str, ScriptModel], str]:
                 models[cli.model] = cli(key)
                 if name == "codex":
                     models[CodexCli.model] = CodexCli(key)
+    auth_file = os.getenv("CONTENT_MILL_CODEX_AUTH_FILE")
+    if auth_file and AstraCli.model not in models and shutil.which("codex"):
+        path = Path(auth_file)
+        if path.is_file():
+            models[AstraCli.model] = AstraCli(auth_file=path)
     if provider:
         selected = providers[provider][1].model
     else:
