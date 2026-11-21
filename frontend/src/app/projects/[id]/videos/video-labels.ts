@@ -2,6 +2,7 @@ import type { Translate } from "@/lib/interface-language";
 
 export const statuses = (t: Translate): Record<string, string> => ({
   all: t("Все", "All"),
+  failed: t("Ошибка сборки", "Assembly failed"),
   generating: t("В работе", "In progress"),
   ready: t("Готовы", "Ready"),
   planned: t("В плане", "Scheduled"),
@@ -10,6 +11,7 @@ export const statuses = (t: Translate): Record<string, string> => ({
 });
 
 export const badge = (t: Translate): Record<string, string> => ({
+  failed: t("Ошибка сборки", "Assembly failed"),
   generating: t("В работе", "In progress"),
   ready: t("Готов", "Ready"),
   planned: t("В плане", "Scheduled"),

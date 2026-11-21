@@ -44,7 +44,7 @@ def list_videos(
     user: CurrentUser,
     service: Service,
     status: Literal[
-        "all", "draft", "generating", "ready", "planned", "published"
+        "all", "draft", "generating", "failed", "ready", "planned", "published"
     ] = "all",
     q: str = Query(default="", max_length=180),
 ) -> dict:
@@ -86,7 +86,7 @@ def detail(
 ) -> dict:
     video = service.detail(user.id, project_id, video_id)
     progress = video.progress()
-    journal = video.journal[: 1 + progress * len(video.journal) // 100]
+    journal = video.journal
     return {**asdict(video), "progress": progress, "journal": journal}
 
 

@@ -25,3 +25,5 @@
 Серверные сценарии поддерживают [Claude Sonnet 4.6](anthropic-claude-sonnet-4-6.md) и [GPT-5.3-Codex](openai-gpt-5.3-codex.md). Вход и поиск материалов описаны в [решении 0013](../decisions/0013-managed-scripts.md).
 
 По умолчанию тексты готовит [GPT-6.2-Astra через Codex](openai-gpt-6.2-astra.md).
+
+Для видео подключены [Nano Banana 2.1](fal-google-nano-banana-2.1.md) и [Veo 3.1 Fast](fal-veo3.1-fast.md) через fal.

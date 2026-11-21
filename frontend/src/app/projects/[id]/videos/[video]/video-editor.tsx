@@ -41,6 +41,29 @@ export function VideoEditor({
   const originalUrl =
     original &&
     `/projects/${projectId}/knowledge/files/${original.node_id}/${original.version}`;
+  const production = item.settings.production;
+  const files = production?.files ?? {};
+  const fileUrl = (node: string) => `/projects/${projectId}/knowledge/files/${node}/1`;
+  const final = files["final.mp4"];
+  const mediaUrl = final ? fileUrl(final.node) : originalUrl;
+  const stages: Record<string, string> = {
+    storyboard: t("Раскадровка и промпты", "Storyboard and prompts"),
+    frame: t("Стартовый кадр · Nano Banana 2.1", "First frame · Nano Banana 2.1"),
+    submit: t("Запуск Veo Fast", "Submitting to Veo Fast"),
+    collect: t("Ожидание видео со звуком", "Waiting for video with audio"),
+    edit: t("Монтажный лист · Codex", "Edit decisions · Codex"),
+    render: t("Рендер MP4", "Rendering MP4"),
+    done: t("Готово", "Complete"),
+  };
+  const errors: Record<string, string> = {
+    clip_rejected: t("Провайдер отклонил клип. Повтор создаст новый заказ.", "The provider rejected this clip. A retry creates a new order."),
+    fal_key: t("На сервере нужен FAL_KEY.", "Set FAL_KEY on the server."),
+    fal_access: t("Проверьте доступ ключа fal к моделям.", "Check the fal key’s model access."),
+    fal_balance: t("Недостаточно средств на fal.", "Insufficient fal balance."),
+    codex_unavailable: t("Проверьте вход Codex на сервере.", "Check the server’s Codex login."),
+    interrupted: t("Обработка прервалась. Проверьте списания перед повтором.", "Processing was interrupted. Check charges before retrying."),
+  };
+  const failed = item.status === "failed";
   const draft = item.status === "draft";
   const [tab, setTab] = useState("publication");
   const [confirm, setConfirm] = useState(false);
@@ -61,12 +84,12 @@ export function VideoEditor({
   return (
     <div className="grid gap-6 md:grid-cols-[minmax(200px,320px)_1fr]">
       <aside className="space-y-3">
-        {originalUrl ? (
+        {mediaUrl ? (
           <video
             className="w-full rounded-xl"
             controls
             playsInline
-            src={originalUrl}
+            src={mediaUrl}
           />
         ) : (
           <Cover
@@ -77,7 +100,7 @@ export function VideoEditor({
           />
         )}
         <p className="text-center text-xs text-muted">
-          {originalUrl
+          {final ? t("Готовое видео", "Final video") : originalUrl
             ? t("Ваши исходные кадры", "Your source footage")
             : t("Превью обложки · видео не сгенерировано", "Cover preview · video has yet to be generated")}
         </p>
@@ -93,11 +116,12 @@ export function VideoEditor({
           </a>
           <a
             className={secondaryButton}
-            href={`/projects/${projectId}/videos/${item.id}/cover`}
+            href={files["scene-01.png"] ? fileUrl(files["scene-01.png"].node) : `/projects/${projectId}/videos/${item.id}/cover`}
             download
           >
             {t("Скачать обложку", "Download cover")}
           </a>
+          {final && <a className={primaryButton} href={fileUrl(final.node)} download="final.mp4">{t("Открыть готовый MP4", "Open final MP4")}</a>}
           {originalUrl && (
             <a
               className={secondaryButton}
@@ -114,7 +138,7 @@ export function VideoEditor({
           >
             {t("Другой вариант", "Another version")}
           </button>
-          <button className={secondaryButton} onClick={() => setConfirm(true)}>
+          <button disabled={working} className={secondaryButton} onClick={() => setConfirm(true)}>
             {t("Удалить", "Delete")}
           </button>
         </div>
@@ -136,7 +160,7 @@ export function VideoEditor({
         <span className="inline-block rounded-full bg-selected px-3 py-1 font-bold text-selected-ink">
           {badge(t)[item.status]}
         </span>
-        {!draft && !working && (
+        {!draft && !working && !failed && (
           <div className="flex flex-wrap gap-2">
             {Object.entries({ publication: t("Публикация", "Publication"), script: t("Сценарий", "Script"), log: t("Журнал", "Log") }).map(([key, label]) => (
               <button
@@ -156,16 +180,20 @@ export function VideoEditor({
             ))}
           </div>
         )}
-        {working ? (
+        {working || failed ? (
           <div className={workPanel}>
-            <h2 className="text-xl font-bold">{t("Собираем ролик · демонстрация", "Assembling video · demo")}</h2>
+            <h2 className="text-xl font-bold">{production ? stages[production.stage] : badge(t)[item.status]}</h2>
             <progress
-              aria-label={t("Демо-сборка", "Demo build")}
+              aria-label={t("Сборка видео", "Video assembly")}
               className="my-3 w-full"
               value={item.progress}
               max={100}
             />
             <p>{item.progress}%</p>
+            {failed && <div role="alert">
+              <p>{errors[production?.error ?? ""] ?? t("Этап завершился ошибкой. Готовые исходники сохранены.", "This stage failed. Completed assets are saved.")}</p>
+              <button disabled={pending} className={secondaryButton} onClick={() => act("assemble")}>{t("Повторить этап · возможна оплата", "Retry stage · charges may apply")}</button>
+            </div>}
             <ol className="list-inside list-decimal space-y-2">
               {item.journal.map((line) => (
                 <li key={line}>{line}</li>
@@ -182,6 +210,7 @@ export function VideoEditor({
               <textarea
                 className={field}
                 rows={9}
+                readOnly={!draft && !!production}
                 value={script}
                 maxLength={6000}
                 onChange={(e) => setScript(e.target.value)}
@@ -190,7 +219,7 @@ export function VideoEditor({
             <div className="flex flex-wrap gap-2">
               <button
                 className={secondaryButton}
-                disabled={pending}
+                disabled={pending || (!draft && !!production)}
                 onClick={() => act("script", script)}
               >
                 {t("Сохранить сценарий", "Save script")}
@@ -201,7 +230,7 @@ export function VideoEditor({
                   disabled={pending || script !== item.script}
                   onClick={() => act("assemble")}
                 >
-                  {t("Показать демо-сборку", "Show demo build")}
+                  {t("Собрать видео · платная генерация", "Generate video · paid")}
                 </button>
               )}
             </div>
@@ -220,7 +249,7 @@ export function VideoEditor({
         ) : tab === "log" ? (
           <div className={workPanel}>
             <h2 className="mb-3 text-xl font-bold">
-              {t("Журнал агента · демонстрация", "Agent log · demo")}
+              {t("Монтажный лист", "Edit plan")}
             </h2>
             <ol className="list-inside list-decimal space-y-2">
               {item.journal.map((line) => (
@@ -290,6 +319,10 @@ export function VideoEditor({
             </p>
           </div>
         )}
+        {Object.keys(files).length > 0 && <section className={workPanel}>
+          <h3 className="mb-2 font-bold">{t("Файлы сборки", "Production files")}</h3>
+          {Object.entries(files).map(([name, file]) => <a key={name} href={fileUrl(file.node)} className="block text-accent">{name}</a>)}
+        </section>}
         {item.settings.sources.length > 0 && (
           <div className={workPanel}>
             <h3 className="mb-2 font-bold">{t("Материалы базы знаний", "Knowledge base materials")}</h3>

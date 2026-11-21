@@ -347,7 +347,8 @@ def video_model(monkeypatch):
             )
 
     monkeypatch.setattr(
-        "app.container.text_models", lambda: ({"fake": Model()}, "fake")
+        "app.container.text_models",
+        lambda: ({"fake": Model(), "codex:gpt-6.2-astra": Model()}, "fake"),
     )
 
 
@@ -874,7 +875,61 @@ def test_voice_catalog_and_manual_import(login):
             app.dependency_overrides.pop(voice_library)
 
 
-def test_project_video_lifecycle(login, video_model):
+def test_project_video_lifecycle(login, video_model, monkeypatch):
+    from types import SimpleNamespace
+
+    from app.application.video_production import ProductionError
+    from app.container import video_production
+
+    # Drive each checkpoint explicitly, without external billing or sleeps.
+    worker = video_production()
+    monkeypatch.setattr(
+        "app.main.video_production", lambda: SimpleNamespace(run_next=lambda: False)
+    )
+    shot = {
+        key: "test"
+        for key in (
+            "composition",
+            "cast_and_wardrobe",
+            "speaker",
+            "dialogue",
+            "cut",
+            "image_prompt",
+            "video_prompt",
+        )
+    }
+    shot["reference_ids"] = []
+
+    def storyboard(instructions, text, images):
+        data = json.loads(text)
+        assert data["prompt_guides"] and data["script"] == "Авторский сценарий"
+        return json.dumps({"scenes": [shot, shot]})
+
+    def edit(instructions, text, images, clips, materials):
+        assert len(images) == len(clips) == 2
+        return json.dumps(
+            {"cuts": [{"scene": i, "start_ms": 0, "end_ms": 7500} for i in [1, 2]]}
+        )
+
+    class Clips:
+        submitted = 0
+
+        def submit(self, prompt, frame):
+            self.submitted += 1
+            return "saved-request"
+
+        def collect(self, operation):
+            assert operation == "saved-request"
+            return b"test clip"
+
+    worker.model = SimpleNamespace(generate=storyboard, generate_edit=edit)
+    worker.frames = SimpleNamespace(generate=lambda prompt, refs: b"test frame")
+    worker.preview = SimpleNamespace(render=lambda data, fmt: b"jpeg")
+    worker.clips = Clips()
+    worker.editor = SimpleNamespace(
+        inspect=lambda data: (8000, "jpeg"), render=lambda *args: b"final"
+    )
+
     owner, stranger = login(), login()
     with TestClient(app) as client:
         project = client.post(
@@ -888,7 +943,9 @@ def test_project_video_lifecycle(login, video_model):
             ).status_code
             == 422
         )
-        video = client.post(base, headers=owner, json={"title": "Тест сборки"}).json()
+        video = client.post(
+            base, headers=owner, json={"title": "Тест сборки", "duration": 15}
+        ).json()
         assert video["journal"] == ["0–3 с: общий план"]
         assert video["caption"] == "Подпись к ролику"
         path = f"{base}/{video['id']}"
@@ -910,15 +967,35 @@ def test_project_video_lifecycle(login, video_model):
         assert (
             act("script", "Авторский сценарий").json()["script"] == "Авторский сценарий"
         )
+        monkeypatch.delenv("FAL_KEY", raising=False)
+        assert act("assemble").status_code == 503
+        monkeypatch.setenv("FAL_KEY", "test")
         assert act("assemble").json()["status"] == "generating"
-        with session_factory()() as session:
-            session.execute(
-                update(VideoModel)
-                .where(VideoModel.id == video["id"])
-                .values(ready_at=datetime.now(UTC))
-            )
-            session.commit()
-        assert client.get(path, headers=owner).json()["status"] == "ready"
+        assert act("assemble").status_code == 422
+        assert worker.run_next()
+
+        def unavailable(prompt, refs):
+            raise ProductionError("fal_balance")
+
+        monkeypatch.setattr(worker.frames, "generate", unavailable)
+        assert worker.run_next()
+        assert client.get(path, headers=owner).json()["status"] == "failed"
+        assert act("assemble").json()["status"] == "generating"
+        monkeypatch.setattr(worker.frames, "generate", lambda prompt, refs: b"frame")
+        for _ in range(8):
+            with session_factory().begin() as session:
+                session.execute(
+                    update(VideoModel)
+                    .where(VideoModel.id == video["id"])
+                    .values(ready_at=datetime.now(UTC))
+                )
+            assert worker.run_next()
+        result = client.get(path, headers=owner).json()
+        assert result["status"] == "ready"
+        files = result["settings"]["production"]["files"]
+        assert len(files) == 8 and "final.mp4" in files
+        assert worker.read(UUID(project), files["final.mp4"]["version"])[1] == b"final"
+        assert worker.clips.submitted == 2
         assert act("schedule", "2000-01-01T00:00:00Z").status_code == 422
         assert act("publish").json()["status"] == "published"
         assert client.get(path, headers=owner).json()["settings"]["publication"]
