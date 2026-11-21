@@ -1,8 +1,9 @@
+from copy import deepcopy
 from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.domain.video import Video, VideoSource
 from app.infrastructure.database.models import (
@@ -18,7 +19,7 @@ def as_video(row: VideoModel) -> Video:
         row.project_id,
         row.title,
         row.status,
-        dict(row.settings),
+        deepcopy(row.settings),
         row.script,
         row.caption,
         row.journal,
@@ -30,6 +31,36 @@ def as_video(row: VideoModel) -> Video:
 class VideoRepository:
     def __init__(self, session: Session):
         self.session = session
+
+    def script_guides(self, project: UUID) -> list[str]:
+        node, version = KnowledgeNodeModel, DocumentVersionModel
+        stage, folder = aliased(node), aliased(node)
+        candidate = aliased(version)
+        latest = (
+            select(func.max(candidate.version))
+            .where(candidate.node_id == node.id)
+            .correlate(node)
+            .scalar_subquery()
+        )
+        stmt = (
+            select(version.search_text)
+            .join_from(version, node, version.node_id == node.id)
+            .join(stage, stage.id == node.parent_id)
+            .join(folder, folder.id == stage.parent_id)
+            .where(
+                node.project_id == project,
+                node.kind == "document",
+                folder.name == "Промпты",
+                folder.parent_id.is_(None),
+                stage.name.in_(["Сценарий и хуки", "Бриф и источники", "Голос"]),
+                node.archived_at.is_(None),
+                stage.archived_at.is_(None),
+                folder.archived_at.is_(None),
+            )
+            .where(version.version == latest)
+            .order_by(node.id, version.version.desc())
+        )
+        return [text[:16000] for text in self.session.scalars(stmt) if text]
 
     def voices(self, project: UUID) -> dict[str, str]:
         rows = self.session.execute(
@@ -51,9 +82,24 @@ class VideoRepository:
                 VideoModel.project_id == project,
                 VideoModel.status == "generating",
                 VideoModel.ready_at <= datetime.now(UTC),
+                ~VideoModel.settings.has_key("production"),
             )
             .values(status="ready", ready_at=None)
         )
+
+    def next_production(self, now: datetime) -> Video | None:
+        row = self.session.scalar(
+            select(VideoModel)
+            .where(
+                VideoModel.status == "generating",
+                VideoModel.settings.has_key("production"),
+                VideoModel.ready_at <= now,
+            )
+            .order_by(VideoModel.ready_at, VideoModel.id)
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        )
+        return as_video(row) if row else None
 
     def list_videos(self, project: UUID, status: str, query: str) -> list[Video]:
         stmt = select(VideoModel).where(VideoModel.project_id == project)

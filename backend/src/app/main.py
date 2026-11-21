@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
@@ -8,8 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.routing import Route
 
-from app.application.script_jobs import ScriptWriter
-from app.container import knowledge_service, script_writer
+from app.container import knowledge_service, script_writer, video_production
 from app.domain.project import ProjectNotFound
 from app.domain.video import InvalidVideo, VideoNotFound, VideoTextUnavailable
 from app.presentation.http.agent_tokens import router as agent_tokens_router
@@ -33,12 +33,12 @@ async def cleanup_loop():
             logging.getLogger(__name__).exception("Failed to clean expired uploads")
 
 
-async def script_loop(writer: ScriptWriter):
+async def queue_loop(run_next: Callable[[], bool]):
     while True:
         try:
-            worked = await asyncio.to_thread(writer.run_next)
+            worked = await asyncio.to_thread(run_next)
         except Exception:
-            logging.getLogger(__name__).exception("Script queue unavailable")
+            logging.getLogger(__name__).exception("Job queue unavailable")
             worked = False
         await asyncio.sleep(0 if worked else 5)
 
@@ -51,7 +51,8 @@ async def lifespan(app: FastAPI):
     async with mcp.session_manager.run():
         tasks = [
             asyncio.create_task(cleanup_loop()),
-            asyncio.create_task(script_loop(writer)),
+            asyncio.create_task(queue_loop(writer.run_next)),
+            asyncio.create_task(queue_loop(video_production().run_next)),
         ]
         try:
             yield

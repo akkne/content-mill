@@ -1,5 +1,7 @@
 import base64
 import json
+import sys
+from collections.abc import Iterable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -55,6 +57,26 @@ class CodexCli:
         self.auth_file = auth_file
 
     def generate(self, instructions: str, text: str, images: list[str]) -> str:
+        return self._session(instructions, text, images, [], ())
+
+    def generate_edit(
+        self,
+        instructions: str,
+        text: str,
+        images: list[str],
+        clips: list[bytes],
+        materials: Iterable[tuple[str, str, bytes]] = (),
+    ) -> str:
+        return self._session(instructions, text, images, clips, materials)
+
+    def _session(
+        self,
+        instructions: str,
+        text: str,
+        images: list[str],
+        clips: list[bytes],
+        materials: Iterable[tuple[str, str, bytes]] = (),
+    ) -> str:
         with TemporaryDirectory(prefix="cm-codex-") as folder:
             directory = Path(folder)
             home = directory / "config"
@@ -98,6 +120,29 @@ class CodexCli:
                 "developer_instructions="
                 + json.dumps(instructions, ensure_ascii=False),
             ]
+            if clips:
+                footage = directory / "footage"
+                footage.mkdir()
+                for index, clip in enumerate(clips, start=1):
+                    (footage / f"scene-{index:02}.mp4").write_bytes(clip)
+                catalog = {}
+                for version, fmt, data in materials:
+                    (footage / version).write_bytes(data)
+                    catalog[version] = fmt
+                (footage / "catalog.json").write_text(json.dumps(catalog))
+                command.extend(
+                    [
+                        "-c",
+                        "mcp_servers.montage.command=" + json.dumps(sys.executable),
+                        "-c",
+                        "mcp_servers.montage.args="
+                        + json.dumps(
+                            ["-m", "app.infrastructure.montage_mcp", str(footage)]
+                        ),
+                        "-c",
+                        "mcp_servers.montage.required=true",
+                    ]
+                )
             for feature in (
                 "shell_tool",
                 "unified_exec",

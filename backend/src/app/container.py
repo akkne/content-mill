@@ -11,6 +11,7 @@ from app.application.knowledge_service import KnowledgeService
 from app.application.project_service import ProjectService
 from app.application.script_jobs import ScriptModel, ScriptWriter
 from app.application.speech import SpeechService
+from app.application.video_production import VideoProduction
 from app.application.video_text import VideoTextGenerator
 from app.application.videos import VideoService
 from app.application.voice_library import VoiceLibrary
@@ -26,11 +27,15 @@ from app.infrastructure.database.script_jobs import SqlScriptJobs
 from app.infrastructure.database.speech import SqlSpeechRepository
 from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
 from app.infrastructure.database.voice_library import SqlVoiceLibrary
+from app.infrastructure.fal_media import FalMedia
 from app.infrastructure.lumean import LumeanElevenLabs
+from app.infrastructure.nano_banana import NanoBanana21
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
 from app.infrastructure.starter_prompts import starter_prompts
 from app.infrastructure.storage.s3_documents import S3DocumentStore
+from app.infrastructure.veo_fast import VeoFast
+from app.infrastructure.video_edit import FFmpegEditor
 
 passwords = Argon2Passwords()
 tokens = SecureTokens()
@@ -63,8 +68,29 @@ def voice_library() -> VoiceLibrary:
 
 def video_service() -> VideoService:
     models, selected = text_models()
+    assembly_error = ""
+    if not os.getenv("FAL_KEY", "").strip():
+        assembly_error = "Для сборки добавьте FAL_KEY на сервере."
+    elif AstraCli.model not in models:
+        assembly_error = "Для монтажа подключите Codex на сервере."
     return VideoService(
-        SqlAlchemyProjectUnitOfWork, VideoTextGenerator(models.get(selected))
+        SqlAlchemyProjectUnitOfWork,
+        VideoTextGenerator(models.get(selected)),
+        assembly_error,
+    )
+
+
+def video_production() -> VideoProduction:
+    models, _ = text_models()
+    api = FalMedia(os.getenv("FAL_KEY", "").strip())
+    return VideoProduction(
+        SqlAlchemyProjectUnitOfWork,
+        S3DocumentStore(),
+        models.get(AstraCli.model),
+        NanoBanana21(api),
+        VeoFast(api),
+        FFmpegEditor(),
+        AssetPreview(),
     )
 
 

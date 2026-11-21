@@ -220,7 +220,7 @@ export function Wizard({
                 </label>
               ))}
               <label className={fieldLabel}>
-                {t("Голос проекта", "Project voice")}
+                {t("Голос для отдельной озвучки сценария", "Voice for a separate script narration")}
                 <select className={field} name="voice">
                   <option value="">{t("Без озвучки", "No narration")}</option>
                   {Object.entries(data.voices).map(([id, name]) => (
@@ -266,7 +266,7 @@ export function Wizard({
                 </p>
               ))}
               <p className="text-muted">
-                {t("Демо-сборка подготовит сценарий и журнал. Видеофайл появится после подключения рендера.", "The demo build prepares a script and log. A video file will be available once rendering is connected.")}
+                {t("Nano Banana создаст кадры, Veo Fast — видео с речью персонажей. Генерация оплачивается через fal. Готовый MP4 появится в проекте.", "Nano Banana creates the frames and Veo Fast generates video with character dialogue. Generation is billed through fal. The final MP4 will appear in your project.")}
               </p>
             </div>
           )}
@@ -299,7 +299,7 @@ export function Wizard({
               {pending
                 ? t("Сохранение…", "Saving…")
                 : step === 2
-                  ? t("Показать демо-сборку", "Show demo build")
+                  ? t("Собрать видео · платная генерация", "Generate video · paid")
                   : t("Продолжить →", "Continue →")}
             </button>
           </div>

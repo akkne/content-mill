@@ -19,6 +19,13 @@ class Video:
     ready_at: datetime | None = None
 
     def progress(self) -> int:
+        state = self.settings.get("production")
+        if state and self.status in ("generating", "failed"):
+            return min(
+                95,
+                5
+                + 85 * state.get("index", 0) // ((self.settings["duration"] + 7) // 8),
+            )
         if not self.ready_at or self.status != "generating":
             return 100
         remaining = (self.ready_at - datetime.now(UTC)).total_seconds()

@@ -1,15 +1,15 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID, uuid4
 
 from app.application.project_ports import ProjectUnitOfWorkFactory
 from app.domain.project import ProjectContext, ProjectNotFound
 from app.domain.video import (
-    MOCK_SECONDS,
     InvalidVideo,
     Video,
     VideoNotFound,
     VideoSource,
+    VideoTextUnavailable,
 )
 
 OPTIONS = {
@@ -38,9 +38,15 @@ class VideoGenerator(Protocol):
 
 
 class VideoService:
-    def __init__(self, work: ProjectUnitOfWorkFactory, generator: VideoGenerator):
+    def __init__(
+        self,
+        work: ProjectUnitOfWorkFactory,
+        generator: VideoGenerator,
+        assembly_error: str = "",
+    ):
         self.work = work
         self.generator = generator
+        self.assembly_error = assembly_error
 
     def create(
         self,
@@ -54,6 +60,8 @@ class VideoService:
         with self.work() as work:
             if not work.repository.get_owned(project, owner):
                 raise ProjectNotFound
+            if assemble and self.assembly_error:
+                raise VideoTextUnavailable(self.assembly_error)
             context = work.repository.context(project)
             if any(
                 settings.get(key) not in choices for key, choices in OPTIONS.items()
@@ -87,7 +95,10 @@ class VideoService:
                 ],
             }
             script, caption, journal = self.generator.prepare(
-                title, settings, context, materials
+                title,
+                {**settings, "prompt_guides": work.videos.script_guides(project)},
+                context,
+                materials,
             )
             video = Video(
                 uuid4(),
@@ -101,7 +112,8 @@ class VideoService:
                 datetime.now(UTC),
             )
             if assemble:
-                video.ready_at = video.created_at + timedelta(seconds=MOCK_SECONDS)
+                video.settings["production"] = {"stage": "storyboard"}
+                video.ready_at = video.created_at
             work.videos.save(video)
             work.commit()
             return video
@@ -156,22 +168,32 @@ class VideoService:
             if action == "view":
                 work.commit()
                 return video
+            if video.status == "generating" and action != "duplicate":
+                raise InvalidVideo("Действие недоступно для этого ролика")
             if action == "delete":
                 work.videos.delete(video)
             else:
-                if action == "script":
+                if action == "script" and (
+                    video.status == "draft" or "production" not in video.settings
+                ):
                     video.script = value
                 elif action == "caption":
                     video.caption = value
-                elif action == "assemble" and video.status == "draft":
+                elif action == "assemble" and video.status in ("draft", "failed"):
+                    if self.assembly_error:
+                        raise VideoTextUnavailable(self.assembly_error)
                     video.status = "generating"
-                    video.ready_at = datetime.now(UTC) + timedelta(seconds=MOCK_SECONDS)
+                    video.settings.setdefault(
+                        "production", {"stage": "storyboard"}
+                    ).pop("error", None)
+                    video.ready_at = datetime.now(UTC)
                 elif action == "duplicate":
                     video.ready_at = None
                     video.id = uuid4()
                     video.title = f"{video.title[:170]} · вариант"
                     video.created_at = datetime.now(UTC)
                     video.status = "draft"
+                    video.settings.pop("production", None)
                     video.settings.pop("publication", None)
                 elif action in ("publish", "schedule") and video.status in (
                     "ready",
