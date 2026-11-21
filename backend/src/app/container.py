@@ -10,9 +10,11 @@ from app.application.knowledge_service import KnowledgeService
 from app.application.project_service import ProjectService
 from app.application.script_jobs import ScriptModel, ScriptWriter
 from app.application.speech import SpeechService
+from app.application.video_text import VideoTextGenerator
 from app.application.videos import VideoService
 from app.application.voice_library import VoiceLibrary
 from app.infrastructure.asset_preview import AssetPreview
+from app.infrastructure.astra_script import AstraCli
 from app.infrastructure.claude_script import ClaudeCodeCli, ClaudeScript
 from app.infrastructure.codex_script import CodexCli, CodexScript
 from app.infrastructure.database.knowledge_unit_of_work import (
@@ -24,7 +26,6 @@ from app.infrastructure.database.speech import SqlSpeechRepository
 from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
 from app.infrastructure.database.voice_library import SqlVoiceLibrary
 from app.infrastructure.lumean import LumeanElevenLabs
-from app.infrastructure.mock_video_generator import MockVideoGenerator
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
 from app.infrastructure.starter_prompts import starter_prompts
@@ -60,7 +61,10 @@ def voice_library() -> VoiceLibrary:
 
 
 def video_service() -> VideoService:
-    return VideoService(SqlAlchemyProjectUnitOfWork, MockVideoGenerator())
+    models, selected = text_models()
+    return VideoService(
+        SqlAlchemyProjectUnitOfWork, VideoTextGenerator(models.get(selected))
+    )
 
 
 def agent_files() -> AgentFiles:
@@ -71,13 +75,13 @@ def speech_service() -> SpeechService:
     return SpeechService(SqlSpeechRepository(), voice_catalog())
 
 
-def script_writer() -> ScriptWriter:
+def text_models() -> tuple[dict[str, ScriptModel], str]:
     models: dict[str, ScriptModel] = {}
     providers = {
         "claude": (ClaudeScript, ClaudeCodeCli, "ANTHROPIC_API_KEY"),
-        "codex": (CodexScript, CodexCli, "OPENAI_API_KEY"),
+        "codex": (CodexScript, AstraCli, "OPENAI_API_KEY"),
     }
-    provider = os.getenv("CONTENT_MILL_SCRIPT_PROVIDER", "").strip().lower()
+    provider = os.getenv("CONTENT_MILL_SCRIPT_PROVIDER", "codex").strip().lower()
     if provider and provider not in providers:
         raise ValueError("CONTENT_MILL_SCRIPT_PROVIDER must be codex, claude or empty")
     api_models = []
@@ -88,12 +92,19 @@ def script_writer() -> ScriptWriter:
             api_models.append(api.model)
             if shutil.which(name):
                 models[cli.model] = cli(key)
+                if name == "codex":
+                    models[CodexCli.model] = CodexCli(key)
     if provider:
         selected = providers[provider][1].model
     else:
         selected = os.getenv("CONTENT_MILL_SCRIPT_MODEL", "").strip() or next(
             iter(api_models), ""
         )
+    return models, selected
+
+
+def script_writer() -> ScriptWriter:
+    models, selected = text_models()
     return ScriptWriter(
         SqlAlchemyProjectUnitOfWork, agent_files(), SqlScriptJobs(), models, selected
     )

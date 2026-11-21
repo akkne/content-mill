@@ -8,4 +8,4 @@
 
 Проверено 20 ноября 2026. OpenAI объявил о завершении обслуживания 1 апреля 2027. До этой даты потребуется подключить преемника отдельным адаптером. [График OpenAI](https://developers.openai.com/api/docs/deprecations)
 
-`CONTENT_MILL_SCRIPT_PROVIDER=codex` выбирает `codex exec` версии 0.170.0 с той же моделью. Сервер передаёт свой ключ как CODEX_API_KEY и JPEG через --image. [Выбор CLI](../decisions/0015-script-cli-provider.md)
+До перехода на [Astra](openai-gpt-6.2-astra.md) значение `CONTENT_MILL_SCRIPT_PROVIDER=codex` выбирало `codex exec` версии 0.170.0 с той же моделью. Сервер передаёт свой ключ как CODEX_API_KEY и JPEG через --image. [Выбор CLI](../decisions/0015-script-cli-provider.md)

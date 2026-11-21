@@ -11,7 +11,7 @@ from starlette.routing import Route
 from app.application.script_jobs import ScriptWriter
 from app.container import knowledge_service, script_writer
 from app.domain.project import ProjectNotFound
-from app.domain.video import InvalidVideo, VideoNotFound
+from app.domain.video import InvalidVideo, VideoNotFound, VideoTextUnavailable
 from app.presentation.http.agent_tokens import router as agent_tokens_router
 from app.presentation.http.auth import router as auth_router
 from app.presentation.http.knowledge import router as knowledge_router
@@ -102,6 +102,13 @@ def handle_http_error(_: Request, error: HTTPException) -> JSONResponse:
 @app.exception_handler(VideoNotFound)
 def missing_resource(request: Request, error: Exception) -> JSONResponse:
     return handle_http_error(request, HTTPException(404, "Проект или ролик не найден"))
+
+
+@app.exception_handler(VideoTextUnavailable)
+def unavailable_video_text(
+    request: Request, error: VideoTextUnavailable
+) -> JSONResponse:
+    return handle_http_error(request, HTTPException(503, str(error)))
 
 
 @app.exception_handler(InvalidVideo)
