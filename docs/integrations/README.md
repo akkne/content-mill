@@ -23,3 +23,5 @@
 Активная интеграция каталога и озвучки — [Eleven Multilingual v2 через Lumean](lumean-eleven-multilingual-v2.md).
 
 Серверные сценарии поддерживают [Claude Sonnet 4.6](anthropic-claude-sonnet-4-6.md) и [GPT-5.3-Codex](openai-gpt-5.3-codex.md). Вход и поиск материалов описаны в [решении 0013](../decisions/0013-managed-scripts.md).
+
+По умолчанию тексты готовит [GPT-6.2-Astra через Codex](openai-gpt-6.2-astra.md).

@@ -4,12 +4,13 @@ from pathlib import Path
 
 import pytest
 from app.container import script_writer
+from app.infrastructure.astra_script import AstraCli
 from app.infrastructure.claude_script import ClaudeCodeCli, ClaudeScript
-from app.infrastructure.codex_script import CodexCli, CodexScript
+from app.infrastructure.codex_script import CodexScript
 
 
 @pytest.mark.parametrize(
-    ("name", "adapter"), [("claude", ClaudeCodeCli), ("codex", CodexCli)]
+    ("name", "adapter"), [("claude", ClaudeCodeCli), ("codex", AstraCli)]
 )
 def test_explicit_cli_runs_in_private_directory(monkeypatch, tmp_path, name, adapter):
     program = tmp_path / name
@@ -25,6 +26,8 @@ assert "DATABASE_URL" not in os.environ
 if Path(sys.argv[0]).name == "codex":
     assert "ANTHROPIC_API_KEY" not in os.environ
     assert os.environ["CODEX_API_KEY"] == "codex-test"
+    assert args[args.index("--model")+1] == "gpt-6.2-astra"
+    assert 'model_reasoning_effort="high"' in args
     assert text == "brief" and args[0] == "exec"
     assert Path(args[args.index("--image")+1]).read_bytes() == b"jpeg"
     Path(args[args.index("--output-last-message")+1]).write_text(str(Path.cwd()))
@@ -41,7 +44,10 @@ else:
     monkeypatch.setenv("PATH", str(tmp_path))
     monkeypatch.setenv("OPENAI_API_KEY", "codex-test")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "claude-test")
-    monkeypatch.setenv("CONTENT_MILL_SCRIPT_PROVIDER", name)
+    if name == "codex":
+        monkeypatch.delenv("CONTENT_MILL_SCRIPT_PROVIDER", raising=False)
+    else:
+        monkeypatch.setenv("CONTENT_MILL_SCRIPT_PROVIDER", name)
     monkeypatch.setenv("CONTENT_MILL_SCRIPT_MODEL", "ignored-in-cli-mode")
     writer = script_writer()
     assert writer.selected == adapter.model

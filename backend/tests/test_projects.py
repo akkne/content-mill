@@ -1,3 +1,4 @@
+import json
 import os
 from base64 import b64decode
 from datetime import UTC, datetime, timedelta
@@ -331,7 +332,26 @@ def test_knowledge_tree_owner_moves_and_archive(login):
         assert client.get(f"{base}/{products_id}", headers=owner).status_code == 200
 
 
-def test_text_document_versions_and_access(login):
+@pytest.fixture
+def video_model(monkeypatch):
+    class Model:
+        def generate(self, instructions, text, images):
+            data = json.loads(text)
+            return json.dumps(
+                {
+                    "script": data["title"]
+                    + " ".join(m["excerpt"] for m in data["materials"]),
+                    "caption": "Подпись к ролику",
+                    "edit_plan": ["0–3 с: общий план"],
+                }
+            )
+
+    monkeypatch.setattr(
+        "app.container.text_models", lambda: ({"fake": Model()}, "fake")
+    )
+
+
+def test_text_document_versions_and_access(login, video_model):
     class MemoryStore:
         def __init__(self):
             self.objects = {}
@@ -623,7 +643,7 @@ def test_project_creation_rolls_back_partial_prompt_set(login, monkeypatch):
         assert client.get("/api/v1/projects").json()["items"] == []
 
 
-def test_starter_folders_and_reusable_voice(login):
+def test_starter_folders_and_reusable_voice(login, video_model):
     owner = login()
     with TestClient(app, headers=owner) as client:
         project = client.post("/api/v1/projects", json={"name": "Студия"}).json()
@@ -854,7 +874,7 @@ def test_voice_catalog_and_manual_import(login):
             app.dependency_overrides.pop(voice_library)
 
 
-def test_project_video_lifecycle(login):
+def test_project_video_lifecycle(login, video_model):
     owner, stranger = login(), login()
     with TestClient(app) as client:
         project = client.post(
@@ -869,6 +889,8 @@ def test_project_video_lifecycle(login):
             == 422
         )
         video = client.post(base, headers=owner, json={"title": "Тест сборки"}).json()
+        assert video["journal"] == ["0–3 с: общий план"]
+        assert video["caption"] == "Подпись к ролику"
         path = f"{base}/{video['id']}"
         assert (
             client.get(
@@ -1079,7 +1101,7 @@ def test_managed_script_runs_without_mcp(login, monkeypatch, provider):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CONTENT_MILL_SCRIPT_MODEL", raising=False)
-    monkeypatch.delenv("CONTENT_MILL_SCRIPT_PROVIDER", raising=False)
+    monkeypatch.setenv("CONTENT_MILL_SCRIPT_PROVIDER", "")
     calls = []
     foreign_version = uuid4()
 

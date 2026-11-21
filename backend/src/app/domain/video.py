@@ -41,3 +41,7 @@ class VideoNotFound(Exception):
 
 class InvalidVideo(ValueError):
     pass
+
+
+class VideoTextUnavailable(Exception):
+    pass

@@ -46,7 +46,9 @@ class CodexScript:
 
 
 class CodexCli:
-    model = "codex:" + CodexScript.model
+    model_id = CodexScript.model
+    model = "codex:" + model_id
+    config_args: tuple[str, ...] = ()
 
     def __init__(self, key: str):
         self.key = key
@@ -63,7 +65,8 @@ class CodexCli:
                 "--ignore-user-config",
                 "--skip-git-repo-check",
                 "--model",
-                CodexScript.model,
+                self.model_id,
+                *self.config_args,
                 "-c",
                 "project_doc_max_bytes=0",
                 "-c",
