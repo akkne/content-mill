@@ -1,0 +1,11 @@
+services:
+  backend:
+    environment:
+      CONTENT_MILL_CODEX_AUTH_FILE: /run/content-mill/codex-auth.json
+    volumes:
+      - type: bind
+        source: ${CONTENT_MILL_HOST_CODEX_AUTH_FILE:-${HOME}/.codex/auth.json}
+        target: /run/content-mill/codex-auth.json
+        read_only: true
+        bind:
+          create_host_path: false

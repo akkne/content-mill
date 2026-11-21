@@ -50,14 +50,29 @@ class CodexCli:
     model = "codex:" + model_id
     config_args: tuple[str, ...] = ()
 
-    def __init__(self, key: str):
+    def __init__(self, key: str = "", *, auth_file: Path | None = None):
         self.key = key
+        self.auth_file = auth_file
 
     def generate(self, instructions: str, text: str, images: list[str]) -> str:
         with TemporaryDirectory(prefix="cm-codex-") as folder:
             directory = Path(folder)
             home = directory / "config"
             home.mkdir()
+            env = {"CODEX_HOME": str(home)}
+            if self.auth_file is None:
+                env["CODEX_API_KEY"] = self.key
+            else:
+                # The desktop client owns token refresh. Use only its current login.
+                auth = json.loads(self.auth_file.read_text(encoding="utf-8"))
+                if (
+                    auth.get("auth_mode") != "chatgpt"
+                    or not auth["tokens"]["access_token"]
+                ):
+                    raise ValueError("A ChatGPT login is required")
+                auth["tokens"]["refresh_token"] = ""
+                auth["OPENAI_API_KEY"] = None
+                (home / "auth.json").write_text(json.dumps(auth), encoding="utf-8")
             command = [
                 "codex",
                 "exec",
@@ -99,10 +114,5 @@ class CodexCli:
                 command.extend(["--image", str(preview)])
             result = directory / "result.txt"
             command.extend(["--output-last-message", str(result), "-"])
-            run_cli(
-                command,
-                text,
-                directory,
-                {"CODEX_API_KEY": self.key, "CODEX_HOME": str(home)},
-            )
+            run_cli(command, text, directory, env)
             return result.read_text(encoding="utf-8")

@@ -67,3 +67,29 @@ def test_provider_never_falls_back_to_other_key(monkeypatch):
     monkeypatch.setenv("CONTENT_MILL_SCRIPT_PROVIDER", "unknown")
     with pytest.raises(ValueError, match="CONTENT_MILL_SCRIPT_PROVIDER"):
         script_writer()
+
+
+def test_local_chatgpt_login(monkeypatch, tmp_path):
+    import json
+
+    auth = tmp_path / "auth.json"
+    data = {
+        "auth_mode": "chatgpt",
+        "tokens": {"access_token": "local-access", "refresh_token": "desktop-only"},
+    }
+    auth.write_text(json.dumps(data))
+    monkeypatch.setenv("CONTENT_MILL_CODEX_AUTH_FILE", str(auth))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("CONTENT_MILL_SCRIPT_PROVIDER", "codex")
+    monkeypatch.setattr("app.container.shutil.which", lambda name: name)
+
+    def run(command, text, directory, env):
+        login = json.loads((Path(env["CODEX_HOME"]) / "auth.json").read_text())
+        assert login["tokens"] == {"access_token": "local-access", "refresh_token": ""}
+        assert "CODEX_API_KEY" not in env
+        Path(command[command.index("--output-last-message") + 1]).write_text("готово")
+
+    monkeypatch.setattr("app.infrastructure.codex_script.run_cli", run)
+    writer = script_writer()
+    assert writer.models[writer.selected].generate("test", "brief", []) == "готово"
+    assert json.loads(auth.read_text()) == data
