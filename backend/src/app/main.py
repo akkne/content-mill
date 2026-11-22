@@ -12,6 +12,7 @@ from starlette.routing import Route
 from app.container import knowledge_service, script_writer, video_production
 from app.domain.project import ProjectNotFound
 from app.domain.video import InvalidVideo, VideoNotFound, VideoTextUnavailable
+from app.infrastructure.video_failures import describe_video_error
 from app.presentation.http.agent_tokens import router as agent_tokens_router
 from app.presentation.http.auth import router as auth_router
 from app.presentation.http.avatars import router as avatars_router
@@ -111,7 +112,19 @@ def missing_resource(request: Request, error: Exception) -> JSONResponse:
 def unavailable_video_text(
     request: Request, error: VideoTextUnavailable
 ) -> JSONResponse:
-    return handle_http_error(request, HTTPException(503, str(error)))
+    if error.__cause__ is None:
+        return handle_http_error(request, HTTPException(503, str(error)))
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": {
+                "code": "video_script_failed",
+                "message": str(error),
+                "request_id": str(uuid4()),
+                "failure": describe_video_error(error.__cause__, "script"),
+            }
+        },
+    )
 
 
 @app.exception_handler(InvalidVideo)

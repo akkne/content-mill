@@ -7,6 +7,7 @@ from app.application.video_production import ProductionError
 from app.infrastructure.polza_media import PolzaMedia
 from app.infrastructure.polza_nano_banana import PolzaNanoBanana21
 from app.infrastructure.polza_veo_fast import PolzaVeoFast
+from app.infrastructure.video_failures import describe_video_error
 from PIL import Image
 
 
@@ -103,3 +104,87 @@ def test_unusable_result_does_not_mark_order_rejected(monkeypatch, data):
     )
     with pytest.raises(ValueError, match="asset URL"):
         api.collect("polza:gen_saved", 100, "frame_rejected")
+
+
+def test_terminal_moderation_keeps_retry_code_and_safe_reason(monkeypatch):
+    api = PolzaMedia("test")
+    monkeypatch.setattr(
+        api,
+        "request",
+        lambda *_: {
+            "status": "failed",
+            "error": {
+                "code": "FORBIDDEN",
+                "message": "Контент отклонён системой модерации.",
+                "metadata": {
+                    "raw": "The input content was flagged for containing a prominent public figure. private input"
+                },
+            },
+        },
+    )
+    with pytest.raises(ProductionError, match="clip_rejected") as caught:
+        PolzaVeoFast(api).collect("polza:gen_saved")
+    assert describe_video_error(caught.value, "collect") == {
+        "stage": "collect",
+        "reason": "public_figure",
+        "provider_code": "FORBIDDEN",
+    }
+
+
+@pytest.mark.parametrize(
+    ("status", "reason"),
+    [
+        (400, "invalid_input"),
+        (401, "authentication"),
+        (402, "balance"),
+        (403, "permission"),
+        (404, "not_found"),
+        (408, "timeout"),
+        (409, "conflict"),
+        (410, "expired"),
+        (413, "too_large"),
+        (415, "unsupported_format"),
+        (422, "invalid_input"),
+        (429, "rate_limit"),
+        (500, "provider_down"),
+        (502, "provider_down"),
+        (503, "provider_down"),
+        (504, "timeout"),
+        (418, "http_error"),
+    ],
+)
+def test_video_http_diagnostics(status, reason):
+    response = httpx.Response(
+        status,
+        text="private provider diagnostic",
+        request=httpx.Request("GET", "https://example.test/"),
+    )
+    with pytest.raises(httpx.HTTPStatusError) as caught:
+        response.raise_for_status()
+    assert describe_video_error(caught.value, "submit") == {
+        "stage": "submit",
+        "reason": reason,
+        "http_status": status,
+    }
+
+
+def test_polza_http_forbidden_distinguishes_moderation_from_access(monkeypatch):
+    response = httpx.Response(
+        403,
+        json={
+            "error": {
+                "code": "FORBIDDEN",
+                "message": "Контент отклонён системой модерации.",
+            }
+        },
+        request=httpx.Request("POST", "https://example.test"),
+    )
+    monkeypatch.setattr(httpx, "request", lambda *args, **kwargs: response)
+    with pytest.raises(ProductionError, match="polza_access") as caught:
+        PolzaMedia("test").submit("model", {})
+    assert describe_video_error(caught.value, "submit") == {
+        "stage": "submit",
+        "reason": "moderation",
+        "provider_code": "FORBIDDEN",
+        "http_status": 403,
+    }

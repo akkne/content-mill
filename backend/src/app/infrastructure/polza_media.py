@@ -4,6 +4,7 @@ import re
 import httpx
 
 from app.application.video_production import ProductionError
+from app.infrastructure.video_failures import http_failure, provider_cause
 
 
 def image_input(data: bytes, mime: str) -> dict[str, str]:
@@ -27,15 +28,18 @@ class PolzaMedia:
             json=payload,
             timeout=120,
         )
-        errors = {
-            401: "polza_access",
-            403: "polza_access",
-            402: "polza_balance",
-            429: "polza_limit",
-        }
-        if response.status_code in errors:
-            raise ProductionError(errors[response.status_code])
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as error:
+            legacy = {
+                401: "polza_access",
+                403: "polza_access",
+                402: "polza_balance",
+                429: "polza_limit",
+            }
+            if code := legacy.get(response.status_code):
+                raise ProductionError(code, **http_failure(error)) from error
+            raise
         return response.json()
 
     def submit(self, model: str, inputs: dict) -> str:
@@ -57,7 +61,10 @@ class PolzaMedia:
         if result["status"] in {"pending", "processing"}:
             return None
         if result["status"] in {"failed", "cancelled"}:
-            raise ProductionError(rejected)
+            cause = provider_cause(result.get("error"))
+            if result["status"] == "cancelled":
+                cause.setdefault("reason", "cancelled")
+            raise ProductionError(rejected, **cause)
         if result["status"] != "completed":
             raise ValueError("Unexpected Polza status")
         asset = result.get("data")

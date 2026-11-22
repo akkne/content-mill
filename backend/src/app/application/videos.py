@@ -218,9 +218,11 @@ class VideoService:
                     if self.assembly_error:
                         raise VideoTextUnavailable(self.assembly_error)
                     video.status = "generating"
-                    video.settings.setdefault(
+                    state = video.settings.setdefault(
                         "production", {"stage": "storyboard"}
-                    ).pop("error", None)
+                    )
+                    state.pop("error", None)
+                    state.pop("failure", None)
                     video.ready_at = datetime.now(UTC)
                 elif action == "duplicate":
                     video.ready_at = None

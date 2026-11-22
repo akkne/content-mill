@@ -3,7 +3,7 @@
 import base64
 import json
 import logging
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import ExitStack
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
@@ -222,7 +222,10 @@ class VideoProduction:
         preview: PreviewRenderer,
         speech: CastSpeech | None = None,
         lipsync: LipSync | None = None,
+        *,
+        describe_error: Callable[[BaseException, str], dict],
     ):
+        self.describe_error = describe_error
         self.speech, self.lipsync = speech, lipsync
         self.work, self.store, self.model = work, store, model
         self.frames, self.clips, self.editor, self.preview = (
@@ -270,6 +273,7 @@ class VideoProduction:
                     state["stage"],
                     type(error).__name__,
                 )
+                state["failure"] = self.describe_error(error, state["stage"])
                 attempted = video.settings["production"]
                 if state["stage"] in {
                     "frame",
@@ -359,7 +363,7 @@ class VideoProduction:
         with self.work() as work:
             asset = work.agent.asset(project, UUID(version))
         if not asset:
-            raise ValueError("Missing source version")
+            raise ProductionError("missing_source")
         return asset[2].format, self.store.get(asset[2].storage_key)
 
     def step(self, video: Video):
@@ -438,7 +442,7 @@ class VideoProduction:
                 ):
                     raise ValueError("Source ends before the planned shot")
             except (KeyError, ValueError) as error:
-                raise ProductionError("clip_rejected") from error
+                raise ProductionError("clip_rejected", reason="invalid_clip") from error
             state.pop("operation")
             if video.settings.get("characters") and shot.utterances:
                 state.update(stage="speech", line=0)
@@ -795,6 +799,7 @@ def validate_cuts(
 
 
 class ProductionError(Exception):
-    def __init__(self, code: str):
+    def __init__(self, code: str, **detail):
         super().__init__(code)
         self.code = code
+        self.detail = detail
