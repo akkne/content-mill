@@ -10,7 +10,7 @@ def run_cli(
     directory: Path,
     key_env: dict[str, str],
     *,
-    timeout: int = 120,
+    timeout: int | None = 120,
 ) -> str:
     """Run one isolated CLI session, including its launcher and native children."""
     env = {
