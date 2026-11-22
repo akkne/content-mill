@@ -5,6 +5,7 @@ from app.infrastructure.media_download import download_result
 from app.infrastructure.video_failures import provider_cause
 
 
+# TODO: Reconnect this adapter only after the lip-sync pilot (ADR 0028).
 class HeyGenLipSync:
     def __init__(self, key: str):
         self.key = key

@@ -28,7 +28,6 @@ from app.infrastructure.database.script_jobs import SqlScriptJobs
 from app.infrastructure.database.speech import SqlSpeechRepository
 from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
 from app.infrastructure.database.voice_library import SqlVoiceLibrary
-from app.infrastructure.heygen_lipsync import HeyGenLipSync
 from app.infrastructure.lumean import LumeanElevenLabs
 from app.infrastructure.polza_media import PolzaMedia
 from app.infrastructure.polza_nano_banana import PolzaNanoBanana21
@@ -95,9 +94,6 @@ def video_production() -> VideoProduction:
         FFmpegEditor(),
         AssetPreview(),
         voice_catalog() if os.getenv("LUMEAN_API_KEY", "").strip() else None,
-        HeyGenLipSync(key)
-        if (key := os.getenv("HEYGEN_API_KEY", "").strip())
-        else None,
         describe_error=describe_video_error,
     )
 

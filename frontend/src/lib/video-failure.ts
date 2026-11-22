@@ -9,12 +9,12 @@ export type VideoFailure = {
 
 export function videoFailureMessage(t: Translate, reason: string) {
   const messages: Record<string, string> = {
-    heygen_key: t("Для синхронизации губ добавьте HEYGEN_API_KEY на сервере.","Set HEYGEN_API_KEY on the server for lip sync."),
+    heygen_key: t("Повторите этап, чтобы продолжить сборку с озвучкой ElevenLabs.","Retry the stage to continue with ElevenLabs dialogue."),
     speech_failed: t("Сервис не выдал озвучку реплики.","The speech service did not deliver the line."),
     speech_too_long: t("Реплика не помещается в интервал. Создайте вариант с более короткой репликой.","The line exceeds its time slot. Create a variation with a shorter line."),
     speech_unavailable: t("Для голосов персонажей добавьте LUMEAN_API_KEY.","Set LUMEAN_API_KEY for character voices."),
     lipsync_failed: t("HeyGen не смог синхронизировать сцену.","HeyGen could not synchronize this scene."),
-    short_dub: t("Синхронизированный клип слишком короткий.","The synchronized clip is too short."),
+    short_dub: t("Озвученный клип слишком короткий.","The dubbed clip is too short."),
     clip_rejected: t("Провайдер отклонил клип.", "The provider rejected this clip."),
     frame_rejected: t("Провайдер отклонил кадр.", "The provider rejected the frame."),
     legacy_operation: t("Заказ относится к прежнему провайдеру.", "This order belongs to the previous provider."),
