@@ -1,4 +1,5 @@
 "use server";
+import { failureCode, videoFailureMessage } from "@/lib/video-failure";
 import { apiError } from "@/lib/api-error";
 import { getTranslator } from "@/lib/server-language";
 
@@ -28,6 +29,10 @@ export async function saveVideo(
   try {
     const res = await videoRequest(project, path, body);
     const result = await res.json();
+    if (!res.ok && result.error?.failure?.stage === "script") {
+      const failure = result.error.failure;
+      return [t("Подготовка сценария", "Script preparation"), videoFailureMessage(t, failure.reason), failureCode(failure)].join(" · ");
+    }
     if (!res.ok) return apiError(t, result.error?.message, t("Не удалось сохранить ролик", "Could not save video"));
     id = result.id;
   } catch {

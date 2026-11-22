@@ -2,6 +2,7 @@ import httpx
 
 from app.application.video_production import ProductionError
 from app.infrastructure.media_download import download_result
+from app.infrastructure.video_failures import provider_cause
 
 
 class HeyGenLipSync:
@@ -45,6 +46,14 @@ class HeyGenLipSync:
             "running",
         ):
             return None
+        if result["status"] == "failed":
+            cause = provider_cause(
+                {
+                    "code": result.get("failure_code"),
+                    "message": result.get("failure_message"),
+                }
+            )
+            raise ProductionError("lipsync_failed", **cause)
         if result["status"] != "completed":
-            raise ProductionError("lipsync_failed")
+            raise ValueError("Unexpected HeyGen order status")
         return download_result(result["video_url"], 64 * 1024 * 1024)

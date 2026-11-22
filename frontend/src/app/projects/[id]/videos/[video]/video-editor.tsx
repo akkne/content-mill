@@ -1,4 +1,5 @@
 "use client";
+import { failureCode, videoFailureMessage } from "@/lib/video-failure";
 import { optionLabel } from "../video-labels";
 import { useTranslator, useInterfaceLanguage } from "@/app/interface-language";
 
@@ -49,9 +50,9 @@ export function VideoEditor({
   const stages: Record<string, string> = {
     storyboard: t("Раскадровка и промпты", "Storyboard and prompts"),
     frame: t("Стартовый кадр · Nano Banana 2.1", "First frame · Nano Banana 2.1"),
-    collect_frame: t("Ожидание стартового кадра", "Waiting for the first frame"),
+    collect_frame: t("Получение кадра · Nano Banana", "Retrieving frame · Nano Banana"),
     submit: t("Запуск Veo Fast", "Submitting to Veo Fast"),
-    collect: t("Ожидание видео со звуком", "Waiting for video with audio"),
+    collect: t("Получение клипа · Veo Fast", "Retrieving clip · Veo Fast"),
     speech: t("Озвучка реплики","Synthesizing dialogue"),
     collect_speech: t("Ожидание реплики","Waiting for speech"),
     mix_speech: t("Подготовка дорожки сцены","Preparing scene audio"),
@@ -62,23 +63,13 @@ export function VideoEditor({
     render: t("Рендер MP4", "Rendering MP4"),
     done: t("Готово", "Complete"),
   };
-  const errors: Record<string, string> = {
-    heygen_key: t("Для синхронизации губ добавьте HEYGEN_API_KEY на сервере.","Set HEYGEN_API_KEY on the server for lip sync."),
-    speech_failed: t("Сервис не выдал озвучку реплики. Повтор создаст новый заказ.","The speech service did not deliver the line. A retry creates a new order."),
-    speech_too_long: t("Реплика не помещается в интервал. Создайте вариант с более короткой репликой.","The line exceeds its time slot. Create a variation with a shorter line."),
-    speech_unavailable: t("Для голосов персонажей добавьте LUMEAN_API_KEY.","Set LUMEAN_API_KEY for character voices."),
-    lipsync_failed: t("HeyGen не смог синхронизировать сцену.","HeyGen could not synchronize this scene."),
-    short_dub: t("Синхронизированный клип слишком короткий.","The synchronized clip is too short."),
-    clip_rejected: t("Провайдер отклонил клип. Повтор создаст новый заказ.", "The provider rejected this clip. A retry creates a new order."),
-    frame_rejected: t("Провайдер отклонил кадр.", "The provider rejected the frame."),
-    legacy_operation: t("Заказ относится к прежнему провайдеру. Повтор создаст заказ в Polza AI.", "This order belongs to the previous provider. Retrying creates a Polza AI order."),
-    polza_limit: t("Достигнут лимит Polza AI. Повторите позже.", "Polza AI rate limit reached. Try again later."),
-    polza_key: t("На сервере нужен POLZA_API_KEY.", "Set POLZA_API_KEY on the server."),
-    polza_access: t("Проверьте доступ ключа Polza AI к моделям.", "Check the Polza AI key’s model access."),
-    polza_balance: t("Недостаточно средств на Polza AI.", "Insufficient Polza AI balance."),
-    codex_unavailable: t("Проверьте вход Codex на сервере.", "Check the server’s Codex login."),
-    interrupted: t("Обработка прервалась. Проверьте списания перед повтором.", "Processing was interrupted. Check charges before retrying."),
-  };
+  const failure = production?.failure;
+  const reason = failure?.reason ?? production?.error ?? "stage_failed";
+  const stoppedStage = failure?.stage ?? production?.stage ?? "";
+  const resumeStage = production?.stage ?? "";
+  const polling = resumeStage.startsWith("collect") && !!production?.operation;
+  const newOrder = ["frame", "submit", "sync", "speech"].includes(resumeStage);
+  const sceneStage = ["frame", "collect_frame", "submit", "collect", "speech", "collect_speech", "sync", "collect_sync", "mix_speech", "dub"].includes(stoppedStage);
   const failed = item.status === "failed";
   const draft = item.status === "draft";
   const [tab, setTab] = useState("publication");
@@ -198,7 +189,7 @@ export function VideoEditor({
         )}
         {working || failed ? (
           <div className={workPanel}>
-            <h2 className="text-xl font-bold">{production ? stages[production.stage] : badge(t)[item.status]}</h2>
+            <h2 className="text-xl font-bold">{production ? (stages[failed ? stoppedStage : production.stage] ?? badge(t)[item.status]) : badge(t)[item.status]}</h2>
             <progress
               aria-label={t("Сборка видео", "Video assembly")}
               className="my-3 w-full"
@@ -206,9 +197,19 @@ export function VideoEditor({
               max={100}
             />
             <p>{item.progress}%</p>
-            {failed && <div role="alert">
-              <p>{errors[production?.error ?? ""] ?? t("Этап завершился ошибкой. Готовые исходники сохранены.", "This stage failed. Completed assets are saved.")}</p>
-              <button disabled={pending} className={secondaryButton} onClick={() => act("assemble")}>{t("Повторить этап · возможна оплата", "Retry stage · charges may apply")}</button>
+            {failed && <div role="alert" className="my-3 grid gap-2 border-l-2 border-current pl-3">
+              {sceneStage && typeof production?.index === "number" && <p className="text-sm font-semibold">
+                {t("Сцена", "Scene")} {production.index + 1} / {Math.ceil(item.settings.duration / 8)}
+                {["speech", "collect_speech"].includes(stoppedStage) && typeof production.line === "number" && ` · ${t("Реплика", "Line")} ${production.line + 1}`}
+              </p>}
+              <p>{videoFailureMessage(t, reason)}</p>
+              <p className="text-sm text-muted">{t("Код", "Code")} · {failure ? failureCode(failure) : reason}</p>
+              <p className="text-sm">{polling
+                ? t("Повтор проверит результат по сохранённому номеру заказа.", "Retry checks the existing order for its result.")
+                : newOrder ? t("Повтор отправит новый заказ для этой сцены. Провайдер может списать средства.", "Retry submits a new order for this scene. The provider may charge for it.")
+                : ["edit", "storyboard"].includes(resumeStage) ? t("Повтор продолжит этап подготовки. Новый вызов модели расходует квоту.", "Retry resumes preparation. A new model call uses quota.")
+                : t("Повтор возобновит обработку с сохранённого этапа.", "Retry resumes processing from the saved stage.")}</p>
+              <button disabled={pending} className={secondaryButton + " justify-self-start"} onClick={() => act("assemble")}>{t("Повторить этап", "Retry stage")}</button>
             </div>}
             <ol className="list-inside list-decimal space-y-2">
               {item.journal.map((line) => (

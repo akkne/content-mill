@@ -38,6 +38,7 @@ from app.infrastructure.security.tokens import SecureTokens
 from app.infrastructure.starter_prompts import starter_prompts
 from app.infrastructure.storage.s3_documents import S3DocumentStore
 from app.infrastructure.video_edit import FFmpegEditor
+from app.infrastructure.video_failures import describe_video_error
 
 passwords = Argon2Passwords()
 tokens = SecureTokens()
@@ -97,6 +98,7 @@ def video_production() -> VideoProduction:
         HeyGenLipSync(key)
         if (key := os.getenv("HEYGEN_API_KEY", "").strip())
         else None,
+        describe_error=describe_video_error,
     )
 
 

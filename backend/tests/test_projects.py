@@ -1039,7 +1039,13 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
         with monkeypatch.context() as failure:
             failure.setattr(worker.frames, "collect", missing_asset)
             assert worker.run_next()
+        stopped = client.get(path, headers=owner).json()["settings"]["production"]
+        assert stopped["failure"] == {
+            "stage": "collect_frame",
+            "reason": "invalid_response",
+        }
         resumed = act("assemble").json()["settings"]["production"]
+        assert "failure" not in resumed
         assert (
             resumed["stage"] == "collect_frame" and resumed["operation"] == "frame-id"
         )

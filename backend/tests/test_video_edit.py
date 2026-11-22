@@ -12,6 +12,7 @@ from app.application.video_production import (
 )
 from app.infrastructure.montage_mcp import montage_server
 from app.infrastructure.video_edit import FFmpegEditor, ffmpeg, track_info
+from app.infrastructure.video_failures import describe_video_error
 from PIL import Image
 
 
@@ -188,6 +189,7 @@ def test_cast_voice_and_visible_audio_take_separate_routes():
         None,
         SimpleNamespace(submit_line=submit, collect_line=lambda op: op.encode()),
         SimpleNamespace(submit=sync, collect=lambda op: b"synced"),
+        describe_error=describe_video_error,
     )
     state = {"stage": "speech", "index": 0, "line": 0}
     video = SimpleNamespace(

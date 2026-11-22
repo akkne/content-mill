@@ -1,3 +1,4 @@
+import type { VideoFailure } from "./video-failure";
 import { getTranslator } from "@/lib/server-language";
 import "server-only";
 import { notFound } from "next/navigation";
@@ -36,7 +37,7 @@ export type VideoCard = {
 };
 export type ProjectVideo = Omit<VideoCard, "duration" | "platform"> & {
   settings: {
-    production?: { stage: string; error?: string; files?: Record<string, { node: string; version: string }> };
+    production?: { stage: string; index?: number; line?: number; operation?: string; error?: string; failure?: VideoFailure; files?: Record<string, { node: string; version: string }> };
     library_voice_id?: string;
     voice?: string;
     duration: number;

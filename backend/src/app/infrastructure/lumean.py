@@ -58,7 +58,10 @@ class LumeanElevenLabs(VoiceCatalog, SpeechProvider):
                 429: (429, "Достигнут лимит Lumean. Повторите позже."),
             }
             if response.status_code in errors:
-                raise CatalogError(*errors[response.status_code])
+                try:
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as upstream:
+                    raise CatalogError(*errors[response.status_code]) from upstream
             response.raise_for_status()
             body = response.json()
             if (
@@ -192,5 +195,8 @@ class LumeanElevenLabs(VoiceCatalog, SpeechProvider):
         if result.status == "processing":
             return None
         if not result.url:
-            raise ProductionError("speech_failed")
+            raise ProductionError(
+                "speech_failed",
+                reason="expired" if result.status == "expired" else "speech_failed",
+            )
         return download_result(result.url, 16 * 1024 * 1024)

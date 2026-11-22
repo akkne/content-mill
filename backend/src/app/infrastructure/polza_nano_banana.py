@@ -28,5 +28,7 @@ class PolzaNanoBanana21:
                 with Image.open(BytesIO(data), formats=["PNG"]) as image:
                     image.verify()
             except (ValueError, OSError, SyntaxError) as error:
-                raise ProductionError("frame_rejected") from error
+                raise ProductionError(
+                    "frame_rejected", reason="invalid_frame"
+                ) from error
         return data
