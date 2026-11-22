@@ -1034,6 +1034,16 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
         assert worker.run_next()
         assert client.get(path, headers=owner).json()["status"] == "failed"
         assert act("assemble").json()["status"] == "generating"
+
+        def disconnected(prompt, refs):
+            raise ProductionError(
+                "order_unconfirmed", model="google/gemini-nano-banana-2.1"
+            )
+
+        monkeypatch.setattr(worker.frames, "submit", disconnected)
+        assert worker.run_next()
+        assert act("assemble").status_code == 422
+        assert act("assemble", "new_order").json()["status"] == "generating"
         monkeypatch.setattr(worker.frames, "submit", lambda prompt, refs: "frame-id")
 
         def make_stage_due():

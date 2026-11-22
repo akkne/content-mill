@@ -22,6 +22,17 @@ class Video:
     created_at: datetime
     ready_at: datetime | None = None
 
+    def needs_order_check(self) -> bool:
+        state = self.settings.get("production", {})
+        failure = state.get("failure", {})
+        return (
+            self.status == "failed"
+            and state.get("stage") in {"frame", "submit"}
+            and not state.get("operation")
+            and failure.get("stage") == state["stage"]
+            and failure.get("reason") in {"network", "timeout", "order_unconfirmed"}
+        )
+
     def progress(self) -> int:
         state = self.settings.get("production")
         if state and self.status in ("generating", "failed"):

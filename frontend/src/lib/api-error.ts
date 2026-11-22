@@ -1,6 +1,7 @@
 import type { Translate } from "./interface-language";
 
 const messages: Record<string, string> = {
+  "Проверьте заказ у провайдера перед новой отправкой.": "Check the provider order before submitting again.",
   "Модель для подготовки текста недоступна.": "The script generation model is unavailable.",
   "Выберите разных персонажей проекта с уникальными именами.": "Choose distinct project characters with unique names.",
   "Для сборки добавьте POLZA_API_KEY на сервере.": "Set POLZA_API_KEY on the server to generate video.",

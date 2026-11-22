@@ -221,6 +221,10 @@ class VideoService:
                 elif action == "assemble" and video.status in ("draft", "failed"):
                     if self.assembly_error:
                         raise VideoTextUnavailable(self.assembly_error)
+                    if video.needs_order_check() and value != "new_order":
+                        raise InvalidVideo(
+                            "Проверьте заказ у провайдера перед новой отправкой."
+                        )
                     video.status = "generating"
                     state = video.settings.setdefault(
                         "production", {"stage": "storyboard"}

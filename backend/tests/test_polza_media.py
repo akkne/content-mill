@@ -190,3 +190,19 @@ def test_polza_http_forbidden_distinguishes_moderation_from_access(monkeypatch):
         "provider_code": "FORBIDDEN",
         "http_status": 403,
     }
+
+
+def test_disconnect_after_submit_preserves_unconfirmed_order_context(monkeypatch):
+    calls = []
+    api = PolzaMedia("test")
+
+    def disconnect(method, path, payload):
+        calls.append((method, path))
+        raise httpx.RemoteProtocolError("Server disconnected without a response")
+
+    monkeypatch.setattr(api, "request", disconnect)
+    with pytest.raises(ProductionError, match="order_unconfirmed") as caught:
+        api.submit("kling/v2.6", {})
+    assert calls == [("POST", "")]
+    assert caught.value.detail["model"] == "kling/v2.6"
+    assert caught.value.detail["attempted_at"]

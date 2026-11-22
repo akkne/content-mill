@@ -1,5 +1,6 @@
 import base64
 import re
+from datetime import UTC, datetime
 
 import httpx
 
@@ -43,12 +44,20 @@ class PolzaMedia:
         return response.json()
 
     def submit(self, model: str, inputs: dict) -> str:
-        result = self.request(
-            "POST", "", {"model": model, "input": inputs, "async": True}
-        )
-        identifier = result["id"]
-        if not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", identifier):
-            raise ValueError("Invalid Polza operation ID")
+        started = datetime.now(UTC).isoformat()
+        try:
+            result = self.request(
+                "POST", "", {"model": model, "input": inputs, "async": True}
+            )
+            identifier = result.get("id") if isinstance(result, dict) else None
+            if not isinstance(identifier, str) or not re.fullmatch(
+                r"[A-Za-z0-9_-]{1,200}", identifier
+            ):
+                raise ValueError("Missing Polza operation ID")
+        except (httpx.TransportError, ValueError) as error:
+            raise ProductionError(
+                "order_unconfirmed", model=model, attempted_at=started
+            ) from error
         return "polza:" + identifier
 
     def collect(self, operation: str, limit: int, rejected: str) -> bytes | None:
