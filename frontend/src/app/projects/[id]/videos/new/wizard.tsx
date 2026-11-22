@@ -1,7 +1,7 @@
 "use client";
 import { optionLabel } from "../video-labels";
 import { useTranslator } from "@/app/interface-language";
-import Link from "next/link";
+import { MaterialPicker, resolveMaterials } from "./material-picker";
 import { useState, useTransition } from "react";
 import {
   field,
@@ -38,6 +38,7 @@ export function Wizard({
   };
   const [cast,setCast] = useState<CastRow[]>([]);
   const [sources, setSources] = useState(data.sources);
+  const [selection, setSelection] = useState(data.sources.filter(s => s.selected).map(s => s.id));
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
@@ -45,7 +46,7 @@ export function Wizard({
   const [review, setReview] = useState<FormData>();
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
-  const selectedVersions = new Set(review?.getAll("sources").map(String));
+  const selectedVersions = resolveMaterials(selection, data.folders, sources);
   const pinnedByNode = new Set(sources.filter(s=>selectedVersions.has(s.id)).map(s=>s.node_id));
   const latestVersion = new Map<string,number>();
   for (const source of sources){
@@ -159,9 +160,11 @@ export function Wizard({
                             id: version.id,
                             name: node.name,
                             version: version.version,
-                            selected: true,
+                            node_id: node.id,
+                            parent_id: node.parent_id,
                           },
                         ]);
+                        setSelection(previous => [...previous, version.id]);
                       }
                     } catch (err) {
                       setError(
@@ -176,36 +179,9 @@ export function Wizard({
                 />
                 {uploading && <span role="status">{t("Загрузка файлов…", "Uploading files…")}</span>}
               </label>
-              <fieldset className="rounded-xl border border-dashed border-line p-4">
-                <legend className="px-1 font-bold">
-                  {t("Материалы из базы знаний", "Knowledge base files")}
-                </legend>
-                <div className="grid max-h-60 gap-2 overflow-auto">
-                  {sources.map((s) => (
-                    <label className="flex gap-2" key={s.id}>
-                      <input
-                        name="sources"
-                        type="checkbox"
-                        value={s.id}
-                        defaultChecked={s.selected}
-                      />
-                      {s.path ?? s.name} · v{s.version}
-                    </label>
-                  ))}
-                </div>
-                {!sources.length && (
-                  <p className="text-muted">
-                    {t("В базе знаний пока нет сохранённых файлов.", "No files in the knowledge base yet.")}
-                  </p>
-                )}
-                <Link
-                  className="mt-2 inline-block text-accent"
-                  href={`/projects/${projectId}/knowledge`}
-                  target="_blank"
-                >
-                  {t("Открыть базу знаний ↗", "Open knowledge base ↗")}
-                </Link>
-              </fieldset>
+              <MaterialPicker project={data.project} folders={data.folders} sources={sources}
+                selection={selection} onChange={setSelection} disabled={pending || uploading} />
+              {Array.from(selectedVersions, id => <input key={id} type="hidden" name="sources" value={id} />)}
             </div>
           </div>
           <div hidden={step !== 1}>

@@ -152,6 +152,7 @@ class VideoService:
                 parts = []
                 character, consent = None, False
                 node = by_id.get(node_id)
+                parent_id = node.parent_id if node else None
                 while node:
                     parts.append(node.name)
                     if node.folder_role == "avatar":
@@ -163,6 +164,7 @@ class VideoService:
                     "path": "/".join(reversed(parts)),
                     "character_id": character if not consent else None,
                     "node_id": node_id,
+                    "parent_id": parent_id,
                 }
 
             return {
@@ -170,6 +172,11 @@ class VideoService:
                 "options": OPTIONS,
                 "voices": work.videos.voices(project),
                 **cast_options(nodes),
+                "folders": [
+                    {"id": n.id, "parent_id": n.parent_id, "name": n.name}
+                    for n in nodes
+                    if n.kind == "folder"
+                ],
                 "products": [p.name for p in context.products],
                 "sources": [
                     {
