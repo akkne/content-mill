@@ -38,7 +38,25 @@ export function Wizard({
   };
   const [cast,setCast] = useState<CastRow[]>([]);
   const [sources, setSources] = useState(data.sources);
-  const [selection, setSelection] = useState(data.sources.filter(s => s.selected).map(s => s.id));
+  const [manualSelection, setManualSelection] = useState(() => [
+    ...data.folders.filter(f => !f.parent_id && ["Промпты", "Бренд", "Формулы роликов"].includes(f.name)).map(f => f.id),
+    ...data.sources.filter(source => source.selected).map(source => source.id),
+  ]);
+  const [excludedCastFolders, setExcludedCastFolders] = useState<string[]>([]);
+  const avatarFolders = new Set(cast.map(row => row.character_id).filter(Boolean));
+  const castFolders = new Set(cast.flatMap(row => [row.character_id, row.voice_id].filter((id): id is string => !!id)));
+  const selection = [...new Set([...manualSelection, ...Array.from(castFolders).filter(id => !excludedCastFolders.includes(id))])];
+
+  function changeSelection(next: string[]) {
+    setManualSelection(next.filter(id => !castFolders.has(id) || manualSelection.includes(id)));
+    setExcludedCastFolders(Array.from(castFolders).filter(id => !next.includes(id)));
+  }
+
+  function changeCast(next: CastRow[]) {
+    const retained = new Set(next.flatMap(row => [row.character_id, row.voice_id]));
+    setExcludedCastFolders(previous => previous.filter(id => retained.has(id)));
+    setCast(next);
+  }
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
@@ -46,13 +64,8 @@ export function Wizard({
   const [review, setReview] = useState<FormData>();
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
-  const selectedVersions = resolveMaterials(selection, data.folders, sources);
-  const pinnedByNode = new Set(sources.filter(s=>selectedVersions.has(s.id)).map(s=>s.node_id));
-  const latestVersion = new Map<string,number>();
-  for (const source of sources){
-    if(source.node_id) latestVersion.set(source.node_id, Math.max(latestVersion.get(source.node_id)??0,source.version));
-  }
-  const attachments = sources.filter(s=>selectedVersions.has(s.id) || (s.character_id && cast.some(row=>row.character_id===s.character_id) && s.node_id && !pinnedByNode.has(s.node_id) && latestVersion.get(s.node_id)===s.version));
+  const selectedVersions = resolveMaterials(selection, data.folders, sources, avatarFolders);
+  const attachments = sources.filter(source => selectedVersions.has(source.id));
   return (
     <>
       <h1 className={pageTitle}>{t("Создать ролик", "Create video")}</h1>
@@ -76,6 +89,11 @@ export function Wizard({
           onSubmit={(e) => {
             e.preventDefault();
             if(cast.some(r=>!r.character_id)){setError(t("Выберите аватар в каждой строке.","Choose an avatar for each row."));setStep(0);return;}
+            if (selectedVersions.size > 100) {
+              setError(t("Выберите не более 100 файлов для ролика.", "Select up to 100 files for the video."));
+              setStep(0);
+              return;
+            }
             setError("");
             const values = new FormData(e.currentTarget);
             const submit = (e.nativeEvent as SubmitEvent)
@@ -131,7 +149,7 @@ export function Wizard({
                   maxLength={2000}
                 />
               </label>
-              <CastPicker data={data} rows={cast} change={setCast}/>
+              <CastPicker data={data} rows={cast} change={changeCast}/>
               <label className="grid gap-2 rounded-xl border border-dashed border-line p-4">
                 <strong>{t("Свои кадры и фото товара", "Your footage and product photos")}</strong>
                 <span className="text-muted">
@@ -164,7 +182,7 @@ export function Wizard({
                             parent_id: node.parent_id,
                           },
                         ]);
-                        setSelection(previous => [...previous, version.id]);
+                        setManualSelection(previous => [...previous, version.id]);
                       }
                     } catch (err) {
                       setError(
@@ -180,7 +198,7 @@ export function Wizard({
                 {uploading && <span role="status">{t("Загрузка файлов…", "Uploading files…")}</span>}
               </label>
               <MaterialPicker project={data.project} folders={data.folders} sources={sources}
-                selection={selection} onChange={setSelection} disabled={pending || uploading} />
+                selection={selection} avatarFolders={avatarFolders} onChange={changeSelection} disabled={pending || uploading} />
               {Array.from(selectedVersions, id => <input key={id} type="hidden" name="sources" value={id} />)}
             </div>
           </div>
