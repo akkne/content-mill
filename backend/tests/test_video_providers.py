@@ -2,9 +2,9 @@ from io import BytesIO
 from uuid import uuid4
 
 import pytest
-from app.application.video_production import ProductionError
-from app.infrastructure.nano_banana import NanoBanana21
-from app.infrastructure.veo_fast import VeoFast
+from app.application.videos.production import ProductionError
+from app.infrastructure.providers.media.nano_banana import NanoBanana21
+from app.infrastructure.providers.media.veo_fast import VeoFast
 from PIL import Image
 
 
