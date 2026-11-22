@@ -9,9 +9,13 @@ from app.application.voice_library import LibraryVoice
 from app.domain.knowledge import InvalidNodeOperation, NodeNotFound
 from app.domain.project import ProjectNotFound
 from app.infrastructure.database.knowledge_repository import as_node
+from app.infrastructure.database.models import (
+    AvatarWorkspaceModel,
+    ProjectModel,
+    UserModel,
+)
 from app.infrastructure.database.models import KnowledgeNodeModel as Node
 from app.infrastructure.database.models import LibraryVoiceModel as Voice
-from app.infrastructure.database.models import ProjectModel, UserModel
 from app.infrastructure.database.session import session_factory
 
 VOICE_FIELDS = (
@@ -39,7 +43,9 @@ class SqlVoiceLibrary:
                 select(Voice, Node.project_id)
                 .outerjoin(
                     Node,
-                    (Node.library_voice_id == Voice.id) & Node.archived_at.is_(None),
+                    (Node.library_voice_id == Voice.id)
+                    & Node.archived_at.is_(None)
+                    & ~Node.project_id.in_(select(AvatarWorkspaceModel.project_id)),
                 )
                 .where(Voice.owner_id == owner)
                 .order_by(Voice.name, Voice.id)
@@ -148,12 +154,12 @@ class SqlVoiceLibrary:
                     )
                 )
                 if project in add:
-                    added.append(as_node(active or self._attach(db, project, row)))
+                    added.append(as_node(active or self.attach(db, project, row)))
                 elif active is not None:
                     self._detach(db, active)
             return added
 
-    def _attach(self, db: Session, project: UUID, voice: Voice):
+    def attach(self, db: Session, project: UUID, voice: Voice):
         folder = db.scalar(
             select(Node.id).where(
                 Node.project_id == project,

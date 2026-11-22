@@ -7,7 +7,7 @@ export async function LibraryTiles() {
   const t = await getTranslator();
   const libraries = [
     { name: t("Голоса", "Voices"), href: "/knowledge/voices", description: t("Мои голоса и каталог ElevenLabs", "My voices and the ElevenLabs catalog"), kind: "voice" },
-    { name: t("Аватары", "Avatars"), href: "/knowledge/avatars", description: t("Библиотека в разработке", "Library in development"), kind: "avatar" },
+    { name: t("Аватары", "Avatars"), href: "/knowledge/avatars", description: t("Персонажи, фотографии и одежда", "Characters, photos and wardrobe"), kind: "avatar" },
   ] as const;
   return (
     <section className="mt-8" aria-labelledby="library-title">

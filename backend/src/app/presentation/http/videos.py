@@ -17,6 +17,11 @@ router = APIRouter(prefix="/api/v1/projects/{project_id}/videos")
 Service = Annotated[VideoService, Depends(video_service)]
 
 
+class CastRow(BaseModel):
+    character_id: UUID
+    voice_id: UUID | None = None
+
+
 class VideoInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     title: str = Field(min_length=1, max_length=180)
@@ -27,6 +32,7 @@ class VideoInput(BaseModel):
     duration: int = 30
     voice: str = Field(default="Без озвучки", max_length=160)
     language: str = "Русский"
+    characters: list[CastRow] = Field(default_factory=list, max_length=32)
     sources: list[UUID] = Field(default_factory=list, max_length=100)
     assemble: bool = False
 

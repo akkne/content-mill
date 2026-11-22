@@ -7,6 +7,7 @@ import httpx
 
 from app.application.agent_files import AgentFiles
 from app.application.auth_service import AuthService
+from app.application.avatars import AvatarLibrary
 from app.application.knowledge_service import KnowledgeService
 from app.application.project_service import ProjectService
 from app.application.script_jobs import ScriptModel, ScriptWriter
@@ -27,6 +28,7 @@ from app.infrastructure.database.script_jobs import SqlScriptJobs
 from app.infrastructure.database.speech import SqlSpeechRepository
 from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
 from app.infrastructure.database.voice_library import SqlVoiceLibrary
+from app.infrastructure.heygen_lipsync import HeyGenLipSync
 from app.infrastructure.lumean import LumeanElevenLabs
 from app.infrastructure.polza_media import PolzaMedia
 from app.infrastructure.polza_nano_banana import PolzaNanoBanana21
@@ -91,7 +93,15 @@ def video_production() -> VideoProduction:
         PolzaVeoFast(api),
         FFmpegEditor(),
         AssetPreview(),
+        voice_catalog() if os.getenv("LUMEAN_API_KEY", "").strip() else None,
+        HeyGenLipSync(key)
+        if (key := os.getenv("HEYGEN_API_KEY", "").strip())
+        else None,
     )
+
+
+def avatar_library() -> AvatarLibrary:
+    return AvatarLibrary(SqlAlchemyProjectUnitOfWork, S3DocumentStore())
 
 
 def agent_files() -> AgentFiles:

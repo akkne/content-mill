@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from app.application.agent_ports import AgentScope
 from app.application.project_ports import ProjectUnitOfWorkFactory
+from app.application.video_cast import cast_options, resolve_cast
 from app.domain.project import ProjectContext, ProjectNotFound
 from app.domain.video import (
     InvalidVideo,
@@ -80,6 +81,13 @@ class VideoService:
                     raise InvalidVideo("Выберите голос, назначенный этому проекту.")
                 settings["library_voice_id"] = voice
                 settings["voice"] = voices[voice]
+            if settings.get("characters"):
+                settings["characters"], sources = resolve_cast(
+                    settings["characters"],
+                    work.knowledge.list(project),
+                    work.videos.sources(project),
+                    sources,
+                )
             materials = work.videos.sources(project, sources)
             if {item.id for item in materials} != set(sources):
                 raise InvalidVideo("Один из источников недоступен в проекте")
@@ -137,16 +145,38 @@ class VideoService:
             if not current:
                 raise ProjectNotFound
             context = work.repository.context(project)
+            nodes = work.knowledge.list(project)
+            by_id = {n.id: n for n in nodes}
+
+            def source_labels(node_id):
+                parts = []
+                character, consent = None, False
+                node = by_id.get(node_id)
+                while node:
+                    parts.append(node.name)
+                    if node.folder_role == "avatar":
+                        character = node.id
+                    if node.folder_role == "consent":
+                        consent = True
+                    node = by_id.get(node.parent_id)
+                return {
+                    "path": "/".join(reversed(parts)),
+                    "character_id": character if not consent else None,
+                    "node_id": node_id,
+                }
+
             return {
                 "project": current.name,
                 "options": OPTIONS,
                 "voices": work.videos.voices(project),
+                **cast_options(nodes),
                 "products": [p.name for p in context.products],
                 "sources": [
                     {
                         "id": s.id,
                         "name": s.name,
                         "version": s.version,
+                        **source_labels(s.node_id),
                         "selected": s.id in context.source_version_ids,
                     }
                     for s in work.videos.sources(project)

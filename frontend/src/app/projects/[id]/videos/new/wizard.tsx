@@ -17,6 +17,7 @@ import {
   acceptedMedia,
   uploadMediaVersion,
 } from "../../knowledge/upload-media";
+import { CastPicker, type CastRow } from "./cast-picker";
 import { Cover } from "../cover";
 import { saveVideo } from "../actions";
 
@@ -35,6 +36,7 @@ export function Wizard({
     duration: t("Длительность", "Duration"),
     language: t("Язык", "Language"),
   };
+  const [cast,setCast] = useState<CastRow[]>([]);
   const [sources, setSources] = useState(data.sources);
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(0);
@@ -43,6 +45,13 @@ export function Wizard({
   const [review, setReview] = useState<FormData>();
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
+  const selectedVersions = new Set(review?.getAll("sources").map(String));
+  const pinnedByNode = new Set(sources.filter(s=>selectedVersions.has(s.id)).map(s=>s.node_id));
+  const latestVersion = new Map<string,number>();
+  for (const source of sources){
+    if(source.node_id) latestVersion.set(source.node_id, Math.max(latestVersion.get(source.node_id)??0,source.version));
+  }
+  const attachments = sources.filter(s=>selectedVersions.has(s.id) || (s.character_id && cast.some(row=>row.character_id===s.character_id) && s.node_id && !pinnedByNode.has(s.node_id) && latestVersion.get(s.node_id)===s.version));
   return (
     <>
       <h1 className={pageTitle}>{t("Создать ролик", "Create video")}</h1>
@@ -65,6 +74,8 @@ export function Wizard({
           className={workPanel + " self-start"}
           onSubmit={(e) => {
             e.preventDefault();
+            if(cast.some(r=>!r.character_id)){setError(t("Выберите аватар в каждой строке.","Choose an avatar for each row."));setStep(0);return;}
+            setError("");
             const values = new FormData(e.currentTarget);
             const submit = (e.nativeEvent as SubmitEvent)
               .submitter as HTMLButtonElement;
@@ -115,9 +126,11 @@ export function Wizard({
                   className={field}
                   name="brief"
                   rows={4}
+                  placeholder={t("Персонаж 1 — Анна. Анна стоит на сцене и говорит…", "Character 1 — Anna. Anna stands on stage and says…")}
                   maxLength={2000}
                 />
               </label>
+              <CastPicker data={data} rows={cast} change={setCast}/>
               <label className="grid gap-2 rounded-xl border border-dashed border-line p-4">
                 <strong>{t("Свои кадры и фото товара", "Your footage and product photos")}</strong>
                 <span className="text-muted">
@@ -176,7 +189,7 @@ export function Wizard({
                         value={s.id}
                         defaultChecked={s.selected}
                       />
-                      {s.name} · v{s.version}
+                      {s.path ?? s.name} · v{s.version}
                     </label>
                   ))}
                 </div>
@@ -219,17 +232,7 @@ export function Wizard({
                   </select>
                 </label>
               ))}
-              <label className={fieldLabel}>
-                {t("Голос для отдельной озвучки сценария", "Voice for a separate script narration")}
-                <select className={field} name="voice">
-                  <option value="">{t("Без озвучки", "No narration")}</option>
-                  {Object.entries(data.voices).map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+
               <label className={fieldLabel}>
                 {t("Соотношение сторон", "Aspect ratio")}
                 <input
@@ -252,10 +255,10 @@ export function Wizard({
                 ],
                 [t("Настройки", "Settings"), duration + t(" сек · ", " sec · ") + optionLabel(String(review?.get("language") ?? ""), t)],
                 [
-                  t("Голос", "Voice"),
-                  data.voices[String(review?.get("voice"))] || t("Без озвучки", "No narration"),
+                  t("Персонажи и голоса", "Characters and voices"),
+                  cast.map(r=>(data.avatars.find(a=>a.id===r.character_id)?.name??"")+" · "+(data.cast_voices.find(v=>v.id===r.voice_id)?.name??t("Без реплик","No dialogue"))).join(", ") || t("Не выбраны","None selected"),
                 ],
-                [t("Материалы", "Materials"), review?.getAll("sources").length + t(" файлов", " files")],
+                [t("Материалы", "Materials"), attachments.length + t(" файлов", " files")],
               ].map(([k, v]) => (
                 <p
                   key={String(k)}
@@ -265,8 +268,11 @@ export function Wizard({
                   <strong>{String(v)}</strong>
                 </p>
               ))}
+              {attachments.length>0 && <details><summary className="cursor-pointer font-bold">{t("Файлы для агента","Files for the agent")}</summary>
+                <ul className="mt-2 grid max-h-52 gap-1 overflow-auto text-sm">{attachments.map(file=><li key={file.id}>{file.path??file.name} · v{file.version}</li>)}</ul>
+              </details>}
               <p className="text-muted">
-                {t("Nano Banana создаст кадры, Veo Fast — видео с речью персонажей. Генерация оплачивается через Polza AI. Готовый MP4 появится в проекте.", "Nano Banana creates the frames and Veo Fast generates video with character dialogue. Generation is billed through Polza AI. The final MP4 will appear in your project.")}
+                {t("Nano Banana создаст кадры, Veo Fast — видео с речью персонажей. Для выбранных персонажей ElevenLabs создаёт реплики, HeyGen синхронизирует губы в кадре. Эти операции оплачиваются отдельно. Готовый MP4 появится в проекте.", "Nano Banana creates the frames and Veo Fast generates video with character dialogue. For selected characters, ElevenLabs generates speech and HeyGen synchronizes visible mouths. These are billed separately. The final MP4 will appear in your project.")}
               </p>
             </div>
           )}

@@ -35,6 +35,7 @@ def as_node(model: KnowledgeNodeModel) -> KnowledgeNode:
         model.catalog_languages,
         model.voice_preview_url,
         model.library_voice_id,
+        model.library_avatar_id,
     )
 
 

@@ -11,11 +11,15 @@ from app.domain.project import (
     ProjectContext,
 )
 from app.infrastructure.database.models import (
+    AvatarWorkspaceModel,
     DocumentVersionModel,
     KnowledgeNodeModel,
+    LibraryVoiceModel,
     ProjectContextModel,
     ProjectModel,
+    UserModel,
 )
+from app.infrastructure.database.voice_library import SqlVoiceLibrary
 
 
 def as_project(model: ProjectModel) -> Project:
@@ -45,7 +49,10 @@ class SqlAlchemyProjectRepository:
     def list_owned(
         self, owner_id: UUID, limit: int, cursor: UUID | None
     ) -> list[Project]:
-        query = select(ProjectModel).where(ProjectModel.owner_id == owner_id)
+        query = select(ProjectModel).where(
+            ProjectModel.owner_id == owner_id,
+            ~ProjectModel.id.in_(select(AvatarWorkspaceModel.project_id)),
+        )
         if cursor:
             last = self.session.scalar(
                 select(ProjectModel).where(
@@ -71,6 +78,34 @@ class SqlAlchemyProjectRepository:
         self.session.flush()
         self.session.add(ProjectContextModel(project_id=model.id))
         return as_project(model)
+
+    def attach_avatar_voice(self, project: UUID, voice: UUID, owner: UUID) -> UUID:
+        card = self.session.scalar(
+            select(LibraryVoiceModel).where(
+                LibraryVoiceModel.id == voice, LibraryVoiceModel.owner_id == owner
+            )
+        )
+        if card is None:
+            raise ValueError("Missing avatar voice")
+        node = self.session.scalar(
+            select(KnowledgeNodeModel).where(
+                KnowledgeNodeModel.project_id == project,
+                KnowledgeNodeModel.library_voice_id == voice,
+                KnowledgeNodeModel.archived_at.is_(None),
+            )
+        )
+        return (node or SqlVoiceLibrary().attach(self.session, project, card)).id
+
+    def avatar_workspace(self, owner: UUID) -> tuple[UUID, bool]:
+        self.session.scalar(
+            select(UserModel.id).where(UserModel.id == owner).with_for_update()
+        )
+        existing = self.session.get(AvatarWorkspaceModel, owner)
+        if existing:
+            return existing.project_id, False
+        project = self.create(owner, "Личная библиотека аватаров")
+        self.session.add(AvatarWorkspaceModel(owner_id=owner, project_id=project.id))
+        return project.id, True
 
     def get_owned(self, project_id: UUID, owner_id: UUID) -> Project | None:
         model = self.session.scalar(

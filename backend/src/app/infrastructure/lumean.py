@@ -4,12 +4,14 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from app.application.speech import SpeechProvider, SpeechResult
+from app.application.video_production import ProductionError
 from app.application.voice_catalog import (
     CatalogError,
     CatalogVoice,
     VoiceCatalog,
     VoicePage,
 )
+from app.infrastructure.media_download import download_result
 
 
 class VoiceItem(BaseModel):
@@ -121,7 +123,7 @@ class LumeanElevenLabs(VoiceCatalog, SpeechProvider):
         except (KeyError, ValueError) as error:
             raise CatalogError(502, "Lumean не вернул идентификатор.") from error
 
-    def template(self, voice: str) -> UUID:
+    def template(self, voice: str, model: str = "eleven_multilingual_v2") -> UUID:
         return self._create(
             "templates",
             {
@@ -130,7 +132,7 @@ class LumeanElevenLabs(VoiceCatalog, SpeechProvider):
                 "config": {
                     "tts_settings": {
                         "mode": "mode_v1",
-                        "model_id": "eleven_multilingual_v2",
+                        "model_id": model,
                         "voice_id": voice,
                         "advanced_voice_settings": True,
                         "voice_settings": {
@@ -179,3 +181,16 @@ class LumeanElevenLabs(VoiceCatalog, SpeechProvider):
         if not isinstance(url, str) or not url.startswith("https://"):
             raise CatalogError(502, "Lumean не вернул ссылку на аудио.")
         return SpeechResult("completed", url)
+
+    def submit_line(self, voice: dict, text: str, request: UUID) -> str:
+        external = voice["elevenlabs_voice_id"]
+        template = self.template(external, voice["model_id"])
+        return str(self.submit(template, external, text, request))
+
+    def collect_line(self, operation: str) -> bytes | None:
+        result = self.result(UUID(operation))
+        if result.status == "processing":
+            return None
+        if not result.url:
+            raise ProductionError("speech_failed")
+        return download_result(result.url, 16 * 1024 * 1024)

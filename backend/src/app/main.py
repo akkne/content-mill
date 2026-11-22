@@ -14,6 +14,7 @@ from app.domain.project import ProjectNotFound
 from app.domain.video import InvalidVideo, VideoNotFound, VideoTextUnavailable
 from app.presentation.http.agent_tokens import router as agent_tokens_router
 from app.presentation.http.auth import router as auth_router
+from app.presentation.http.avatars import router as avatars_router
 from app.presentation.http.knowledge import router as knowledge_router
 from app.presentation.http.media import router as media_router
 from app.presentation.http.projects import router as projects_router
@@ -70,6 +71,7 @@ app.include_router(script_jobs_router)
 app.include_router(agent_tokens_router)
 app.include_router(videos_router)
 app.include_router(media_router)
+app.include_router(avatars_router)
 app.include_router(voices_router)
 app.include_router(auth_router)
 app.include_router(projects_router)
