@@ -266,7 +266,7 @@ export function Wizard({
                 <ul className="mt-2 grid max-h-52 gap-1 overflow-auto text-sm">{attachments.map(file=><li key={file.id}>{file.path??file.name} · v{file.version}</li>)}</ul>
               </details>}
               <p className="text-muted">
-                {t("Nano Banana создаст кадры, Veo Fast — видео с речью персонажей. Для выбранных персонажей ElevenLabs озвучивает реплики. При сборке эта дорожка накладывается на видео Veo. Эти операции оплачиваются отдельно. Готовый MP4 появится в проекте.", "Nano Banana creates the frames and Veo Fast generates video with character dialogue. For selected characters, ElevenLabs generates dialogue. The resulting voice track is added to the Veo video. These are billed separately. The final MP4 will appear in your project.")}
+                {t("Nano Banana создаст кадры, Kling 2.6 — клипы по 10 секунд. В монтаж попадёт начало каждого клипа по таймкодам раскадровки. Для выбранных персонажей ElevenLabs озвучивает реплики. При сборке эта дорожка накладывается на клип. Эти операции оплачиваются отдельно. Готовый MP4 появится в проекте.", "Nano Banana creates the frames and Kling 2.6 generates 10-second clips. The edit keeps the opening of each clip for the duration in the storyboard. For selected characters, ElevenLabs generates dialogue. The resulting voice track is added to the clip. These are billed separately. The final MP4 will appear in your project.")}
               </p>
             </div>
           )}

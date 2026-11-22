@@ -26,9 +26,9 @@ from app.infrastructure.database.transactions.knowledge import (
 from app.infrastructure.database.transactions.projects import (
     SqlAlchemyProjectUnitOfWork,
 )
+from app.infrastructure.providers.media.polza_kling_26 import PolzaKling26
 from app.infrastructure.providers.media.polza_media import PolzaMedia
 from app.infrastructure.providers.media.polza_nano_banana import PolzaNanoBanana21
-from app.infrastructure.providers.media.polza_veo_fast import PolzaVeoFast
 from app.infrastructure.providers.speech.lumean import LumeanElevenLabs
 from app.infrastructure.providers.text.astra_script import AstraCli
 from app.infrastructure.providers.text.claude_script import ClaudeCodeCli, ClaudeScript
@@ -92,7 +92,7 @@ def video_production() -> VideoProduction:
         S3DocumentStore(),
         models.get(AstraCli.model),
         PolzaNanoBanana21(api),
-        PolzaVeoFast(api),
+        PolzaKling26(api),
         FFmpegEditor(),
         AssetPreview(),
         voice_catalog() if os.getenv("LUMEAN_API_KEY", "").strip() else None,

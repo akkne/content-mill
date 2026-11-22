@@ -68,7 +68,7 @@ class FFmpegEditor:
                 - origin
                 for k in ("audio", "video")
             )
-            if not 0 < length <= 10:
+            if not 0 < length <= 10 + 1 / 24:
                 raise ValueError("Unexpected clip duration")
             try:
                 sheet = ffmpeg(
@@ -79,7 +79,7 @@ class FFmpegEditor:
                         "-i",
                         path.name,
                         "-vf",
-                        "fps=1,scale=140:-2,tile=4x2",
+                        "fps=1,scale=140:-2,tile=5x2",
                         "-frames:v",
                         "1",
                         "-c:v",

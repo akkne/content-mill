@@ -4,6 +4,7 @@ from io import BytesIO
 import httpx
 import pytest
 from app.application.videos.production import ProductionError
+from app.infrastructure.providers.media.polza_kling_26 import PolzaKling26
 from app.infrastructure.providers.media.polza_media import PolzaMedia
 from app.infrastructure.providers.media.polza_nano_banana import PolzaNanoBanana21
 from app.infrastructure.providers.media.polza_veo_fast import PolzaVeoFast
@@ -42,7 +43,7 @@ def test_polza_scene_requests(monkeypatch):
     monkeypatch.setattr(httpx, "request", request)
     monkeypatch.setattr(httpx, "stream", download)
     api = PolzaMedia("test")
-    frames, clips = PolzaNanoBanana21(api), PolzaVeoFast(api)
+    frames, clips = PolzaNanoBanana21(api), PolzaKling26(api)
     frame = frames.submit("portrait", [b"ref"])
     assert calls[-1][2] == {
         "async": True,
@@ -58,8 +59,9 @@ def test_polza_scene_requests(monkeypatch):
     assert frames.collect(frame) is None
     assert frames.collect(frame) == png.getvalue()
     video = clips.submit("dialogue", png.getvalue())
-    assert calls[-1][2]["model"] == "google/veo3_fast"
-    assert calls[-1][2]["input"]["generationType"] == "FIRST_AND_LAST_FRAMES_2_VIDEO"
+    assert calls[-1][2]["model"] == "kling/v2.6"
+    assert calls[-1][2]["input"]["duration"] == "10"
+    assert calls[-1][2]["input"]["sound"] == "true"
     with pytest.raises(ProductionError, match="clip_rejected"):
         clips.collect(video)
     with pytest.raises(ProductionError, match="legacy_operation"):
