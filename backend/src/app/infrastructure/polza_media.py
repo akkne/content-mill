@@ -60,7 +60,13 @@ class PolzaMedia:
             raise ProductionError(rejected)
         if result["status"] != "completed":
             raise ValueError("Unexpected Polza status")
-        url = httpx.URL(result["data"]["url"])
+        asset = result.get("data")
+        if isinstance(asset, list) and asset:
+            asset = asset[0]
+        location = asset.get("url") if isinstance(asset, dict) else None
+        if not location or not isinstance(location, str):
+            raise ValueError("Completed Polza operation has no asset URL")
+        url = httpx.URL(location)
         if url.scheme != "https" or not (
             url.host == "polza.ai" or url.host.endswith(".polza.ai")
         ):

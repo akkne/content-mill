@@ -1020,13 +1020,31 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
         assert client.get(path, headers=owner).json()["status"] == "failed"
         assert act("assemble").json()["status"] == "generating"
         monkeypatch.setattr(worker.frames, "submit", lambda prompt, refs: "frame-id")
-        for _ in range(9):
+
+        def make_stage_due():
             with session_factory().begin() as session:
                 session.execute(
                     update(VideoModel)
                     .where(VideoModel.id == video["id"])
                     .values(ready_at=datetime.now(UTC))
                 )
+
+        assert worker.run_next()  # Provider accepted the first frame order.
+        make_stage_due()
+
+        def missing_asset(operation):
+            assert operation == "frame-id"
+            raise ValueError("Missing asset URL")
+
+        with monkeypatch.context() as failure:
+            failure.setattr(worker.frames, "collect", missing_asset)
+            assert worker.run_next()
+        resumed = act("assemble").json()["settings"]["production"]
+        assert (
+            resumed["stage"] == "collect_frame" and resumed["operation"] == "frame-id"
+        )
+        for _ in range(8):
+            make_stage_due()
             assert worker.run_next()
 
         def storage_outage(*args):

@@ -1,5 +1,3 @@
 # Nano Banana 2.1 в Polza AI
 
-Статус — активна. На 21 ноября 2026 года каталог содержит `google/gemini-nano-banana-2.1`. Сервер вызывает POST /api/v1/media с Bearer POLZA_API_KEY и async=true. Для стартового кадра передаёт prompt, aspect_ratio=9:16, image_resolution=1K, output_format=png и при наличии JPEG-референсы в input.images как объекты type=base64 с data URI. Каталог задаёт до 20 000 символов и до десяти изображений JPEG, PNG или WebP по 30 МБ. Приложение ограничивает промпт 4000 символами. Отдельный лимит полного HTTP-обмена в битах не указан. [Модель и тариф](https://polza.ai/models/google/gemini-nano-banana-2.1) · [Входы](https://polza.ai/docs/api-reference/media/create)
-
-Сохраняем ID и опрашиваем GET /api/v1/media/{id}. При completed скачиваем data.url из хранилища Polza без заголовка авторизации, проверяем PNG до 8 МБ и сохраняем в S3. Результаты провайдера доступны семь дней. Ошибки оплаты, доступа и лимитов видны в карточке ролика. Повтор чтения использует сохранённый ID. Ручная повторная отправка после отказа модели или потери ответа на POST может оплачиваться отдельно. [Статусы](https://polza.ai/docs/api-reference/media/status) · [Адаптер](../../backend/src/app/infrastructure/polza_nano_banana.py)
+[Схема запросов и ответов, ограничения и особенности адаптера](../../backend/src/app/infrastructure/polza_nano_banana.api.md).
