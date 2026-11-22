@@ -18,6 +18,7 @@ from app.infrastructure.database.knowledge_unit_of_work import (
 )
 from app.infrastructure.database.models import (
     AccessTokenModel,
+    AvatarWorkspaceModel,
     DocumentVersionModel,
     KnowledgeNodeModel,
     ProjectAgentTokenModel,
@@ -93,6 +94,11 @@ def login(migrated_database, monkeypatch):
             session.execute(
                 delete(ProjectContextModel).where(
                     ProjectContextModel.project_id.in_(project_ids)
+                )
+            )
+            session.execute(
+                delete(AvatarWorkspaceModel).where(
+                    AvatarWorkspaceModel.owner_id == user_id
                 )
             )
             session.execute(
@@ -1304,3 +1310,80 @@ def test_managed_script_runs_without_mcp(login, monkeypatch, provider):
     with session_factory()() as session:
         assert session.get(ScriptJobModel, UUID(job["id"])).model == job["model"]
         assert session.get(ProjectAgentTokenModel, UUID(project)) is None
+
+
+def test_avatar_library_project_snapshot_and_voice(login, video_model):
+    owner, other = login(), login()
+    with TestClient(app, headers=owner) as client:
+        personal = client.post("/api/v1/avatars/workspace").json()["project_id"]
+        assert client.get("/api/v1/projects").json()["items"] == []
+        project = client.post("/api/v1/projects", json={"name": "Shoot"}).json()["id"]
+        base = f"/api/v1/projects/{personal}/nodes"
+        root = next(
+            n
+            for n in client.get(base + "/tree").json()["items"]
+            if n["folder_role"] == "avatars"
+        )
+        avatar = client.post(
+            base, json={"parent_id": root["id"], "name": "Анна", "kind": "folder"}
+        ).json()
+        doc = next(
+            n
+            for n in client.get(base + "/tree").json()["items"]
+            if n["kind"] == "document"
+        )
+        assert client.put(
+            f"{base}/{doc['id']}/content",
+            headers={"If-Match": "1"},
+            json={"content": "Портрет Анны", "format": "markdown"},
+        ).is_success
+        voice = client.post(
+            "/api/v1/voices",
+            json={
+                "name": "Voice A",
+                "voice_id": "external-a",
+                "model": "eleven_multilingual_v2",
+            },
+        ).json()
+        linked = client.patch(
+            f"/api/v1/voices/{voice['id']}/projects", json={"add": [personal]}
+        ).json()[0]
+        client.put(
+            f"{base}/{avatar['id']}/profile",
+            headers={"If-Match": "1"},
+            json={"linked_voice_id": linked["id"]},
+        ).raise_for_status()
+        assign = f"/api/v1/avatars/{avatar['id']}/projects/{project}"
+        assert client.post(assign, headers=other).status_code == 404
+        assigned = client.post(assign).json()["node_id"]
+        assert client.post(assign).json()["node_id"] == assigned
+        videos = f"/api/v1/projects/{project}/videos"
+        options = client.get(videos + "/options").json()
+        character = next(a for a in options["avatars"] if a["id"] == assigned)
+        assert character["default_voice_id"] == options["cast_voices"][0]["id"]
+        assert client.get("/api/v1/voices").json()[0]["project_ids"] == [project]
+        body = {
+            "title": "Бриф",
+            "characters": [
+                {"character_id": assigned, "voice_id": character["default_voice_id"]}
+            ],
+        }
+        result = client.post(videos, json=body)
+        result.raise_for_status()
+        settings = result.json()["settings"]
+        cast = settings["characters"][0]
+        assert (
+            cast["display_name"] == "Анна"
+            and cast["voice"]["elevenlabs_voice_id"] == "external-a"
+        )
+        assert cast["files"][0]["version_id"] == settings["sources"][0]["id"]
+        assert (
+            client.post(
+                videos,
+                json={"title": "Other", "characters": [{"character_id": avatar["id"]}]},
+            ).status_code
+            == 422
+        )
+        client.post(
+            videos + "/" + result.json()["id"] + "/actions", json={"action": "delete"}
+        ).raise_for_status()

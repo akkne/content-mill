@@ -143,6 +143,9 @@ class KnowledgeNodeModel(Base):
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    library_avatar_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("knowledge_nodes.id", name="knowledge_library_avatar_fk"), index=True
+    )
     library_voice_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("library_voices.id", name="knowledge_library_voice_fk"), index=True
     )
@@ -266,3 +269,10 @@ class ScriptJobModel(Base):
     run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     result: Mapped[str | None] = mapped_column(Text)
+
+
+class AvatarWorkspaceModel(Base):
+    __tablename__ = "avatar_workspaces"
+
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), unique=True)

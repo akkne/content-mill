@@ -1,6 +1,7 @@
 "use client";
 import { useTranslator, useInterfaceLanguage } from "@/app/interface-language";
 
+import { assignVoice, type SavedVoice } from "@/app/knowledge/voices/actions";
 import Link from "next/link";
 import { genderName, languagesOf } from "@/app/knowledge/voices/labels";
 import { useState, useTransition } from "react";
@@ -8,10 +9,12 @@ import { field, fieldLabel, secondaryButton } from "@/app/ui-styles";
 import type { KnowledgeNode } from "@/lib/knowledge";
 import { saveProfile } from "./media-actions";
 
-export function FolderProfile({ project, folder, voices, onSave }: {
+export function FolderProfile({ project, folder, voices, libraryVoices, onVoiceAssigned, onSave }: {
   project: string;
   folder: KnowledgeNode;
   voices: KnowledgeNode[];
+  libraryVoices?: SavedVoice[];
+  onVoiceAssigned: (node: KnowledgeNode) => void;
   onSave: (node: KnowledgeNode) => void;
 }) {
   const locale = useInterfaceLanguage();
@@ -32,15 +35,21 @@ export function FolderProfile({ project, folder, voices, onSave }: {
       const profile = { linked_voice_id: value("linkedVoice") || null };
       setMessage("");
       start(async () => {
+        if(libraryVoices && profile.linked_voice_id){
+          const assigned=await assignVoice(profile.linked_voice_id,[project],[]);
+          if(!assigned.data?.[0]){setMessage(assigned.error??t("Не удалось назначить голос.","Could not assign voice."));return;}
+          onVoiceAssigned(assigned.data[0]);
+          profile.linked_voice_id=assigned.data[0].id;
+        }
         const result = await saveProfile(project, folder.id, folder.revision, profile);
         if (result.data) onSave(result.data);
         setMessage(result.error ?? t("Сохранено", "Saved"));
       });
     }}>
       <label className={fieldLabel}>{t("Голос аватара", "Avatar voice")}
-        <select className={field} name="linkedVoice" defaultValue={folder.linked_voice_id ?? ""}>
+        <select className={field} name="linkedVoice" defaultValue={libraryVoices?(voices.find(v=>v.id===folder.linked_voice_id)?.library_voice_id??""):(folder.linked_voice_id ?? "")}>
           <option value="">{t("Без привязки", "Unassigned")}</option>
-          {voices.map(node => <option key={node.id} value={node.id}>{node.name}</option>)}
+          {(libraryVoices??voices).map(node => <option key={node.id} value={node.id}>{node.name}</option>)}
         </select>
       </label>
       <button className={secondaryButton} disabled={pending}>{t("Сохранить привязку", "Save assignment")}</button>

@@ -5,6 +5,9 @@ import { eyebrow, field, fieldLabel, formError, kbDocumentFoot, kbDocumentHead, 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
+import type { SavedVoice } from "@/app/knowledge/voices/actions";
+import type { Project } from "@/lib/projects";
+import { AvatarProjects } from "@/app/knowledge/avatars/project-picker";
 import { DocumentEditor } from "./document-editor";
 import Markdown from "react-markdown";
 import { FolderProfile } from "./folder-profile";
@@ -30,16 +33,25 @@ function FileIcon() {
   return <svg aria-hidden="true" className="h-[29px] w-6 flex-none text-accent" viewBox="0 0 36 42"><path d="M5 1h17l9 9v29a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2z" fill="currentColor" opacity=".15" /><path d="M5 1h17l9 9v29a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zM22 1v9h9M9 17h16M9 23h16M9 29h12" fill="none" stroke="currentColor" strokeWidth="2" /></svg>;
 }
 
-export function KnowledgeBrowser({ initial, initialSources, projectId, projectName }: { initialSources: ContextSources; initial: KnowledgeNode[]; projectId: string; projectName: string }) {
+export function KnowledgeBrowser({ initial, initialSources, projectId, projectName, avatarProjects, libraryVoices }: { libraryVoices?: SavedVoice[]; avatarProjects?: Project[]; initialSources: ContextSources; initial: KnowledgeNode[]; projectId: string; projectName: string }) {
   const locale = useInterfaceLanguage();
   const t = useTranslator();
+  function displayName(node: KnowledgeNode) {
+    const defaults: Record<string,string> = {
+      "Аватары":"Avatars", "Голоса":"Voices", "Одежда":"Wardrobe", "Разрешения":"Permissions",
+      "Лицо крупным планом":"Face close-ups", "В полный рост":"Full body", "Дополнительные ракурсы":"Additional angles",
+      "Описание аватара.md":"Avatar description.md",
+    };
+    if(!["avatars","voices","photos","wardrobe","consent"].includes(node.folder_role??"") && !(node.kind==="document" && node.name==="Описание аватара.md")) return node.name;
+    return t(node.name, defaults[node.name]??node.name);
+  }
   const picker = useRef<HTMLInputElement>(null);
   const [mediaId, setMediaId] = useState<string | null>(null);
   const [sources, setSources] = useState(initialSources);
   const [nodes, setNodes] = useState(initial);
   const [addingProfile, setAddingProfile] = useState(false);
   const [profileName, setProfileName] = useState("");
-  const [folderId, setFolderId] = useState<string | null>(null);
+  const [folderId, setFolderId] = useState<string | null>(avatarProjects ? initial.find(n=>n.folder_role==="avatars")?.id ?? null : null);
   const [query, setQuery] = useState("");
   const [searchIds, setSearchIds] = useState<string[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -114,6 +126,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
         else setNodes(previous => action === "create" ? [...previous, updated] : previous.map(node => node.id === updated.id ? updated : node));
         setSelectedId(result.node.id);
         if (action === "create" && (updated.folder_role === "voice" || updated.folder_role === "avatar")) setAddingProfile(false);
+        if (action === "create" && avatarProjects && updated.folder_role === "avatar") enter(updated.id);
         if (action === "create" && result.node.kind === "document") openDocument(result.node.id);
       }
     });
@@ -272,7 +285,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
               {" "}
               /{" "}
               <button onClick={() => enter(node.id)} type="button">
-                {node.name}
+                {displayName(node)}
               </button>
             </span>
           ))}
@@ -316,7 +329,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
               type="button"
             >
               <FolderIcon />
-              {node.name}
+              {displayName(node)}
             </button>
           ))}
         </aside>
@@ -325,10 +338,11 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => drop(event, folderId)}
         >
+          {avatarProjects && folder?.folder_role === "avatar" && <AvatarProjects key={"projects-"+folder.id} avatar={folder.id} projects={avatarProjects}/>}
           <div className="mb-5 flex items-center justify-between gap-[15px] max-[901px]:flex-col max-[901px]:items-start">
             <div>
               <span className={eyebrow}>{query ? t("Результаты поиска", "Search results") : t("Содержимое папки", "Folder contents")}</span>
-              <h2 className="my-1 text-xl">{query ? t("Поиск", "Search") : (folder?.name ?? projectName)}</h2>
+              <h2 className="my-1 text-xl">{query ? t("Поиск", "Search") : (folder ? displayName(folder) : projectName)}</h2>
               <p className="text-muted">{searching ? t("Ищем…", "Searching…") : t(`${visible.length} элементов`, `${visible.length} items`)}</p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 max-[901px]:justify-start">
@@ -374,11 +388,11 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
             </form>
           )}
           {!query && folder && (folder.folder_role === "avatar" || folder.folder_role === "voice") && (
-            <FolderProfile key={folder.id} project={projectId} folder={folder}
+            <FolderProfile key={folder.id} project={projectId} folder={folder} libraryVoices={libraryVoices} onVoiceAssigned={voice=>setNodes(previous=>previous.some(n=>n.id===voice.id)?previous:[...previous,voice])}
               voices={folders.filter(node => node.folder_role === "voice")}
               onSave={updated => setNodes(previous => previous.map(node => node.id === updated.id ? updated : node))} />
           )}
-          {folderId === null && !query && !nodes.some((n) => !n.parent_id && n.name === "Пример проекта") && (
+          {!avatarProjects && folderId === null && !query && !nodes.some((n) => !n.parent_id && n.name === "Пример проекта") && (
             <button className={`${secondaryButton} mb-3`} onClick={examples} disabled={pending}>
               {t("Добавить примеры материалов", "Add sample materials")}
             </button>
@@ -417,7 +431,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                     )}
                   </span>
                   <span>
-                    <strong className="block">{node.name}</strong>
+                    <strong className="block">{displayName(node)}</strong>
                     <small className="block text-muted">
                       {query ? nodePath(node, byId, projectName) : labels[node.kind]}
                     </small>

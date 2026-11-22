@@ -7,6 +7,7 @@ AVATAR_FOLDERS = {
     "Лицо крупным планом": "photos",
     "В полный рост": "photos",
     "Дополнительные ракурсы": "photos",
+    "Разрешения": "consent",
     "Одежда": "wardrobe",
 }
 
@@ -31,6 +32,7 @@ class KnowledgeNode:
     catalog_languages: list[str] | None = None
     voice_preview_url: str | None = None
     library_voice_id: UUID | None = None
+    library_avatar_id: UUID | None = None
 
 
 @dataclass(frozen=True)

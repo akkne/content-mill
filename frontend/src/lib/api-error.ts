@@ -1,6 +1,7 @@
 import type { Translate } from "./interface-language";
 
 const messages: Record<string, string> = {
+  "Выберите разных персонажей проекта с уникальными именами.": "Choose distinct project characters with unique names.",
   "Для сборки добавьте POLZA_API_KEY на сервере.": "Set POLZA_API_KEY on the server to generate video.",
   "Для монтажа подключите Codex на сервере.": "Connect Codex on the server for video editing.",
   "Lumean не подключён. Добавьте LUMEAN_API_KEY на сервере.": "Lumean is not connected. Set LUMEAN_API_KEY on the server.",

@@ -1,10 +1,12 @@
 import base64
 import json
 import subprocess
+import wave
+from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from app.application.video_production import Timeline
+from app.application.video_production import ProductionError, Timeline
 
 
 def ffmpeg(directory: Path, args: list[str]) -> bytes:
@@ -194,3 +196,69 @@ class FFmpegEditor:
             ):
                 raise ValueError("Final track duration mismatch")
             return final.read_bytes()
+
+    def prepare_line(self, audio: bytes, window_ms: int) -> bytes:
+        with TemporaryDirectory(prefix="cm-line-") as tmp:
+            directory = Path(tmp)
+            (directory / "line").write_bytes(audio)
+            args = ["-i", "line", "-vn", "-ac", "1", "-ar", "24000"]
+            pcm = ffmpeg(directory, args + ["-f", "s16le", "pipe:1"])
+            budget = window_ms * 48  # 24 samples per ms, signed 16-bit mono
+            if not pcm or len(pcm) > budget * 1.35:
+                raise ProductionError("speech_too_long")
+            if len(pcm) > budget:
+                tempo = len(pcm) / budget * 1.01
+                pcm = ffmpeg(
+                    directory,
+                    args + ["-af", f"atempo={tempo:.8f}", "-f", "s16le", "pipe:1"],
+                )
+            if len(pcm) > budget:
+                raise ProductionError("speech_too_long")
+            return wav_bytes(pcm)
+
+    def speech_track(
+        self, lines: list[tuple[int, int, bytes]], duration_ms: int
+    ) -> bytes:
+        pcm = bytearray(duration_ms * 48)
+        for start, end, audio in lines:
+            with wave.open(BytesIO(audio), "rb") as track:
+                samples = track.readframes(track.getnframes())
+            if not 0 <= start < end <= duration_ms or len(samples) > (end - start) * 48:
+                raise ValueError("Invalid line timing")
+            offset = start * 48
+            pcm[offset : offset + len(samples)] = samples
+        return wav_bytes(pcm)
+
+    def dub(self, clip: bytes, audio: bytes) -> bytes:
+        with TemporaryDirectory(prefix="cm-dub-") as tmp:
+            directory = Path(tmp)
+            (directory / "video.mp4").write_bytes(clip)
+            (directory / "speech.wav").write_bytes(audio)
+            ffmpeg(
+                directory,
+                [
+                    "-i",
+                    "video.mp4",
+                    "-i",
+                    "speech.wav",
+                    "-map",
+                    "0:v:0",
+                    "-map",
+                    "1:a:0",
+                    "-c:v",
+                    "copy",
+                    "-c:a",
+                    "aac",
+                    "-shortest",
+                    "out.mp4",
+                ],
+            )
+            return (directory / "out.mp4").read_bytes()
+
+
+def wav_bytes(samples: bytes | bytearray) -> bytes:
+    output = BytesIO()
+    with wave.open(output, "wb") as track:
+        track.setparams((1, 2, 24000, 0, "NONE", ""))
+        track.writeframes(samples)
+    return output.getvalue()

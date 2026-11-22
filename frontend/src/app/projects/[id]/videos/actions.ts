@@ -19,6 +19,7 @@ export async function saveVideo(
         ...Object.fromEntries(data),
         action: undefined,
         duration: Number(data.get("duration")),
+        characters: JSON.parse(String(data.get("characters") || "[]")),
         sources: data.getAll("sources"),
         assemble: action === "assemble",
       };
