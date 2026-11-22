@@ -1312,12 +1312,21 @@ def test_managed_script_runs_without_mcp(login, monkeypatch, provider):
         assert session.get(ProjectAgentTokenModel, UUID(project)) is None
 
 
-def test_avatar_library_project_snapshot_and_voice(login, video_model):
+@pytest.mark.parametrize("missing_folders", [False, True])
+def test_avatar_library_project_snapshot_and_voice(login, video_model, missing_folders):
     owner, other = login(), login()
     with TestClient(app, headers=owner) as client:
         personal = client.post("/api/v1/avatars/workspace").json()["project_id"]
         assert client.get("/api/v1/projects").json()["items"] == []
         project = client.post("/api/v1/projects", json={"name": "Shoot"}).json()["id"]
+        if missing_folders:
+            destination = f"/api/v1/projects/{project}/nodes"
+            for folder in client.get(destination + "/tree").json()["items"]:
+                if folder["folder_role"] in {"avatars", "voices"}:
+                    client.delete(
+                        f"{destination}/{folder['id']}",
+                        headers={"If-Match": str(folder["revision"])},
+                    ).raise_for_status()
         base = f"/api/v1/projects/{personal}/nodes"
         root = next(
             n
@@ -1357,6 +1366,9 @@ def test_avatar_library_project_snapshot_and_voice(login, video_model):
         assert client.post(assign, headers=other).status_code == 404
         assigned = client.post(assign).json()["node_id"]
         assert client.post(assign).json()["node_id"] == assigned
+        assert client.post("/api/v1/avatars/workspace").json()["assignments"] == {
+            avatar["id"]: [project]
+        }
         videos = f"/api/v1/projects/{project}/videos"
         options = client.get(videos + "/options").json()
         character = next(a for a in options["avatars"] if a["id"] == assigned)

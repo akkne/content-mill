@@ -1,4 +1,5 @@
 "use server";
+import { revalidatePath } from "next/cache";
 import { projectRequest } from "@/lib/projects";
 import { getTranslator } from "@/lib/server-language";
 
@@ -14,6 +15,7 @@ export async function assignAvatar(avatar: string, project: string) {
         "В проекте уже есть аватар с таким именем.",
         "This project already has an avatar with that name.",
       );
+    if (res.ok) revalidatePath("/knowledge/avatars");
     return res.ok
       ? ""
       : t(
