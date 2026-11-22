@@ -18,7 +18,7 @@ def test_polza_scene_requests(monkeypatch):
         [
             {"id": "aig_frame"},
             {"status": "processing"},
-            {"status": "completed", "data": {"url": "https://s3.polza.ai/frame"}},
+            {"status": "completed", "data": [{"url": "https://s3.polza.ai/frame"}]},
             {"id": "gen_video"},
             {"status": "failed"},
         ]
@@ -64,3 +64,42 @@ def test_polza_scene_requests(monkeypatch):
     with pytest.raises(ProductionError, match="legacy_operation"):
         clips.collect("old-fal-id")
     assert calls[-1][1] == "https://polza.ai/api/v1/media/gen_video"
+
+
+@pytest.mark.parametrize("as_list", [True, False])
+def test_resume_completed_video_only_reads_saved_order(monkeypatch, as_list):
+    api = PolzaMedia("test")
+
+    def status(method, path):
+        assert (method, path) == ("GET", "/gen_saved")
+        asset = {"url": "https://s3.polza.ai/scene.mp4"}
+        return {"status": "completed", "data": [asset] if as_list else asset}
+
+    @contextmanager
+    def download(method, url, *, timeout):
+        assert method == "GET" and str(url) == "https://s3.polza.ai/scene.mp4"
+        yield httpx.Response(200, content=b"clip", request=httpx.Request(method, url))
+
+    monkeypatch.setattr(api, "request", status)
+    monkeypatch.setattr(httpx, "stream", download)
+    assert PolzaVeoFast(api).collect("polza:gen_saved") == b"clip"
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        None,
+        [],
+        [{}],
+        {"url": None},
+        [{"url": "http://s3.polza.ai/x"}],
+        [{"url": "https://other.example/x"}],
+    ],
+)
+def test_unusable_result_does_not_mark_order_rejected(monkeypatch, data):
+    api = PolzaMedia("test")
+    monkeypatch.setattr(
+        api, "request", lambda *_: {"status": "completed", "data": data}
+    )
+    with pytest.raises(ValueError, match="asset URL"):
+        api.collect("polza:gen_saved", 100, "frame_rejected")
