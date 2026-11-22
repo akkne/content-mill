@@ -2,16 +2,36 @@ from collections import defaultdict
 from contextlib import ExitStack
 from uuid import UUID
 
-from app.application.knowledge_ports import DocumentStore
+from app.application.knowledge_ports import DocumentStore, KnowledgeRepository
 from app.application.project_ports import ProjectUnitOfWorkFactory
 from app.application.seed_documents import create_entry
 from app.domain.knowledge import (
     ExampleEntry,
-    InvalidNodeOperation,
+    KnowledgeNode,
     NodeConflict,
     NodeNotFound,
 )
 from app.domain.project import ProjectNotFound
+
+
+def ensure_library_folder(
+    repo: KnowledgeRepository,
+    project: UUID,
+    nodes: list[KnowledgeNode],
+    name: str,
+    role: str,
+) -> KnowledgeNode:
+    for node in nodes:
+        if node.folder_role == role and node.kind == "folder":
+            return node
+    # Keep existing user folders and archived trees intact.
+    names = {node.name.casefold() for node in nodes if node.parent_id is None}
+    candidate = name
+    suffix = 2
+    while candidate.casefold() in names:
+        candidate = f"{name} ({suffix})"
+        suffix += 1
+    return repo.create(project, None, "folder", candidate, role)
 
 
 class AvatarLibrary:
@@ -27,6 +47,10 @@ class AvatarLibrary:
                     work.knowledge.create(project, None, "folder", label, role)
             work.commit()
             return project
+
+    def assigned_projects(self, owner: UUID) -> dict[UUID, list[UUID]]:
+        with self.work() as work:
+            return work.repository.avatar_assignments(owner)
 
     def assign(self, owner: UUID, avatar: UUID, project: UUID):
         source = self.workspace(owner)
@@ -45,9 +69,7 @@ class AvatarLibrary:
             existing = next((n for n in target if n.library_avatar_id == avatar), None)
             if existing:
                 return existing.id
-            parent = next((n for n in target if n.folder_role == "avatars"), None)
-            if parent is None:
-                raise InvalidNodeOperation("В проекте отсутствует папка аватаров")
+            parent = ensure_library_folder(repo, project, target, "Аватары", "avatars")
             if any(
                 n.parent_id == parent.id and n.name.casefold() == root.name.casefold()
                 for n in target
@@ -86,6 +108,7 @@ class AvatarLibrary:
             if root.linked_voice_id:
                 voice = repo.get(source, root.linked_voice_id)
                 if voice and voice.library_voice_id:
+                    ensure_library_folder(repo, project, target, "Голоса", "voices")
                     linked = work.repository.attach_avatar_voice(
                         project, voice.library_voice_id, owner
                     )

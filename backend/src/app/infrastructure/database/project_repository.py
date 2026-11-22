@@ -79,6 +79,22 @@ class SqlAlchemyProjectRepository:
         self.session.add(ProjectContextModel(project_id=model.id))
         return as_project(model)
 
+    def avatar_assignments(self, owner: UUID) -> dict[UUID, list[UUID]]:
+        node = KnowledgeNodeModel
+        rows = self.session.execute(
+            select(node.library_avatar_id, node.project_id)
+            .join(ProjectModel, ProjectModel.id == node.project_id)
+            .where(
+                ProjectModel.owner_id == owner,
+                node.library_avatar_id.is_not(None),
+                node.archived_at.is_(None),
+            )
+        )
+        result: dict[UUID, list[UUID]] = {}
+        for avatar, project in rows:
+            result.setdefault(avatar, []).append(project)
+        return result
+
     def attach_avatar_voice(self, project: UUID, voice: UUID, owner: UUID) -> UUID:
         card = self.session.scalar(
             select(LibraryVoiceModel).where(

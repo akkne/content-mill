@@ -25,7 +25,7 @@ export default async function AvatarsPage() {
     throw new Error(
       t("Не удалось открыть библиотеку.", "Could not open library."),
     );
-  const { project_id } = await response.json();
+  const { project_id, assignments } = await response.json();
   const [nodes, projects, voices] = await Promise.all([
     loadKnowledge(project_id),
     loadProjects(),
@@ -44,8 +44,8 @@ export default async function AvatarsPage() {
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-muted">
               {t(
-                "Создайте персонажа и перетащите фото в папки лица, полного роста или одежды. Разрешение на использование изображения и голоса приложите в папку «Разрешения».",
-                "Create a character and drop photos into face, full-body or clothing folders. Attach image and voice permissions in the permissions folder.",
+                "Создайте персонажа и перетащите фото в папки лица, полного роста или одежды. Если у вас есть согласие на использование изображения или голоса, его можно сохранить в «Разрешениях».",
+                "Create a character and drop photos into face, full-body or clothing folders. If you have consent to use the likeness or voice, you can save it in Permissions.",
               )}
             </p>
           </div>
@@ -57,6 +57,7 @@ export default async function AvatarsPage() {
           projectName={t("Моя библиотека", "My library")}
           initialSources={{ ids: [], revision: 1 }}
           avatarProjects={projects}
+          avatarAssignments={assignments}
           libraryVoices={voices.data}
         />
       </main>

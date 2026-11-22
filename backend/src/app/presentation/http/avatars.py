@@ -19,7 +19,10 @@ Library = Annotated[AvatarLibrary, Depends(avatar_library)]
 
 @router.post("/workspace")
 def workspace(user: CurrentUser, library: Library):
-    return {"project_id": library.workspace(user.id)}
+    return {
+        "project_id": library.workspace(user.id),
+        "assignments": library.assigned_projects(user.id),
+    }
 
 
 @router.post("/{avatar}/projects/{project}")

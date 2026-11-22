@@ -33,7 +33,7 @@ function FileIcon() {
   return <svg aria-hidden="true" className="h-[29px] w-6 flex-none text-accent" viewBox="0 0 36 42"><path d="M5 1h17l9 9v29a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2z" fill="currentColor" opacity=".15" /><path d="M5 1h17l9 9v29a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zM22 1v9h9M9 17h16M9 23h16M9 29h12" fill="none" stroke="currentColor" strokeWidth="2" /></svg>;
 }
 
-export function KnowledgeBrowser({ initial, initialSources, projectId, projectName, avatarProjects, libraryVoices }: { libraryVoices?: SavedVoice[]; avatarProjects?: Project[]; initialSources: ContextSources; initial: KnowledgeNode[]; projectId: string; projectName: string }) {
+export function KnowledgeBrowser({ initial, initialSources, projectId, projectName, avatarProjects, avatarAssignments, libraryVoices }: { avatarAssignments?: Record<string, string[]>; libraryVoices?: SavedVoice[]; avatarProjects?: Project[]; initialSources: ContextSources; initial: KnowledgeNode[]; projectId: string; projectName: string }) {
   const locale = useInterfaceLanguage();
   const t = useTranslator();
   function displayName(node: KnowledgeNode) {
@@ -338,7 +338,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => drop(event, folderId)}
         >
-          {avatarProjects && folder?.folder_role === "avatar" && <AvatarProjects key={"projects-"+folder.id} avatar={folder.id} projects={avatarProjects}/>}
+          {avatarProjects && folder?.folder_role === "avatar" && <AvatarProjects key={"projects-"+folder.id} avatar={folder.id} projects={avatarProjects} assigned={avatarAssignments?.[folder.id] ?? []}/>}
           <div className="mb-5 flex items-center justify-between gap-[15px] max-[901px]:flex-col max-[901px]:items-start">
             <div>
               <span className={eyebrow}>{query ? t("Результаты поиска", "Search results") : t("Содержимое папки", "Folder contents")}</span>
@@ -440,7 +440,7 @@ export function KnowledgeBrowser({ initial, initialSources, projectId, projectNa
                 </button>
               ))
             ) : (
-              <p className={kbEmpty}>{t("Здесь пока нет файлов и папок.", "This folder is empty.")}</p>
+              <p className={kbEmpty}>{!query && role === "consent" ? t("Здесь можно сохранить согласие на использование изображения или голоса, например PDF или фото подписанного документа. Папку можно оставить пустой. Добавление в проект и сборка ролика доступны и без файла.", "You can keep permission to use the likeness or voice here, such as a PDF or a photo of a signed document. This folder is optional. You can add the avatar to a project and create a video with it empty.") : t("Здесь пока нет файлов и папок.", "This folder is empty.")}</p>
             )}
           </div>
           {searchError && (

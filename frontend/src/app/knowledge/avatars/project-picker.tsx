@@ -8,9 +8,11 @@ import { assignAvatar } from "./actions";
 export function AvatarProjects({
   avatar,
   projects,
+  assigned,
 }: {
   avatar: string;
   projects: Project[];
+  assigned: string[];
 }) {
   const t = useTranslator();
   const [selected, setSelected] = useState<string[]>([]);
@@ -35,8 +37,8 @@ export function AvatarProjects({
         <label key={p.id} className="flex gap-2">
           <input
             type="checkbox"
-            disabled={saved.includes(p.id)}
-            checked={selected.includes(p.id) || saved.includes(p.id)}
+            disabled={assigned.includes(p.id) || saved.includes(p.id)}
+            checked={assigned.includes(p.id) || selected.includes(p.id) || saved.includes(p.id)}
             onChange={(e) =>
               setSelected(
                 e.target.checked
@@ -45,7 +47,7 @@ export function AvatarProjects({
               )
             }
           />
-          {p.name}
+          {p.name}{(assigned.includes(p.id) || saved.includes(p.id)) && <span className="text-muted">{t("Уже добавлен", "Already added")}</span>}
         </label>
       ))}
       <button
