@@ -11,11 +11,13 @@ export type VideoSource = {
   selected?: boolean;
   path?: string;
   node_id?: string;
+  parent_id?: string | null;
   character_id?: string | null;
 };
 export type VideoOptions = {
   project: string;
   products: string[];
+  folders: { id: string; parent_id: string | null; name: string }[];
   sources: VideoSource[];
   avatars: {id:string;name:string;default_voice_id:string|null}[];
   cast_voices: {id:string;name:string;preview:string|null;external_id:string}[];
