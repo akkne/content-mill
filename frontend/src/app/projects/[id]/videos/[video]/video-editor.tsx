@@ -72,6 +72,7 @@ export function VideoEditor({
   const polling = resumeStage.startsWith("collect") && !!production?.operation;
   const newOrder = ["frame", "submit", "sync", "speech"].includes(resumeStage);
   const sceneStage = ["frame", "collect_frame", "submit", "collect", "speech", "collect_speech", "sync", "collect_sync", "mix_speech", "dub"].includes(stoppedStage);
+  const uncertainOrder = ["frame", "submit"].includes(resumeStage) && !production?.operation && stoppedStage === resumeStage && ["order_unconfirmed", "network", "timeout"].includes(reason);
   const failed = item.status === "failed";
   const draft = item.status === "draft";
   const [tab, setTab] = useState("publication");
@@ -204,14 +205,17 @@ export function VideoEditor({
                 {t("Сцена", "Scene")} {production.index + 1} / {Math.ceil(item.settings.duration / 8)}
                 {["speech", "collect_speech"].includes(stoppedStage) && typeof production.line === "number" && ` · ${t("Реплика", "Line")} ${production.line + 1}`}
               </p>}
-              <p>{videoFailureMessage(t, reason)}</p>
+              <p>{polling && ["submit", "frame"].includes(stoppedStage)
+                ? t("Номер заказа Polza восстановлен. Можно получить результат.", "The Polza order ID has been recovered. You can retrieve the result.")
+                : videoFailureMessage(t, uncertainOrder ? "order_unconfirmed" : reason)}</p>
               <p className="text-sm text-muted">{t("Код", "Code")} · {failure ? failureCode(failure) : reason}</p>
               <p className="text-sm">{polling
                 ? t("Повтор проверит результат по сохранённому номеру заказа.", "Retry checks the existing order for its result.")
+                : uncertainOrder ? t("Сверьте заказ в истории Polza. Если он существует, администратор может восстановить его по ID. Создание ещё одного заказа может привести к повторной оплате.", "Check your Polza history. An administrator can recover an existing order by ID. Creating another order may incur a second charge.")
                 : newOrder ? t("Повтор отправит новый заказ для этой сцены. Провайдер может списать средства.", "Retry submits a new order for this scene. The provider may charge for it.")
                 : ["edit", "storyboard"].includes(resumeStage) ? t("Повтор продолжит этап подготовки. Новый вызов модели расходует квоту.", "Retry resumes preparation. A new model call uses quota.")
                 : t("Повтор возобновит обработку с сохранённого этапа.", "Retry resumes processing from the saved stage.")}</p>
-              <button disabled={pending} className={secondaryButton + " justify-self-start"} onClick={() => act("assemble")}>{t("Повторить этап", "Retry stage")}</button>
+              <button disabled={pending} className={secondaryButton + " justify-self-start"} onClick={() => act("assemble", uncertainOrder ? "new_order" : "")}>{uncertainOrder ? t("Создать новый платный заказ", "Create a new paid order") : polling ? t("Получить результат заказа", "Retrieve order result") : t("Повторить этап", "Retry stage")}</button>
             </div>}
             <ol className="list-inside list-decimal space-y-2">
               {item.journal.map((line) => (
