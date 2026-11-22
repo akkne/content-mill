@@ -277,7 +277,10 @@ export function Wizard({
                 type="button"
                 disabled={pending || uploading}
                 className={secondaryButton}
-                onClick={() => setStep(step - 1)}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setStep(step - 1);
+                }}
               >
                 {t("← Назад", "← Back")}
               </button>
