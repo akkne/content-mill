@@ -100,10 +100,11 @@ backend/
 ├── src/
 │   ├── app/
 │   │   ├── domain/       # сущности и ошибки
-│   │   ├── application/  # сценарии и контракты
-│   │   ├── infrastructure/ # ORM, репозитории, криптография
-│   │   ├── presentation/ # HTTP и схемы запросов
+│   │   ├── application/  # сценарии и контракты по предметным областям
+│   │   ├── infrastructure/ # database, providers, storage, video и безопасность
+│   │   ├── presentation/ # HTTP (routers, schemas, dependencies, errors) и MCP
 │   │   ├── container.py  # сборка зависимостей
+│   │   ├── lifespan.py   # запуск и остановка фоновых задач и MCP
 │   │   ├── main.py       # единое FastAPI-приложение
 │   │   └── bootstrap_user.py
 │   ├── migrations/      # версии схемы Alembic
@@ -128,7 +129,7 @@ frontend/
 
 | Путь | Назначение |
 | --- | --- |
-| `backend/src/app/main.py` | Точка входа единого FastAPI-приложения и проверка `/health`. |
+| `backend/src/app/main.py` | Точка входа Uvicorn `app.main:app`. Маршруты, включая `/health`, подключаются в [HTTP-роутере](backend/src/app/presentation/http/router.py). |
 | `backend/src/app/domain/`, `backend/src/app/application/` | Сущности, сценарии и контракты. |
 | `backend/src/app/infrastructure/`, `backend/src/app/presentation/` | Реализации PostgreSQL и безопасности, HTTP API. |
 | `backend/src/migrations/`, `backend/src/alembic.ini` | Миграции схемы, созданной из ORM-моделей. |
