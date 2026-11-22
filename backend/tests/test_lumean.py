@@ -2,8 +2,8 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from app.application.voice_catalog import CatalogError
-from app.infrastructure.lumean import LumeanElevenLabs
+from app.application.voices.catalog import CatalogError
+from app.infrastructure.providers.speech.lumean import LumeanElevenLabs
 
 
 def test_catalog_search_and_pagination():

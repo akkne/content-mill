@@ -3,12 +3,12 @@ from io import BytesIO
 
 import httpx
 import pytest
-from app.application.video_production import ProductionError
-from app.infrastructure.polza_kling_26 import PolzaKling26
-from app.infrastructure.polza_media import PolzaMedia
-from app.infrastructure.polza_nano_banana import PolzaNanoBanana21
-from app.infrastructure.polza_veo_fast import PolzaVeoFast
-from app.infrastructure.video_failures import describe_video_error
+from app.application.videos.production import ProductionError
+from app.infrastructure.providers.media.polza_kling_26 import PolzaKling26
+from app.infrastructure.providers.media.polza_media import PolzaMedia
+from app.infrastructure.providers.media.polza_nano_banana import PolzaNanoBanana21
+from app.infrastructure.providers.media.polza_veo_fast import PolzaVeoFast
+from app.infrastructure.video.video_failures import describe_video_error
 from PIL import Image
 
 

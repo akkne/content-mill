@@ -5,14 +5,14 @@ from array import array
 from io import BytesIO
 
 import pytest
-from app.application.video_production import (
+from app.application.videos.production import (
     SavedStoryboard,
     Timeline,
     validate_cuts,
 )
-from app.infrastructure.montage_mcp import montage_server
-from app.infrastructure.video_edit import FFmpegEditor, ffmpeg, track_info
-from app.infrastructure.video_failures import describe_video_error
+from app.infrastructure.video.montage_mcp import montage_server
+from app.infrastructure.video.video_edit import FFmpegEditor, ffmpeg, track_info
+from app.infrastructure.video.video_failures import describe_video_error
 from PIL import Image
 
 
@@ -118,8 +118,8 @@ def test_cast_dialogue_is_dubbed_onto_veo_clip():
     from types import SimpleNamespace
     from uuid import uuid4
 
-    from app.application.video_cast import validate_cast_scene
-    from app.application.video_production import Scene, VideoProduction
+    from app.application.videos.cast import validate_cast_scene
+    from app.application.videos.production import Scene, VideoProduction
 
     anna, ben, photo = [str(uuid4()) for _ in range(3)]
     people = [
@@ -229,7 +229,7 @@ def test_kling_preserves_each_storyboard_window_on_retry_and_edit():
     import json
     from types import SimpleNamespace
 
-    from app.application.video_production import VideoProduction, kling_prompt
+    from app.application.videos.production import VideoProduction, kling_prompt
 
     shot = {
         "composition": "00:00–00:07. Opening",

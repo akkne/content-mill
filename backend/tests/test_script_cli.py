@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 from app.container import script_writer
-from app.infrastructure.astra_script import AstraCli
-from app.infrastructure.claude_script import ClaudeCodeCli, ClaudeScript
-from app.infrastructure.codex_script import CodexScript
+from app.infrastructure.providers.text.astra_script import AstraCli
+from app.infrastructure.providers.text.claude_script import ClaudeCodeCli, ClaudeScript
+from app.infrastructure.providers.text.codex_script import CodexScript
 
 
 @pytest.mark.parametrize(
@@ -89,7 +89,7 @@ def test_local_chatgpt_login(monkeypatch, tmp_path):
         assert "CODEX_API_KEY" not in env
         Path(command[command.index("--output-last-message") + 1]).write_text("готово")
 
-    monkeypatch.setattr("app.infrastructure.codex_script.run_cli", run)
+    monkeypatch.setattr("app.infrastructure.providers.text.codex_script.run_cli", run)
     writer = script_writer()
     assert writer.models[writer.selected].generate("test", "brief", []) == "готово"
     assert json.loads(auth.read_text()) == data
@@ -117,7 +117,7 @@ def test_montage_tools_can_read_only_the_staged_production(monkeypatch):
         }
         Path(command[command.index("--output-last-message") + 1]).write_text("timeline")
 
-    monkeypatch.setattr("app.infrastructure.codex_script.run_cli", run)
+    monkeypatch.setattr("app.infrastructure.providers.text.codex_script.run_cli", run)
     result = AstraCli("test").generate_edit(
         "edit", "brief", [], [b"test clip"], [(version, "image/png", b"test frame")]
     )
@@ -134,7 +134,7 @@ def test_storyboard_waits_without_deadline_and_exposes_original(monkeypatch):
         assert (directory / "footage" / version).read_bytes() == b"source"
         Path(command[command.index("--output-last-message") + 1]).write_text("board")
 
-    monkeypatch.setattr("app.infrastructure.codex_script.run_cli", run)
+    monkeypatch.setattr("app.infrastructure.providers.text.codex_script.run_cli", run)
     assert (
         AstraCli("test").generate_storyboard(
             "plan", "brief", [], [(version, "video/mp4", b"source")]

@@ -12,7 +12,7 @@ from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
 from starlette.types import Receive, Scope, Send
 
-from app.application.agent_ports import AgentScope
+from app.application.agents.ports import AgentScope
 from app.container import agent_files
 
 current_scope: ContextVar[AgentScope] = ContextVar("mcp_project")

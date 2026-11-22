@@ -10,12 +10,9 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
-from app.application.knowledge_service import KnowledgeService
+from app.application.knowledge.service import KnowledgeService
 from app.container import auth_service, knowledge_service
 from app.domain.knowledge import DocumentStorageError
-from app.infrastructure.database.knowledge_unit_of_work import (
-    SqlAlchemyKnowledgeUnitOfWork,
-)
 from app.infrastructure.database.models import (
     AccessTokenModel,
     AvatarWorkspaceModel,
@@ -29,6 +26,9 @@ from app.infrastructure.database.models import (
     VideoModel,
 )
 from app.infrastructure.database.session import session_factory
+from app.infrastructure.database.transactions.knowledge import (
+    SqlAlchemyKnowledgeUnitOfWork,
+)
 from app.infrastructure.examples.library import example_entries
 from app.infrastructure.storage.s3_documents import S3DocumentStore
 from app.main import app
@@ -777,10 +777,10 @@ def test_starter_folders_and_reusable_voice(login, video_model):
 
 def test_voice_catalog_and_manual_import(login):
     import httpx
-    from app.application.voice_library import VoiceLibrary
+    from app.application.voices.library import VoiceLibrary
     from app.container import voice_catalog, voice_library
-    from app.infrastructure.database.voice_library import SqlVoiceLibrary
-    from app.infrastructure.elevenlabs import ElevenLabsCatalog
+    from app.infrastructure.database.repositories.voice_library import SqlVoiceLibrary
+    from app.infrastructure.providers.speech.elevenlabs import ElevenLabsCatalog
 
     calls = []
 
@@ -892,13 +892,13 @@ def test_voice_catalog_and_manual_import(login):
 def test_project_video_lifecycle(login, video_model, monkeypatch):
     from types import SimpleNamespace
 
-    from app.application.video_production import ProductionError
+    from app.application.videos.production import ProductionError
     from app.container import video_production
 
     # Drive each checkpoint explicitly, without external billing or sleeps.
     worker = video_production()
     monkeypatch.setattr(
-        "app.main.video_production", lambda: SimpleNamespace(run_next=lambda: False)
+        "app.lifespan.video_production", lambda: SimpleNamespace(run_next=lambda: False)
     )
     shot = {
         key: "test"
@@ -1195,10 +1195,10 @@ def test_project_mcp_tools_and_scope(login):
 
 def test_lumean_speech_lifecycle(login):
     import httpx
-    from app.application.speech import SpeechService
+    from app.application.voices.speech import SpeechService
     from app.container import speech_service
-    from app.infrastructure.database.speech import SqlSpeechRepository
-    from app.infrastructure.lumean import LumeanElevenLabs
+    from app.infrastructure.database.repositories.speech import SqlSpeechRepository
+    from app.infrastructure.providers.speech.lumean import LumeanElevenLabs
 
     template, order, request = uuid4(), uuid4(), uuid4()
     calls = []
@@ -1431,8 +1431,8 @@ def test_avatar_library_project_snapshot_and_voice(login, video_model, missing_f
         # Upload after assignment, with no media in the project snapshot.
         from contextlib import ExitStack
 
-        from app.application.seed_documents import create_entry
-        from app.application.video_cast import avatar_references
+        from app.application.knowledge.seed_documents import create_entry
+        from app.application.videos.cast import avatar_references
         from app.container import video_production
         from app.domain.knowledge import ExampleEntry
 

@@ -5,39 +5,41 @@ from pathlib import Path
 
 import httpx
 
-from app.application.agent_files import AgentFiles
-from app.application.auth_service import AuthService
-from app.application.avatars import AvatarLibrary
-from app.application.knowledge_service import KnowledgeService
-from app.application.project_service import ProjectService
-from app.application.script_jobs import ScriptModel, ScriptWriter
-from app.application.speech import SpeechService
-from app.application.video_production import VideoProduction
-from app.application.video_text import VideoTextGenerator
-from app.application.videos import VideoService
-from app.application.voice_library import VoiceLibrary
-from app.infrastructure.asset_preview import AssetPreview
-from app.infrastructure.astra_script import AstraCli
-from app.infrastructure.claude_script import ClaudeCodeCli, ClaudeScript
-from app.infrastructure.codex_script import CodexCli, CodexScript
-from app.infrastructure.database.knowledge_unit_of_work import (
+from app.application.agents.files import AgentFiles
+from app.application.auth.service import AuthService
+from app.application.avatars.library import AvatarLibrary
+from app.application.knowledge.service import KnowledgeService
+from app.application.projects.service import ProjectService
+from app.application.scripts.jobs import ScriptModel, ScriptWriter
+from app.application.videos.production import VideoProduction
+from app.application.videos.service import VideoService
+from app.application.videos.text import VideoTextGenerator
+from app.application.voices.library import VoiceLibrary
+from app.application.voices.speech import SpeechService
+from app.infrastructure.database.repositories.script_jobs import SqlScriptJobs
+from app.infrastructure.database.repositories.speech import SqlSpeechRepository
+from app.infrastructure.database.repositories.voice_library import SqlVoiceLibrary
+from app.infrastructure.database.transactions.auth import SqlAlchemyAuthUnitOfWork
+from app.infrastructure.database.transactions.knowledge import (
     SqlAlchemyKnowledgeUnitOfWork,
 )
-from app.infrastructure.database.project_unit_of_work import SqlAlchemyProjectUnitOfWork
-from app.infrastructure.database.script_jobs import SqlScriptJobs
-from app.infrastructure.database.speech import SqlSpeechRepository
-from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
-from app.infrastructure.database.voice_library import SqlVoiceLibrary
-from app.infrastructure.lumean import LumeanElevenLabs
-from app.infrastructure.polza_kling_26 import PolzaKling26
-from app.infrastructure.polza_media import PolzaMedia
-from app.infrastructure.polza_nano_banana import PolzaNanoBanana21
+from app.infrastructure.database.transactions.projects import (
+    SqlAlchemyProjectUnitOfWork,
+)
+from app.infrastructure.providers.media.polza_kling_26 import PolzaKling26
+from app.infrastructure.providers.media.polza_media import PolzaMedia
+from app.infrastructure.providers.media.polza_nano_banana import PolzaNanoBanana21
+from app.infrastructure.providers.speech.lumean import LumeanElevenLabs
+from app.infrastructure.providers.text.astra_script import AstraCli
+from app.infrastructure.providers.text.claude_script import ClaudeCodeCli, ClaudeScript
+from app.infrastructure.providers.text.codex_script import CodexCli, CodexScript
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
 from app.infrastructure.starter_prompts import starter_prompts
 from app.infrastructure.storage.s3_documents import S3DocumentStore
-from app.infrastructure.video_edit import FFmpegEditor
-from app.infrastructure.video_failures import describe_video_error
+from app.infrastructure.video.asset_preview import AssetPreview
+from app.infrastructure.video.video_edit import FFmpegEditor
+from app.infrastructure.video.video_failures import describe_video_error
 
 passwords = Argon2Passwords()
 tokens = SecureTokens()
