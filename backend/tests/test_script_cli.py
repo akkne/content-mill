@@ -122,3 +122,22 @@ def test_montage_tools_can_read_only_the_staged_production(monkeypatch):
         "edit", "brief", [], [b"test clip"], [(version, "image/png", b"test frame")]
     )
     assert result == "timeline"
+
+
+def test_storyboard_waits_without_deadline_and_exposes_original(monkeypatch):
+    from uuid import uuid4
+
+    version = str(uuid4())
+
+    def run(command, text, directory, env, *, timeout):
+        assert timeout is None
+        assert (directory / "footage" / version).read_bytes() == b"source"
+        Path(command[command.index("--output-last-message") + 1]).write_text("board")
+
+    monkeypatch.setattr("app.infrastructure.codex_script.run_cli", run)
+    assert (
+        AstraCli("test").generate_storyboard(
+            "plan", "brief", [], [(version, "video/mp4", b"source")]
+        )
+        == "board"
+    )

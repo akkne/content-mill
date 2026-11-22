@@ -922,9 +922,11 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
     ]
     shot["video_prompt"] = "Анна говорит в кадре: Привет!"
 
-    def storyboard(instructions, text, images):
+    def storyboard(instructions, text, images, materials):
         data = json.loads(text)
-        assert data["prompt_guides"] and data["script"] == "Авторский сценарий"
+        assert "prompt_guides" not in data and data["script"] == "Авторский сценарий"
+        assert [m["origin"] for m in data["materials"]] == ["user"]
+        assert [entry[0] for entry in materials] == [source_id]
         assert data["edit_notes"] == [] and data["speech_window_ms"] == [250, 7750]
         return json.dumps({"scenes": [shot, shot | {"continuity_scene": 1}]})
 
@@ -952,7 +954,7 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
             assert operation == "saved-request"
             return b"test clip"
 
-    worker.model = SimpleNamespace(generate=storyboard, generate_edit=edit)
+    worker.model = SimpleNamespace(generate_storyboard=storyboard, generate_edit=edit)
     worker.frames = SimpleNamespace(
         submit=lambda prompt, refs: "frame-id", collect=lambda op: b"test frame"
     )
@@ -1412,7 +1414,42 @@ def test_avatar_library_project_snapshot_and_voice(login, video_model, missing_f
             cast["display_name"] == "Анна"
             and cast["voice"]["elevenlabs_voice_id"] == "external-a"
         )
-        assert cast["files"][0]["version_id"] == settings["sources"][0]["id"]
+        assert cast["files"] == settings["sources"] == []
+        # Upload after assignment, with no media in the project snapshot.
+        from contextlib import ExitStack
+
+        from app.application.seed_documents import create_entry
+        from app.application.video_cast import avatar_references
+        from app.container import video_production
+        from app.domain.knowledge import ExampleEntry
+
+        worker = video_production()
+        with worker.work() as work, ExitStack() as cleanup:
+            tree = work.knowledge.list(UUID(personal))
+            for folder_name in ("Лицо крупным планом", "Разрешения"):
+                folder = next(
+                    n
+                    for n in tree
+                    if n.parent_id == UUID(avatar["id"]) and n.name == folder_name
+                )
+                create_entry(
+                    UUID(personal),
+                    folder.id,
+                    ExampleEntry(
+                        "photo", None, "photo.jpg", "image", b"photo", "image/jpeg"
+                    ),
+                    work.knowledge,
+                    worker.store,
+                    cleanup,
+                )
+            work.commit()
+            cleanup.pop_all()
+        with worker.work() as work:
+            refs = avatar_references(work, UUID(project), [cast])
+        assert [(r["role"], r["workspace"], r["character_id"]) for r in refs] == [
+            ("face_reference", personal, assigned)
+        ]
+        assert worker.read(UUID(personal), refs[0]["id"]) == ("image/jpeg", b"photo")
         assert (
             client.post(
                 videos,

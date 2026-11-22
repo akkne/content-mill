@@ -81,14 +81,11 @@ class VideoService:
                     raise InvalidVideo("Выберите голос, назначенный этому проекту.")
                 settings["library_voice_id"] = voice
                 settings["voice"] = voices[voice]
-            if settings.get("characters"):
-                settings["characters"], sources = resolve_cast(
-                    settings["characters"],
-                    work.knowledge.list(project),
-                    work.videos.sources(project),
-                    sources,
-                )
             materials = work.videos.sources(project, sources)
+            if settings.get("characters"):
+                settings["characters"] = resolve_cast(
+                    settings["characters"], work.knowledge.list(project), materials
+                )
             if {item.id for item in materials} != set(sources):
                 raise InvalidVideo("Один из источников недоступен в проекте")
             settings = {
@@ -107,7 +104,7 @@ class VideoService:
             script, caption, journal = self.generator.prepare(
                 AgentScope(project, owner),
                 title,
-                {**settings, "prompt_guides": work.videos.script_guides(project)},
+                settings,
                 context,
                 materials,
             )

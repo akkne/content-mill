@@ -59,6 +59,15 @@ class CodexCli:
     def generate(self, instructions: str, text: str, images: list[str]) -> str:
         return self._session(instructions, text, images, [], ())
 
+    def generate_storyboard(
+        self,
+        instructions: str,
+        text: str,
+        images: list[str],
+        materials: Iterable[tuple[str, str, bytes]],
+    ) -> str:
+        return self._session(instructions, text, images, [], materials, timeout=None)
+
     def generate_edit(
         self,
         instructions: str,
@@ -67,7 +76,7 @@ class CodexCli:
         clips: list[bytes],
         materials: Iterable[tuple[str, str, bytes]] = (),
     ) -> str:
-        return self._session(instructions, text, images, clips, materials)
+        return self._session(instructions, text, images, clips, materials, timeout=600)
 
     def _session(
         self,
@@ -76,6 +85,8 @@ class CodexCli:
         images: list[str],
         clips: list[bytes],
         materials: Iterable[tuple[str, str, bytes]] = (),
+        *,
+        timeout: int | None = 120,
     ) -> str:
         with TemporaryDirectory(prefix="cm-codex-") as folder:
             directory = Path(folder)
@@ -120,7 +131,7 @@ class CodexCli:
                 "developer_instructions="
                 + json.dumps(instructions, ensure_ascii=False),
             ]
-            if clips:
+            if clips or materials:
                 footage = directory / "footage"
                 footage.mkdir()
                 for index, clip in enumerate(clips, start=1):
@@ -144,7 +155,11 @@ class CodexCli:
                     ]
                 )
                 # Only these local, read-only tools can run unattended.
-                for tool in ("inspect_frame", "listen", "inspect_material"):
+                for tool in (
+                    ("inspect_frame", "listen", "inspect_material")
+                    if clips
+                    else ("inspect_material",)
+                ):
                     command.extend(
                         [
                             "-c",
@@ -167,5 +182,5 @@ class CodexCli:
                 command.extend(["--image", str(preview)])
             result = directory / "result.txt"
             command.extend(["--output-last-message", str(result), "-"])
-            run_cli(command, text, directory, env, timeout=600 if clips else 120)
+            run_cli(command, text, directory, env, timeout=timeout)
             return result.read_text(encoding="utf-8")

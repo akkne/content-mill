@@ -3,12 +3,14 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session
 
 from app.domain.video import Video, VideoSource
 from app.infrastructure.database.models import (
+    AvatarWorkspaceModel,
     DocumentVersionModel,
     KnowledgeNodeModel,
+    ProjectModel,
     VideoModel,
 )
 
@@ -32,35 +34,12 @@ class VideoRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def script_guides(self, project: UUID) -> list[str]:
-        node, version = KnowledgeNodeModel, DocumentVersionModel
-        stage, folder = aliased(node), aliased(node)
-        candidate = aliased(version)
-        latest = (
-            select(func.max(candidate.version))
-            .where(candidate.node_id == node.id)
-            .correlate(node)
-            .scalar_subquery()
+    def avatar_library(self, project: UUID) -> UUID | None:
+        return self.session.scalar(
+            select(AvatarWorkspaceModel.project_id)
+            .join(ProjectModel, ProjectModel.owner_id == AvatarWorkspaceModel.owner_id)
+            .where(ProjectModel.id == project)
         )
-        stmt = (
-            select(version.search_text)
-            .join_from(version, node, version.node_id == node.id)
-            .join(stage, stage.id == node.parent_id)
-            .join(folder, folder.id == stage.parent_id)
-            .where(
-                node.project_id == project,
-                node.kind == "document",
-                folder.name == "Промпты",
-                folder.parent_id.is_(None),
-                stage.name.in_(["Сценарий и хуки", "Бриф и источники", "Голос"]),
-                node.archived_at.is_(None),
-                stage.archived_at.is_(None),
-                folder.archived_at.is_(None),
-            )
-            .where(version.version == latest)
-            .order_by(node.id, version.version.desc())
-        )
-        return [text[:16000] for text in self.session.scalars(stmt) if text]
 
     def voices(self, project: UUID) -> dict[str, str]:
         rows = self.session.execute(
