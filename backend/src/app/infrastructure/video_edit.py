@@ -25,7 +25,7 @@ def ffmpeg(directory: Path, args: list[str]) -> bytes:
     ).stdout
 
 
-def streams(path: Path) -> dict:
+def track_info(path: Path) -> tuple[dict, float]:
     info = subprocess.run(
         [
             "ffprobe",
@@ -36,6 +36,7 @@ def streams(path: Path) -> dict:
             "-f",
             "mov",
             "-show_streams",
+            "-show_format",
             "-of",
             "json",
             str(path),
@@ -44,7 +45,9 @@ def streams(path: Path) -> dict:
         capture_output=True,
         timeout=20,
     )
-    return {s["codec_type"]: s for s in json.loads(info.stdout)["streams"]}
+    metadata = json.loads(info.stdout)
+    tracks = {s["codec_type"]: s for s in metadata["streams"]}
+    return tracks, float(metadata["format"].get("start_time", 0))
 
 
 class FFmpegEditor:
@@ -53,28 +56,39 @@ class FFmpegEditor:
             directory = Path(tmp)
             path = directory / "scene.mp4"
             path.write_bytes(clip)
-            tracks = streams(path)
-            length = min(float(tracks[k]["duration"]) for k in ("audio", "video"))
+            try:
+                tracks, origin = track_info(path)
+            except subprocess.CalledProcessError as error:
+                raise ValueError("Undecodable MP4") from error
+            length = min(
+                float(tracks[k].get("start_time", origin))
+                + float(tracks[k]["duration"])
+                - origin
+                for k in ("audio", "video")
+            )
             if not 0 < length <= 10:
                 raise ValueError("Unexpected clip duration")
-            sheet = ffmpeg(
-                directory,
-                [
-                    "-f",
-                    "mov",
-                    "-i",
-                    path.name,
-                    "-vf",
-                    "fps=1,scale=140:-2,tile=4x2",
-                    "-frames:v",
-                    "1",
-                    "-c:v",
-                    "mjpeg",
-                    "-f",
-                    "image2pipe",
-                    "pipe:1",
-                ],
-            )
+            try:
+                sheet = ffmpeg(
+                    directory,
+                    [
+                        "-f",
+                        "mov",
+                        "-i",
+                        path.name,
+                        "-vf",
+                        "fps=1,scale=140:-2,tile=4x2",
+                        "-frames:v",
+                        "1",
+                        "-c:v",
+                        "mjpeg",
+                        "-f",
+                        "image2pipe",
+                        "pipe:1",
+                    ],
+                )
+            except subprocess.CalledProcessError as error:
+                raise ValueError("Undecodable video track") from error
             if not sheet:
                 raise ValueError("No decoded frames")
             return round(length * 1000), base64.b64encode(sheet).decode()
@@ -95,16 +109,13 @@ class FFmpegEditor:
             for i, cut in enumerate(timeline.cuts):
                 source = directory / f"source-{i}.mp4"
                 source.write_bytes(clips[cut.scene - 1])
-                first = round(cut.start_ms * 24 / 1000)
-                previous = round(elapsed_ms * 24 / 1000)
+                first, last = cut.frame_range(elapsed_ms)
                 elapsed_ms += cut.end_ms - cut.start_ms
-                frames = round(elapsed_ms * 24 / 1000) - previous
-                start, end = first / 24, (first + frames) / 24
                 inputs.extend(["-f", "mov", "-i", source.name])
                 filters.extend(
                     [
-                        f"[{i}:v]trim=start={start}:end={end},setpts=PTS-STARTPTS,fps=24,scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}]",
-                        f"[{i}:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad,atrim=end_sample={frames * 2000}[a{i}]",
+                        f"[{i}:v]fps=24:start_time=0,trim=start_frame={first}:end_frame={last},setpts=PTS-STARTPTS,scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}]",
+                        f"[{i}:a]aresample=48000:async=1:first_pts=0,atrim=start_sample={first * 2000}:end_sample={last * 2000},asetpts=PTS-STARTPTS,aformat=channel_layouts=stereo,apad,atrim=end_sample={(last - first) * 2000}[a{i}]",
                     ]
                 )
                 labels.append(f"[v{i}][a{i}]")
@@ -160,6 +171,10 @@ class FFmpegEditor:
                     audio_label,
                     "-c:v",
                     "libx264",
+                    "-r",
+                    "24",
+                    "-fps_mode",
+                    "cfr",
                     "-preset",
                     "veryfast",
                     "-pix_fmt",
@@ -172,9 +187,9 @@ class FFmpegEditor:
                 ],
             )
             final = directory / "final.mp4"
-            tracks = streams(final)
+            tracks, _ = track_info(final)
             if any(
-                abs(float(tracks[k]["duration"]) - duration) > 0.15
+                abs(float(tracks[k]["duration"]) - duration) > 1 / 24
                 for k in ("audio", "video")
             ):
                 raise ValueError("Final track duration mismatch")

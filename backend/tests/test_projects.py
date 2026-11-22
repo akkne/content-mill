@@ -340,7 +340,7 @@ def video_model(monkeypatch):
             return json.dumps(
                 {
                     "script": data["title"]
-                    + " ".join(m["excerpt"] for m in data["materials"]),
+                    + " ".join(m.get("text", "") for m in data["materials"]),
                     "caption": "Подпись к ролику",
                     "edit_plan": ["0–3 с: общий план"],
                 }
@@ -352,7 +352,7 @@ def video_model(monkeypatch):
     )
 
 
-def test_text_document_versions_and_access(login, video_model):
+def test_text_document_versions_and_access(login, video_model, monkeypatch):
     class MemoryStore:
         def __init__(self):
             self.objects = {}
@@ -368,6 +368,11 @@ def test_text_document_versions_and_access(login, video_model):
             self.objects.pop(key, None)
 
     store = MemoryStore()
+    from app.container import agent_files
+
+    files = agent_files()
+    files.store = store
+    monkeypatch.setattr("app.container.agent_files", lambda: files)
     app.dependency_overrides[knowledge_service] = lambda: KnowledgeService(
         SqlAlchemyKnowledgeUnitOfWork, store
     )
@@ -392,9 +397,12 @@ def test_text_document_versions_and_access(login, video_model):
                 ).status_code
                 == 428
             )
+            original_text = (
+                "Первый вариант озвучивания" + " " * 220 + "обязательный финал"
+            )
             first = client.put(
                 path,
-                json={"content": "Первый вариант озвучивания", "format": "markdown"},
+                json={"content": original_text, "format": "markdown"},
                 headers={**owner, "If-Match": "1"},
             )
             assert first.status_code == 200
@@ -416,7 +424,7 @@ def test_text_document_versions_and_access(login, video_model):
             assert second.json()["version"] == 2
             assert (
                 client.get(f"{path}?version=1", headers=owner).json()["content"]
-                == "Первый вариант озвучивания"
+                == original_text
             )
             assert client.get(path, headers=owner).json()["content"] == "Second"
             assert [
@@ -482,7 +490,7 @@ def test_text_document_versions_and_access(login, video_model):
             payload = {"title": "Из базы знаний", "sources": [versions[1]["id"]]}
             draft = client.post(video_path, headers=owner, json=payload)
             assert draft.status_code == 201
-            assert "первый" in draft.json()["script"].lower()
+            assert "обязательный финал" in draft.json()["script"]
             assert draft.json()["settings"]["sources"][0]["version"] == 1
             assert client.get(context_path, headers=owner).json()[
                 "source_version_ids"
@@ -891,22 +899,38 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
         for key in (
             "composition",
             "cast_and_wardrobe",
-            "speaker",
-            "dialogue",
             "cut",
             "image_prompt",
             "video_prompt",
         )
     }
     shot["reference_ids"] = []
+    shot["utterances"] = [
+        {
+            "speaker": "Анна",
+            "delivery": "on_screen",
+            "text": "Привет!",
+            "start_ms": 500,
+            "end_ms": 4000,
+        }
+    ]
+    shot["video_prompt"] = "Анна говорит в кадре: Привет!"
 
     def storyboard(instructions, text, images):
         data = json.loads(text)
         assert data["prompt_guides"] and data["script"] == "Авторский сценарий"
-        return json.dumps({"scenes": [shot, shot]})
+        assert data["edit_notes"] == [] and data["speech_window_ms"] == [250, 7750]
+        return json.dumps({"scenes": [shot, shot | {"continuity_scene": 1}]})
 
     def edit(instructions, text, images, clips, materials):
         assert len(images) == len(clips) == 2
+        frames = json.loads(text)["first_frames"]
+        source, *frame_inputs = list(materials)
+        assert source[0] == source_id and source[1] == "markdown" and source[2]
+        assert [f["name"] for f in frames] == ["scene-01.png", "scene-02.png"]
+        assert frame_inputs == [
+            (f["version_id"], "image/png", b"test frame") for f in frames
+        ]
         return json.dumps(
             {"cuts": [{"scene": i, "start_ms": 0, "end_ms": 7500} for i in [1, 2]]}
         )
@@ -945,8 +969,13 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
             ).status_code
             == 422
         )
+        source_id = client.get(base + "/options", headers=owner).json()["sources"][0][
+            "id"
+        ]
         video = client.post(
-            base, headers=owner, json={"title": "Тест сборки", "duration": 15}
+            base,
+            headers=owner,
+            json={"title": "Тест сборки", "duration": 15, "sources": [source_id]},
         ).json()
         assert video["journal"] == ["0–3 с: общий план"]
         assert video["caption"] == "Подпись к ролику"
@@ -974,6 +1003,7 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
         monkeypatch.setenv("POLZA_API_KEY", "test")
         assert act("assemble").json()["status"] == "generating"
         assert act("assemble").status_code == 422
+        assert worker.run_next()  # Copy the pinned document to the production folder.
         assert worker.run_next()
 
         def unavailable(prompt, refs):
@@ -984,7 +1014,7 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
         assert client.get(path, headers=owner).json()["status"] == "failed"
         assert act("assemble").json()["status"] == "generating"
         monkeypatch.setattr(worker.frames, "submit", lambda prompt, refs: "frame-id")
-        for _ in range(10):
+        for _ in range(9):
             with session_factory().begin() as session:
                 session.execute(
                     update(VideoModel)
@@ -992,10 +1022,30 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
                     .values(ready_at=datetime.now(UTC))
                 )
             assert worker.run_next()
+
+        def storage_outage(*args):
+            raise DocumentStorageError("temporary outage")
+
+        with monkeypatch.context() as failure:
+            failure.setattr(worker.store, "put", storage_outage)
+            assert worker.run_next()
+        failed = client.get(path, headers=owner).json()
+        assert failed["status"] == "failed"
+        assert failed["settings"]["production"]["stage"] == "render"
+        assert "final.mp4" not in failed["settings"]["production"]["files"]
+        assert act("assemble").json()["status"] == "generating"
+        assert worker.run_next()
         result = client.get(path, headers=owner).json()
         assert result["status"] == "ready"
         files = result["settings"]["production"]["files"]
-        assert len(files) == 8 and "final.mp4" in files
+        assert result["journal"] == ["0–7.5 · test", "7.5–15 · test"]
+        assert len(files) == 10 and "final.mp4" in files
+        request = json.loads(
+            worker.read(UUID(project), files["edit-request.json"]["version"])[1]
+        )
+        assert request["input"]["clip_versions"] == [
+            files[f"scene-{i:02}.mp4"]["version"] for i in (1, 2)
+        ]
         assert worker.read(UUID(project), files["final.mp4"]["version"])[1] == b"final"
         assert worker.clips.submitted == 2
         assert act("schedule", "2000-01-01T00:00:00Z").status_code == 422

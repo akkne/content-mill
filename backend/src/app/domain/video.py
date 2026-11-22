@@ -5,6 +5,10 @@ from uuid import UUID
 MOCK_SECONDS = 12
 
 
+def scene_count(duration: int) -> int:
+    return (duration + 7) // 8
+
+
 @dataclass
 class Video:
     id: UUID
@@ -24,7 +28,7 @@ class Video:
             return min(
                 95,
                 5
-                + 85 * state.get("index", 0) // ((self.settings["duration"] + 7) // 8),
+                + 85 * state.get("index", 0) // scene_count(self.settings["duration"]),
             )
         if not self.ready_at or self.status != "generating":
             return 100
@@ -39,7 +43,6 @@ class VideoSource:
     version: int
     node_id: UUID
     format: str
-    excerpt: str = ""
 
 
 class VideoNotFound(Exception):

@@ -75,7 +75,7 @@ def video_service() -> VideoService:
         assembly_error = "Для монтажа подключите Codex на сервере."
     return VideoService(
         SqlAlchemyProjectUnitOfWork,
-        VideoTextGenerator(models.get(selected)),
+        VideoTextGenerator(models.get(selected), agent_files()),
         assembly_error,
     )
 

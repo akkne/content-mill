@@ -134,8 +134,6 @@ class VideoRepository:
     ) -> list[VideoSource]:
         node, version = KnowledgeNodeModel, DocumentVersionModel
         columns = [version.id, node.name, version.version, node.id, version.format]
-        if ids is not None:
-            columns.append(func.left(func.coalesce(version.search_text, ""), 200))
         stmt = (
             select(*columns)
             .join_from(version, node, version.node_id == node.id)

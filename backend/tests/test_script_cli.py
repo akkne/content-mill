@@ -83,7 +83,7 @@ def test_local_chatgpt_login(monkeypatch, tmp_path):
     monkeypatch.setenv("CONTENT_MILL_SCRIPT_PROVIDER", "codex")
     monkeypatch.setattr("app.container.shutil.which", lambda name: name)
 
-    def run(command, text, directory, env):
+    def run(command, text, directory, env, *, timeout):
         login = json.loads((Path(env["CODEX_HOME"]) / "auth.json").read_text())
         assert login["tokens"] == {"access_token": "local-access", "refresh_token": ""}
         assert "CODEX_API_KEY" not in env
@@ -93,3 +93,32 @@ def test_local_chatgpt_login(monkeypatch, tmp_path):
     writer = script_writer()
     assert writer.models[writer.selected].generate("test", "brief", []) == "готово"
     assert json.loads(auth.read_text()) == data
+
+
+def test_montage_tools_can_read_only_the_staged_production(monkeypatch):
+    import json
+    from uuid import uuid4
+
+    version = str(uuid4())
+
+    def run(command, text, directory, env, *, timeout):
+        assert timeout == 600
+        approvals = [flag for flag in command if "approval_mode" in flag]
+        assert set(approvals) == {
+            f'mcp_servers.montage.tools.{tool}.approval_mode="approve"'
+            for tool in ("inspect_frame", "listen", "inspect_material")
+        }
+        assert 'approval_policy="never"' in command
+        footage = directory / "footage"
+        assert (footage / "scene-01.mp4").read_bytes() == b"test clip"
+        assert (footage / version).read_bytes() == b"test frame"
+        assert json.loads((footage / "catalog.json").read_text()) == {
+            version: "image/png"
+        }
+        Path(command[command.index("--output-last-message") + 1]).write_text("timeline")
+
+    monkeypatch.setattr("app.infrastructure.codex_script.run_cli", run)
+    result = AstraCli("test").generate_edit(
+        "edit", "brief", [], [b"test clip"], [(version, "image/png", b"test frame")]
+    )
+    assert result == "timeline"

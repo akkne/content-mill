@@ -5,7 +5,12 @@ from pathlib import Path
 
 
 def run_cli(
-    command: list[str], payload: str, directory: Path, key_env: dict[str, str]
+    command: list[str],
+    payload: str,
+    directory: Path,
+    key_env: dict[str, str],
+    *,
+    timeout: int = 120,
 ) -> str:
     """Run one isolated CLI session, including its launcher and native children."""
     env = {
@@ -26,7 +31,7 @@ def run_cli(
         encoding="utf-8",
     ) as process:
         try:
-            output, _ = process.communicate(payload, timeout=120)
+            output, _ = process.communicate(payload, timeout=timeout)
         except subprocess.TimeoutExpired:
             os.killpg(process.pid, signal.SIGKILL)
             process.communicate()
