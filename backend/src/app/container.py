@@ -29,9 +29,9 @@ from app.infrastructure.database.speech import SqlSpeechRepository
 from app.infrastructure.database.unit_of_work import SqlAlchemyAuthUnitOfWork
 from app.infrastructure.database.voice_library import SqlVoiceLibrary
 from app.infrastructure.lumean import LumeanElevenLabs
+from app.infrastructure.polza_kling_26 import PolzaKling26
 from app.infrastructure.polza_media import PolzaMedia
 from app.infrastructure.polza_nano_banana import PolzaNanoBanana21
-from app.infrastructure.polza_veo_fast import PolzaVeoFast
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
 from app.infrastructure.starter_prompts import starter_prompts
@@ -90,7 +90,7 @@ def video_production() -> VideoProduction:
         S3DocumentStore(),
         models.get(AstraCli.model),
         PolzaNanoBanana21(api),
-        PolzaVeoFast(api),
+        PolzaKling26(api),
         FFmpegEditor(),
         AssetPreview(),
         voice_catalog() if os.getenv("LUMEAN_API_KEY", "").strip() else None,

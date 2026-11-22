@@ -39,7 +39,7 @@ export type VideoCard = {
 };
 export type ProjectVideo = Omit<VideoCard, "duration" | "platform"> & {
   settings: {
-    production?: { stage: string; index?: number; line?: number; operation?: string; error?: string; failure?: VideoFailure; files?: Record<string, { node: string; version: string }> };
+    production?: { stage: string; clip_model?: string; index?: number; line?: number; operation?: string; error?: string; failure?: VideoFailure; files?: Record<string, { node: string; version: string }> };
     library_voice_id?: string;
     voice?: string;
     duration: number;

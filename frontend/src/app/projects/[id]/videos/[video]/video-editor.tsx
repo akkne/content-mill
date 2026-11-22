@@ -51,8 +51,10 @@ export function VideoEditor({
     storyboard: t("Раскадровка и промпты", "Storyboard and prompts"),
     frame: t("Стартовый кадр · Nano Banana 2.1", "First frame · Nano Banana 2.1"),
     collect_frame: t("Получение кадра · Nano Banana", "Retrieving frame · Nano Banana"),
-    submit: t("Запуск Veo Fast", "Submitting to Veo Fast"),
-    collect: t("Получение клипа · Veo Fast", "Retrieving clip · Veo Fast"),
+    submit: t("Запуск Kling 2.6", "Submitting to Kling 2.6"),
+    collect: production?.clip_model === "kling/v2.6"
+      ? t("Получение клипа · Kling 2.6", "Retrieving clip · Kling 2.6")
+      : t("Получение клипа · Veo Fast", "Retrieving clip · Veo Fast"),
     speech: t("Озвучка реплики","Synthesizing dialogue"),
     collect_speech: t("Ожидание реплики","Waiting for speech"),
     mix_speech: t("Подготовка дорожки сцены","Preparing scene audio"),

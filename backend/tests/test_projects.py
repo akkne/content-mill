@@ -927,8 +927,15 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
         assert "prompt_guides" not in data and data["script"] == "Авторский сценарий"
         assert [m["origin"] for m in data["materials"]] == ["user"]
         assert [entry[0] for entry in materials] == [source_id]
-        assert data["edit_notes"] == [] and data["speech_window_ms"] == [250, 7750]
-        return json.dumps({"scenes": [shot, shot | {"continuity_scene": 1}]})
+        assert data["edit_notes"] == [] and data["source_duration_ms"] == 10000
+        return json.dumps(
+            {
+                "scenes": [
+                    shot | {"keep_ms": 7000},
+                    shot | {"keep_ms": 8000, "continuity_scene": 1},
+                ]
+            }
+        )
 
     def edit(instructions, text, images, clips, materials):
         assert len(images) == len(clips) == 2
@@ -940,13 +947,19 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
             (f["version_id"], "image/png", b"test frame") for f in frames
         ]
         return json.dumps(
-            {"cuts": [{"scene": i, "start_ms": 0, "end_ms": 7500} for i in [1, 2]]}
+            {
+                "cuts": [
+                    {"scene": i, "start_ms": 0, "end_ms": length}
+                    for i, length in [(1, 7000), (2, 8000)]
+                ]
+            }
         )
 
     class Clips:
         submitted = 0
 
         def submit(self, prompt, frame):
+            assert f"0–{7 + self.submitted}s" in prompt
             self.submitted += 1
             return "saved-request"
 
@@ -1070,7 +1083,7 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
         result = client.get(path, headers=owner).json()
         assert result["status"] == "ready"
         files = result["settings"]["production"]["files"]
-        assert result["journal"] == ["0–7.5 · test", "7.5–15 · test"]
+        assert result["journal"] == ["0–7 · test", "7–15 · test"]
         assert len(files) == 10 and "final.mp4" in files
         request = json.loads(
             worker.read(UUID(project), files["edit-request.json"]["version"])[1]

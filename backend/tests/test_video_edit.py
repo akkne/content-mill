@@ -223,3 +223,42 @@ def test_dub_uses_complete_line_at_planned_sample_offset(tmp_path):
             source.getnframes()
         )
         assert not any(result.readframes(24000))
+
+
+def test_kling_preserves_each_storyboard_window_on_retry_and_edit():
+    import json
+    from types import SimpleNamespace
+
+    from app.application.video_production import VideoProduction, kling_prompt
+
+    shot = {
+        "composition": "00:00–00:07. Opening",
+        "cast_and_wardrobe": "cast",
+        "cut": "cut",
+        "image_prompt": "frame",
+        "video_prompt": "old prompt",
+        "reference_ids": [],
+        "utterances": [],
+    }
+    old = SavedStoryboard(scenes=[shot, shot | {"composition": "00:07–00:15. Ending"}])
+    plan = [{"keep_ms": n, "video_prompt": "Slow pan"} for n in (7000, 8000)]
+    model = SimpleNamespace(generate=lambda *args: json.dumps({"scenes": plan}))
+    worker = VideoProduction(
+        None, None, model, None, None, None, None, describe_error=describe_video_error
+    )
+    files, _ = worker.upgrade_storyboard(old, 15)
+    board = SavedStoryboard.model_validate_json(files[0][3])
+    assert "0–7s" in kling_prompt(board.scenes[0])
+    assert "0–8s" in kling_prompt(board.scenes[1])
+    cuts = Timeline(
+        cuts=[
+            {"scene": i, "start_ms": 0, "end_ms": n} for i, n in [(1, 7000), (2, 8000)]
+        ]
+    )
+    validate_cuts(cuts, board, [10000, 10000], 15)
+    cuts.cuts[0].start_ms, cuts.cuts[0].end_ms = 1000, 8000
+    with pytest.raises(ValueError, match="storyboard window"):
+        validate_cuts(cuts, board, [10000, 10000], 15)
+    plan[0]["keep_ms"], plan[1]["keep_ms"] = 8000, 7000
+    with pytest.raises(ValueError, match="timecodes"):
+        worker.upgrade_storyboard(old, 15)
