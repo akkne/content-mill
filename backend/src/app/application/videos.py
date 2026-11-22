@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID, uuid4
 
+from app.application.agent_ports import AgentScope
 from app.application.project_ports import ProjectUnitOfWorkFactory
 from app.domain.project import ProjectContext, ProjectNotFound
 from app.domain.video import (
@@ -30,6 +31,7 @@ OPTIONS = {
 class VideoGenerator(Protocol):
     def prepare(
         self,
+        scope: AgentScope,
         title: str,
         settings: dict,
         context: ProjectContext,
@@ -95,6 +97,7 @@ class VideoService:
                 ],
             }
             script, caption, journal = self.generator.prepare(
+                AgentScope(project, owner),
                 title,
                 {**settings, "prompt_guides": work.videos.script_guides(project)},
                 context,
@@ -176,6 +179,8 @@ class VideoService:
                 if action == "script" and (
                     video.status == "draft" or "production" not in video.settings
                 ):
+                    if video.script != value:
+                        video.journal = []
                     video.script = value
                 elif action == "caption":
                     video.caption = value

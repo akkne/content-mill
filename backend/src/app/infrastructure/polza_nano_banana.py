@@ -2,6 +2,7 @@ from io import BytesIO
 
 from PIL import Image
 
+from app.application.video_production import ProductionError
 from app.infrastructure.polza_media import PolzaMedia, image_input
 
 
@@ -23,6 +24,9 @@ class PolzaNanoBanana21:
     def collect(self, operation: str) -> bytes | None:
         data = self.api.collect(operation, 8_000_000, "frame_rejected")
         if data is not None:
-            with Image.open(BytesIO(data), formats=["PNG"]) as image:
-                image.verify()
+            try:
+                with Image.open(BytesIO(data), formats=["PNG"]) as image:
+                    image.verify()
+            except (ValueError, OSError, SyntaxError) as error:
+                raise ProductionError("frame_rejected") from error
         return data

@@ -143,6 +143,14 @@ class CodexCli:
                         "mcp_servers.montage.required=true",
                     ]
                 )
+                # Only these local, read-only tools can run unattended.
+                for tool in ("inspect_frame", "listen", "inspect_material"):
+                    command.extend(
+                        [
+                            "-c",
+                            f'mcp_servers.montage.tools.{tool}.approval_mode="approve"',
+                        ]
+                    )
             for feature in (
                 "shell_tool",
                 "unified_exec",
@@ -159,5 +167,5 @@ class CodexCli:
                 command.extend(["--image", str(preview)])
             result = directory / "result.txt"
             command.extend(["--output-last-message", str(result), "-"])
-            run_cli(command, text, directory, env)
+            run_cli(command, text, directory, env, timeout=600 if clips else 120)
             return result.read_text(encoding="utf-8")
