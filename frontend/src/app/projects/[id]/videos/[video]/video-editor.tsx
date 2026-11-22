@@ -58,7 +58,7 @@ export function VideoEditor({
     mix_speech: t("Подготовка дорожки сцены","Preparing scene audio"),
     sync: t("Синхронизация губ · HeyGen","Lip sync · HeyGen"),
     collect_sync: t("Ожидание синхронизации губ","Waiting for lip sync"),
-    dub: t("Сборка синхронизированной сцены","Assembling synchronized scene"),
+    dub: t("Сборка озвученной сцены","Assembling dubbed scene"),
     edit: t("Монтажный лист · Codex", "Edit decisions · Codex"),
     render: t("Рендер MP4", "Rendering MP4"),
     done: t("Готово", "Complete"),

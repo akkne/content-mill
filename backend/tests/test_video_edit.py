@@ -114,7 +114,7 @@ def test_real_montage_keeps_delayed_audio_at_the_cut(tmp_path):
     assert image.crop((500, 0, 800, 160)).getbbox() is not None
 
 
-def test_cast_voice_and_visible_audio_take_separate_routes():
+def test_cast_dialogue_is_dubbed_onto_veo_clip():
     from types import SimpleNamespace
     from uuid import uuid4
 
@@ -168,12 +168,6 @@ def test_cast_voice_and_visible_audio_take_separate_routes():
         requests.append((voice["model_id"], voice["elevenlabs_voice_id"], text))
         return text
 
-    sync_inputs = []
-
-    def sync(video, audio):
-        sync_inputs.append((video, audio))
-        return "sync-id"
-
     worker = VideoProduction(
         None,
         None,
@@ -188,10 +182,9 @@ def test_cast_voice_and_visible_audio_take_separate_routes():
         ),
         None,
         SimpleNamespace(submit_line=submit, collect_line=lambda op: op.encode()),
-        SimpleNamespace(submit=sync, collect=lambda op: b"synced"),
         describe_error=describe_video_error,
     )
-    state = {"stage": "speech", "index": 0, "line": 0}
+    state = {"stage": "speech", "index": 0, "line": 0, "files": {}}
     video = SimpleNamespace(
         settings={"duration": 15, "production": state, "characters": people}
     )
@@ -206,8 +199,13 @@ def test_cast_voice_and_visible_audio_take_separate_routes():
         ("chosen-model", "voice-a", "Hello"),
         ("chosen-model", "voice-b", "Hi"),
     ]
-    assert sync_inputs == [(b"source", b"Hello")]
-    assert artifacts["scene-01.mp4"] == b"synced:Hello|Hi"
+    assert artifacts["scene-01.mp4"] == b"source:Hello|Hi"
+    assert "scene-01-visible.wav" not in artifacts
+    for stage in ("sync", "collect_sync"):
+        state.update(stage=stage, index=0, operation="old-order")
+        files, _ = worker.character_audio(video, shot, 2)
+        assert files[0][3] == b"source:Hello|Hi"
+        assert state["stage"] == "frame" and "operation" not in state
 
 
 @pytest.mark.skipif(not shutil.which("ffmpeg"), reason="requires ffmpeg")

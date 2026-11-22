@@ -28,4 +28,4 @@
 
 Для видео подключены [Nano Banana 2.1](polza-nano-banana-2.1.md) и [Veo 3.1 Fast](polza-veo-fast.md) через Polza AI. Архивные интеграции fal описаны в карточках [Nano Banana](fal-google-nano-banana-2.1.md) и [Veo](fal-veo3.1-fast.md).
 
-Синхронизацию губ для выбранных голосов выполняет [HeyGen Lipsync Precision](heygen-lipsync.md).
+Отложенный адаптер для синхронизации губ — [HeyGen Lipsync Precision](heygen-lipsync.md).
