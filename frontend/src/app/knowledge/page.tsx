@@ -18,7 +18,7 @@ export default async function KnowledgeProjects() {
   const projects = await loadProjects();
   if (projects.length === 1) redirect(`/projects/${projects[0].id}/knowledge`);
   return (
-    <AppShell userName={user.display_name} section="База знаний">
+    <AppShell userName={user.display_name} isAdmin={user.is_admin} section="База знаний">
       <main className={content} id="main-content">
         <KnowledgeHeader description={projects.length ? t("Выберите проект, чтобы открыть его папки и файлы.", "Choose a project to open its folders and files.") : t("Создайте проект, чтобы собрать материалы бренда и роликов в одном месте.", "Create a project to keep brand and video materials together.")} />
         {projects.length ? (

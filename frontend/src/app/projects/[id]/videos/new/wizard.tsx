@@ -31,13 +31,16 @@ export function Wizard({
 }) {
   const t = useTranslator();
   const labels = {
+    editing_style: t("Стиль монтажа", "Editing style"),
     method: t("Формат подачи", "Presentation style"),
     platform: t("Площадка", "Platform"),
     duration: t("Длительность", "Duration"),
     language: t("Язык", "Language"),
   };
   const [cast,setCast] = useState<CastRow[]>([]);
-  const [sources, setSources] = useState(data.sources);
+  const [uploadedSources, setUploadedSources] = useState<VideoOptions["sources"]>([]);
+  const savedIds = new Set(data.sources.map(source => source.id));
+  const sources = [...uploadedSources.filter(source => !savedIds.has(source.id)), ...data.sources];
   const [manualSelection, setManualSelection] = useState(() => [
     ...data.folders.filter(f => !f.parent_id && ["Промпты", "Бренд", "Формулы роликов"].includes(f.name)).map(f => f.id),
     ...data.sources.filter(source => source.selected).map(source => source.id),
@@ -57,15 +60,19 @@ export function Wizard({
     setExcludedCastFolders(previous => previous.filter(id => retained.has(id)));
     setCast(next);
   }
+  const [productPhoto, setProductPhoto] = useState("");
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
-  const [duration, setDuration] = useState(30);
+  const [editingStyle, setEditingStyle] = useState(data.defaults.editing_style);
+  const [duration, setDuration] = useState(data.defaults.duration);
   const [review, setReview] = useState<FormData>();
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   const selectedVersions = resolveMaterials(selection, data.folders, sources, avatarFolders);
   const attachments = sources.filter(source => selectedVersions.has(source.id));
+  const photos = attachments.filter(source => source.format?.startsWith("image/"));
+  const selectedPhoto = photos.find(photo => photo.id === productPhoto);
   return (
     <>
       <h1 className={pageTitle}>{t("Создать ролик", "Create video")}</h1>
@@ -172,12 +179,13 @@ export function Wizard({
                           null,
                           file,
                         );
-                        setSources((previous) => [
+                        setUploadedSources((previous) => [
                           ...previous,
                           {
                             id: version.id,
                             name: node.name,
                             version: version.version,
+                            format: version.format,
                             node_id: node.id,
                             parent_id: node.parent_id,
                           },
@@ -199,6 +207,15 @@ export function Wizard({
               </label>
               <MaterialPicker project={data.project} folders={data.folders} sources={sources}
                 selection={selection} avatarFolders={avatarFolders} onChange={changeSelection} disabled={pending || uploading} />
+              <label className={fieldLabel}>
+                {t("Фото товара для показа в ролике", "Product photo to show in the video")}
+                <select className={field} value={selectedPhoto?.id ?? ""} onChange={e => setProductPhoto(e.target.value)}>
+                  <option value="">{t("Без фотовставки", "No photo cutaway")}</option>
+                  {photos.map(photo => <option key={photo.id} value={photo.id}>{photo.name} · v{photo.version}</option>)}
+                </select>
+                <span className="text-sm font-normal text-muted">{t("Выбери изображение из материалов выше. В нужный момент зритель увидит оригинал на весь экран поверх звуковой дорожки.", "Choose an image from the materials above. The original appears full-screen at the relevant moment while the audio continues.")}</span>
+              </label>
+              {selectedPhoto && <input type="hidden" name="product_photo_id" value={selectedPhoto.id} />}
               {Array.from(selectedVersions, id => <input key={id} type="hidden" name="sources" value={id} />)}
             </div>
           </div>
@@ -210,12 +227,11 @@ export function Wizard({
                   <select
                     className={field}
                     name={k}
-                    defaultValue={k === "duration" ? 30 : undefined}
-                    onChange={
-                      k === "duration"
-                        ? (e) => setDuration(Number(e.target.value))
-                        : undefined
-                    }
+                    defaultValue={k === "duration" || k === "editing_style" ? data.defaults[k] : undefined}
+                    onChange={e => {
+                      if (k === "duration") setDuration(Number(e.target.value));
+                      if (k === "editing_style") setEditingStyle(e.target.value);
+                    }}
                   >
                     {data.options[k].map((v) => (
                       <option key={v} value={v}>
@@ -224,6 +240,10 @@ export function Wizard({
                       </option>
                     ))}
                   </select>
+                  {k === "editing_style" && editingStyle === "История в цифрах" &&
+                    <span className="text-sm font-normal text-muted">{t("От факта к выводу. Числа и единицы выделяются в титрах.", "Lead with a fact and highlight its number and unit in captions.")}</span>}
+                  {k === "editing_style" && editingStyle === "История через детали" &&
+                    <span className="text-sm font-normal text-muted">{t("От общего плана к детали. Голос ведёт рассказ через вставки.", "Move from a wide shot to a telling detail, with narration across cutaways.")}</span>}
                 </label>
               ))}
 
@@ -235,6 +255,12 @@ export function Wizard({
                   value={t("9:16 · вертикальный ролик", "9:16 · vertical video")}
                 />
               </label>
+              {data.lipsync_available && cast.some(row => row.voice_id) && (
+                <label className={fieldLabel}>
+                  <input type="checkbox" name="heygen_lipsync" value="true" />{" "}
+                  {t("Ведущий HeyGen Avatar 6 Turbo · оплата за секунды аватара", "HeyGen Avatar 6 Turbo presenter · billed per avatar second")}
+                </label>
+              )}
             </div>
           </div>
           {step === 2 && (
@@ -247,11 +273,13 @@ export function Wizard({
                   t("Формат", "Format"),
                   optionLabel(String(review?.get("method") ?? ""), t) + " · " + optionLabel(String(review?.get("platform") ?? ""), t),
                 ],
+                [labels.editing_style, optionLabel(String(review?.get("editing_style") ?? ""), t)],
                 [t("Настройки", "Settings"), duration + t(" сек · ", " sec · ") + optionLabel(String(review?.get("language") ?? ""), t)],
                 [
                   t("Персонажи и голоса", "Characters and voices"),
                   cast.map(r=>(data.avatars.find(a=>a.id===r.character_id)?.name??"")+" · "+(data.cast_voices.find(v=>v.id===r.voice_id)?.name??t("Без реплик","No dialogue"))).join(", ") || t("Не выбраны","None selected"),
                 ],
+                ...(selectedPhoto ? [[t("Фотовставка", "Photo cutaway"), selectedPhoto.name]] : []),
                 [t("Материалы", "Materials"), attachments.length + t(" файлов", " files")],
               ].map(([k, v]) => (
                 <p
@@ -262,6 +290,7 @@ export function Wizard({
                   <strong>{String(v)}</strong>
                 </p>
               ))}
+              {review?.get("heygen_lipsync") && <p>{t("HeyGen Avatar 6 Turbo оживит кадр ведущего под озвучку. Для этих сцен используется изображение без заказа клипа Kling.", "HeyGen Avatar 6 Turbo animates presenter images using the voice track. These scenes skip Kling clip generation.")}</p>}
               {attachments.length>0 && <details><summary className="cursor-pointer font-bold">{t("Файлы для агента","Files for the agent")}</summary>
                 <ul className="mt-2 grid max-h-52 gap-1 overflow-auto text-sm">{attachments.map(file=><li key={file.id}>{file.path??file.name} · v{file.version}</li>)}</ul>
               </details>}

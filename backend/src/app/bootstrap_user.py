@@ -11,9 +11,9 @@ def main() -> None:
     display_name = sys.argv[2].strip()
     if "@" not in email or len(email) > 254 or not display_name:
         raise SystemExit("Provide a valid email and display name")
-    password = getpass.getpass("Password (at least 12 characters): ")
-    if not 12 <= len(password) <= 1024:
-        raise SystemExit("Password must have between 12 and 1024 characters")
+    password = getpass.getpass("Password (at least 8 characters): ")
+    if not 8 <= len(password) <= 1024:
+        raise SystemExit("Password must have between 8 and 1024 characters")
     auth_service().create_or_reset_user(email, display_name, password)
     print(f"Account ready: {email}")
 

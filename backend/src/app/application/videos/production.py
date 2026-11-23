@@ -20,8 +20,15 @@ from app.application.knowledge.seed_documents import create_entry
 from app.application.projects.ports import ProjectUnitOfWorkFactory
 from app.application.scripts.jobs import ScriptModel
 from app.application.videos.cast import avatar_references, validate_cast_scene
+from app.application.videos.spoken_script import matches_script
+from app.application.videos.style_guide import GuideReader, attach_style_guide
 from app.domain.knowledge import ExampleEntry
-from app.domain.video import Video, scene_count
+from app.domain.video import (
+    DEFAULT_EDITING_STYLE,
+    Video,
+    editing_direction,
+    scene_count,
+)
 
 Description = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)
@@ -88,6 +95,10 @@ class Cut(BaseModel):
     start_ms: int = Field(ge=0)
     end_ms: int = Field(gt=0)
 
+    push_in: bool = Field(
+        default=False, description="Gentle centered 9% camera push across this cut."
+    )
+
     def frame_range(self, elapsed_ms: int) -> tuple[int, int]:
         first = round(self.start_ms * 24 / 1000)
         next_ms = elapsed_ms + self.end_ms - self.start_ms
@@ -102,12 +113,41 @@ class BackgroundMusic(BaseModel):
 
 
 class Subtitle(BaseModel):
+    emphasis: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Optional exact contiguous phrase from this subtitle to accent.",
+    )
     start_ms: int = Field(ge=0)
     end_ms: int = Field(gt=0)
     text: str = Field(min_length=1, max_length=180, pattern=r"^[^\r\n<>{}\\]+$")
 
 
+class PhotoCutaway(BaseModel):
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+
+
+class PhotoCard(PhotoCutaway):
+    version_id: UUID
+    cue: str = Field(min_length=1, max_length=180)
+
+
+class GraphicBeat(BaseModel):
+    at_ms: int = Field(ge=0)
+    label: str = Field(min_length=1, max_length=24, pattern=r"^[^\r\n]+$")
+
+
+class Graphic(BaseModel):
+    kind: Literal["list", "share"]
+    beats: list[GraphicBeat] = Field(min_length=1, max_length=4)
+    end_ms: int = Field(gt=0)
+
+
 class Timeline(BaseModel):
+    graphics: list[Graphic] = Field(default_factory=list, max_length=4)
+    photo_cards: list[PhotoCard] = Field(default_factory=list, max_length=12)
+    photo_cutaway: PhotoCutaway | None = None
     music: BackgroundMusic | None = None
     subtitles: list[Subtitle] = Field(default_factory=list, max_length=120)
 
@@ -143,6 +183,11 @@ class CastSpeech(Protocol):
     def collect_line(self, operation: str) -> bytes | None: ...
 
 
+class LipSync(Protocol):
+    def submit(self, video: bytes, audio: bytes) -> str: ...
+    def collect(self, operation: str) -> bytes | None: ...
+
+
 class ClipGenerator(Protocol):
     def submit(self, prompt: str, frame: bytes) -> str: ...
     def collect(self, operation: str) -> bytes | None: ...
@@ -161,11 +206,15 @@ class VideoEditor(Protocol):
         timeline: Timeline,
         duration: int,
         music: tuple[str, bytes] | None = None,
+        product_photo: bytes | None = None,
+        editing_style: str = DEFAULT_EDITING_STYLE,
+        card_images: dict[UUID, bytes] | None = None,
     ) -> bytes: ...
 
 
 PLAN = """Create a shot-by-shot production storyboard from the approved script, brief,
 the materials explicitly chosen by the user (primary creative sources), and optional avatar media. Return JSON matching the supplied schema.
+Use editing_direction for framing, camera movement and cuts within the approved script timings.
 Inspect user materials first. Use inspect_material(version_id, at_ms) to inspect originals,
 including supplementary avatar photos and videos. Select the relevant versions for each shot.
 Use the specified number of scenes, one continuous shot per scene. Each source clip
@@ -179,7 +228,7 @@ who speaks on/off screen, verbatim dialogue in the requested language, action an
 the motivation and visual match for EVERY cut (including opening and ending).
 Use the current script as the authority for dialogue and scene order. List each
 utterance separately with speaker, on_screen/off_screen delivery, exact text and
-planned source start_ms/end_ms. Use an empty list for a silent shot. Fit all
+planned source start_ms/end_ms. Keep a whole uninterrupted turn in one utterance for natural voice synthesis. Use an empty list for a silent shot. Fit all
 speech strictly inside the first keep_ms of its own scene, leaving room for cuts.
 Write the full image_prompt for Nano Banana: subject, blocking, props, wardrobe,
 lighting and composition of the first frame. Choose visual reference_ids in input
@@ -207,11 +256,20 @@ previews (one contact sheet each, chronological), measured durations, dialogue,
 cut descriptions and project editing guides. Return a JSON timeline matching the
 schema. If a scene has keep_ms, use ONLY source [0, keep_ms] for that scene:
 start_ms must be 0 and end_ms must equal that exact keep_ms. Never include the
-unused tail of a ten-second take. These boundaries override creative cut notes.
+unused tail of a ten-second take. Respect editing_direction within the approved timings. These boundaries override creative cut notes.
 Use every scene once in narrative order, hard cuts at meaningful actions,
 preserving each spoken line. Use integer millisecond source intervals. Keep audio
 and picture locked. The total MUST equal duration * 1000 exactly. Playback is 1x.
-Use subtitles for spoken lines when requested; time them on the FINAL timeline.
+Use short readable subtitles for spoken lines unless the brief requests otherwise; time them on the FINAL timeline.
+When product_photo_id is provided, inspect that exact selected photo and specify ONE photo_cutaway
+on the FINAL timeline lasting 1 to 6 seconds during the line about the product. Original audio continues.
+Keep critical on-screen actions and the speaker's opening visible. Otherwise omit photo_cutaway.
+For emphasis you can set push_in on an individual shot for a subtle centered move; protect face and details near the edges.
+For documentary inserts use photo_cards, a sequence of approved project images from card_image_ids.
+The renderer animates each card onto a dark matte above the continuing speech. Choose the actual object or event named by the speaker.
+Each cue must be a literal excerpt from an utterance at the start of the card (within 500ms). Use 0.7–6 seconds per card.
+Avoid overlapping cards or the product cutaway. If no matching images are provided, use no photo cards.
+Use graphics when the speech actually enumerates options or gives a part-to-whole percentage. A list has 2–4 short labels, each copied verbatim from its corresponding utterance, with its own FINAL at_ms timed to the mention. Keep the same list visible and highlight the active item. A share has exactly one beat whose label is a literal numeric percentage from speech, for example 12%. Do not turn market opinions, growth rates or unrelated quantities into shares. Never invent data. Keep each graphic beat at least 650ms; do not overlap other inserts or cover important action. If the speech contains a clear comparison and there is no matching photo, prefer a timed list to a long talking-head or laptop shot.
 If the brief selects a specific music track, use its supplied audio version ID,
 start offset and background gain; otherwise omit music. inspect_material provides a
 preview of selected project assets and generated first frames by version ID. The renderer executes this timeline. Your montage MCP tools inspect_frame
@@ -281,10 +339,14 @@ class VideoProduction:
         preview: PreviewRenderer,
         speech: CastSpeech | None = None,
         *,
+        style_guide: GuideReader | None = None,
+        lipsync: LipSync | None = None,
         describe_error: Callable[[BaseException, str], dict],
     ):
+        self.style_guide = style_guide
         self.describe_error = describe_error
         self.speech = speech
+        self.lipsync = lipsync
         self.work, self.store, self.model = work, store, model
         self.frames, self.clips, self.editor, self.preview = (
             frames,
@@ -304,6 +366,8 @@ class VideoProduction:
                 # A lost process may already have submitted a billable operation.
                 video.status = "failed"
                 state["error"] = "interrupted"
+                if state["stage"] == "sync":
+                    state["failure"] = {"stage": "sync", "reason": "order_unconfirmed"}
                 state.pop("claim")
                 work.videos.save(video)
                 work.commit()
@@ -340,6 +404,7 @@ class VideoProduction:
                     "frame",
                     "submit",
                     "speech",
+                    "sync",
                 } and attempted.get("operation"):
                     # The provider already accepted the order before checkpointing failed.
                     for key in ("operation", "submitted", "stage"):
@@ -353,6 +418,9 @@ class VideoProduction:
                     state["stage"] = (
                         "frame" if state["stage"] == "collect_frame" else "submit"
                     )
+                if code == "lipsync_failed":
+                    state.pop("operation", None)
+                    state["stage"] = "sync"
                 if code == "speech_failed":
                     state.pop("operation", None)
                     state["stage"] = "speech"
@@ -530,7 +598,14 @@ class VideoProduction:
                 return [], 10
             if stage == "collect_frame":
                 state.pop("operation")
-                state["stage"] = "submit"
+                if (
+                    video.settings.get("heygen_lipsync")
+                    and isinstance(shot, Scene)
+                    and any(line.delivery == "on_screen" for line in shot.utterances)
+                ):
+                    state.update(stage="speech", line=0)
+                else:
+                    state["stage"] = "submit"
                 return [(prefix + ".png", "image", "image/png", media)], 0
             try:
                 length, _ = self.editor.inspect(media)
@@ -557,7 +632,22 @@ class VideoProduction:
                 state["files"][name]["version"]: name
                 for name in (f"scene-{number:02}.png" for number in range(1, count + 1))
             }
+            avatar_ids = {
+                f["version_id"]
+                for person in video.settings.get("characters", [])
+                for f in person.get("files", [])
+            }
+            card_ids = {
+                src["id"]
+                for src in video.settings["sources"]
+                if src["format"] in {"image/jpeg", "image/png", "image/webp"}
+                and src["id"] not in avatar_ids
+                and src["id"] != video.settings.get("product_photo_id")
+            }
             payload = {
+                "card_image_ids": sorted(card_ids),
+                "editing_direction": editing_direction(video.settings),
+                "product_photo_id": video.settings.get("product_photo_id"),
                 "first_frames": [
                     {"version_id": ref, "name": name}
                     for ref, name in first_frames.items()
@@ -580,16 +670,33 @@ class VideoProduction:
                     )
                     yield ref, fmt, data
 
+            previews = [p[1] for p in probes]
+            attach_style_guide(
+                self.style_guide,
+                video.project_id,
+                video.settings.get("editing_style", ""),
+                payload,
+                previews,
+            )
             timeline = model_json(
                 self.model.generate_edit,
                 Timeline,
                 EDIT,
                 payload,
-                [p[1] for p in probes],
+                previews,
                 clips,
                 materials(),
             )
             validate_cuts(timeline, board, [p[0] for p in probes], duration)
+            validate_cards(timeline, board, duration, card_ids)
+            insert = timeline.photo_cutaway
+            if bool(video.settings.get("product_photo_id")) != bool(insert):
+                raise ValueError("Photo cutaway must match the selected product photo")
+            if insert and not (
+                1000 <= insert.end_ms - insert.start_ms <= 6000
+                and insert.end_ms <= duration * 1000
+            ):
+                raise ValueError("Invalid product photo interval")
             audio_ids = {
                 source["id"]
                 for source in video.settings["sources"]
@@ -629,7 +736,29 @@ class VideoProduction:
         if timeline.music:
             name = state["inputs"][str(timeline.music.version_id)]
             music = self.read(video.project_id, state["files"][name]["version"])
-        result = self.editor.render(clips, timeline, duration, music)
+        photo = None
+        if timeline.photo_cutaway:
+            photo = self.artifact(
+                video, state["inputs"][video.settings["product_photo_id"]]
+            )
+        result = self.editor.render(
+            clips,
+            timeline,
+            duration,
+            music,
+            photo,
+            video.settings.get("editing_style", DEFAULT_EDITING_STYLE),
+            **(
+                {
+                    "card_images": {
+                        ref: self.artifact(video, state["inputs"][str(ref)])
+                        for ref in {card.version_id for card in timeline.photo_cards}
+                    }
+                }
+                if timeline.photo_cards
+                else {}
+            ),
+        )
         state["stage"] = "done"
         video.status = "ready"
         return [("final.mp4", "video", "video/mp4", result)], 0
@@ -680,16 +809,42 @@ class VideoProduction:
                 )
                 for n, line in enumerate(shot.utterances)
             ]
-            # TODO: Revisit optional lip sync after the HeyGen pilot (ADR 0028).
+            duration_ms = 10000 if shot.keep_ms else 8000
+            if video.settings.get("heygen_lipsync") and shot.keep_ms:
+                duration_ms = shot.keep_ms
+            track = self.editor.speech_track(lines, duration_ms)
+            files = [(prefix + "-speech.wav", "audio", "audio/wav", track)]
+            visible_lines = [
+                row
+                for row, line in zip(lines, shot.utterances)
+                if line.delivery == "on_screen"
+            ]
             state["stage"] = "dub"
-            return [
-                (
-                    prefix + "-speech.wav",
-                    "audio",
-                    "audio/wav",
-                    self.editor.speech_track(lines, 10000 if shot.keep_ms else 8000),
+            if video.settings.get("heygen_lipsync") and visible_lines:
+                visible_audio = (
+                    track
+                    if visible_lines == lines
+                    else self.editor.speech_track(visible_lines, duration_ms)
                 )
-            ], 0
+                files.append(
+                    (prefix + "-onscreen.wav", "audio", "audio/wav", visible_audio)
+                )
+                state["stage"] = "sync"
+            return files, 0
+        elif stage in {"sync", "collect_sync"} and video.settings.get("heygen_lipsync"):
+            if self.lipsync is None:
+                raise ProductionError("heygen_key")
+            if stage == "sync":
+                operation = self.lipsync.submit(
+                    self.artifact(video, prefix + ".png"),
+                    self.artifact(video, prefix + "-onscreen.wav"),
+                )
+                return submit(operation, "collect_sync")
+            synced = self.lipsync.collect(state["operation"])
+            if synced is not None:
+                state.pop("operation")
+                state["stage"] = "dub"
+                return [(prefix + "-synced.mp4", "video", "video/mp4", synced)], 0
         else:
             # Older jobs may resume at sync/collect_sync with a saved provider order.
             # An already saved synced clip is still usable for dubbing.
@@ -838,20 +993,49 @@ class VideoProduction:
             "platform": video.settings["platform"],
             "product": video.settings.get("product", ""),
             "method": video.settings["method"],
+            "editing_direction": editing_direction(video.settings),
             "materials": materials,
         }
-        originals = (
-            (source["id"], source["format"], self.artifact(video, inputs[source["id"]]))
-            for source in sources
+        attach_style_guide(
+            self.style_guide,
+            video.project_id,
+            video.settings.get("editing_style", ""),
+            payload,
+            previews,
         )
+
+        def originals():
+            return (
+                (
+                    source["id"],
+                    source["format"],
+                    self.artifact(video, inputs[source["id"]]),
+                )
+                for source in sources
+            )
+
         board = model_json(
             self.model.generate_storyboard,
             Storyboard,
             PLAN,
             payload,
             previews,
-            originals,
+            originals(),
         )
+        if not matches_script(video.script, board.scenes):
+            board = model_json(
+                self.model.generate_storyboard,
+                Storyboard,
+                PLAN,
+                {
+                    **payload,
+                    "correction": "Copy every spoken line, speaker, delivery, order and scene duration verbatim from script. Remove any added words.",
+                },
+                previews,
+                originals(),
+            )
+            if not matches_script(video.script, board.scenes):
+                raise ValueError("Storyboard speech differs from the script")
         if len(board.scenes) != count or any(
             str(ref) not in visuals
             for scene in board.scenes
@@ -881,6 +1065,79 @@ class VideoProduction:
             document("brief.json", payload),
             document("storyboard.json", board.model_dump(mode="json")),
         ], 0
+
+
+def validate_cards(
+    timeline: Timeline, board: SavedStoryboard, duration: int, allowed: set[str]
+):
+    if not timeline.photo_cards and not timeline.graphics:
+        return
+    speech = []
+    elapsed = 0
+    for cut in timeline.cuts:
+        shot = board.scenes[cut.scene - 1]
+        if isinstance(shot, Scene):
+            speech.extend(
+                (
+                    elapsed + line.start_ms - cut.start_ms,
+                    elapsed + line.end_ms - cut.start_ms,
+                    line.text,
+                )
+                for line in shot.utterances
+            )
+        elapsed += cut.end_ms - cut.start_ms
+    occupied = [(card.start_ms, card.end_ms) for card in timeline.photo_cards]
+    if timeline.photo_cutaway:
+        occupied.append(
+            (timeline.photo_cutaway.start_ms, timeline.photo_cutaway.end_ms)
+        )
+    for graphic in timeline.graphics:
+        start = graphic.beats[0].at_ms
+        if (
+            any(start < b and graphic.end_ms > a for a, b in occupied)
+            or graphic.end_ms > duration * 1000
+        ):
+            raise ValueError("Graphic overlaps an insert or exceeds the video")
+        occupied.append((start, graphic.end_ms))
+        if graphic.kind == "share":
+            label = graphic.beats[0].label
+            if (
+                len(graphic.beats) != 1
+                or not re.fullmatch(r"\d{1,3}([.,]\d{1,2})? ?%", label)
+                or float(label[:-1].replace(",", ".")) > 100
+            ):
+                raise ValueError("Invalid spoken percentage")
+        elif len(graphic.beats) < 2:
+            raise ValueError("Comparison needs two different beats")
+        end = graphic.end_ms
+        for beat in reversed(graphic.beats):
+            if end - beat.at_ms < 650 or not any(
+                a - 500 <= beat.at_ms < b
+                and re.search(
+                    r"(?<!\w)" + re.escape(beat.label) + r"(?!\w)", text, re.IGNORECASE
+                )
+                for a, b, text in speech
+            ):
+                raise ValueError("Graphic does not match the spoken phrase")
+            end = beat.at_ms
+    previous = 0
+    for card in timeline.photo_cards:
+        if not (
+            str(card.version_id) in allowed
+            and previous <= card.start_ms
+            and 700 <= card.end_ms - card.start_ms <= 6000
+            and card.end_ms <= duration * 1000
+            and any(
+                a - 500 <= card.start_ms < b
+                and card.cue.strip().casefold() in text.casefold()
+                for a, b, text in speech
+            )
+        ):
+            raise ValueError("Invalid editorial photo or dialogue cue")
+        insert = timeline.photo_cutaway
+        if insert and card.start_ms < insert.end_ms and card.end_ms > insert.start_ms:
+            raise ValueError("Editorial and product photos overlap")
+        previous = card.end_ms
 
 
 def validate_cuts(

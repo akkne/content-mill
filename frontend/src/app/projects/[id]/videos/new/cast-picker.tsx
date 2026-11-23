@@ -1,4 +1,5 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useTranslator } from "@/app/interface-language";
 import { primaryButton, secondaryButton } from "@/app/ui-styles";
@@ -21,6 +22,7 @@ export function CastPicker({
   change: (rows: CastRow[]) => void;
 }) {
   const t = useTranslator();
+  const router = useRouter();
   const nextKey = useRef(1);
   const dialog = useRef<HTMLDialogElement>(null);
   const audio = useRef<HTMLAudioElement>(null);
@@ -195,6 +197,14 @@ export function CastPicker({
               {item.name}
             </button>
           ))}
+          {!isVoice && <div className="flex flex-wrap items-center gap-4 px-3 py-2">
+            <a href="/knowledge/avatars" target="_blank" rel="noopener" className="font-bold text-accent underline">
+              {t("Создать аватар в библиотеке ↗", "Create an avatar in the library ↗")}
+            </a>
+            <button type="button" className={secondaryButton} onClick={() => router.refresh()}>
+              {t("Обновить список проекта", "Refresh project list")}
+            </button>
+          </div>}
           {!choices.length && (
             <p className="p-3 text-muted">
               {t(

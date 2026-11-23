@@ -58,7 +58,7 @@ export function VideoEditor({
     speech: t("Озвучка реплики","Synthesizing dialogue"),
     collect_speech: t("Ожидание реплики","Waiting for speech"),
     mix_speech: t("Подготовка дорожки сцены","Preparing scene audio"),
-    sync: t("Синхронизация губ · HeyGen","Lip sync · HeyGen"),
+    sync: t("Ведущий · HeyGen Avatar 6 Turbo","Presenter · HeyGen Avatar 6 Turbo"),
     collect_sync: t("Ожидание синхронизации губ","Waiting for lip sync"),
     dub: t("Сборка озвученной сцены","Assembling dubbed scene"),
     edit: t("Монтажный лист · Codex", "Edit decisions · Codex"),
@@ -72,7 +72,7 @@ export function VideoEditor({
   const polling = resumeStage.startsWith("collect") && !!production?.operation;
   const newOrder = ["frame", "submit", "sync", "speech"].includes(resumeStage);
   const sceneStage = ["frame", "collect_frame", "submit", "collect", "speech", "collect_speech", "sync", "collect_sync", "mix_speech", "dub"].includes(stoppedStage);
-  const uncertainOrder = ["frame", "submit"].includes(resumeStage) && !production?.operation && stoppedStage === resumeStage && ["order_unconfirmed", "network", "timeout"].includes(reason);
+  const uncertainOrder = ["frame", "submit", "sync"].includes(resumeStage) && !production?.operation && stoppedStage === resumeStage && ["order_unconfirmed", "network", "timeout"].includes(reason);
   const failed = item.status === "failed";
   const draft = item.status === "draft";
   const [tab, setTab] = useState("publication");
@@ -211,6 +211,7 @@ export function VideoEditor({
               <p className="text-sm text-muted">{t("Код", "Code")} · {failure ? failureCode(failure) : reason}</p>
               <p className="text-sm">{polling
                 ? t("Повтор проверит результат по сохранённому номеру заказа.", "Retry checks the existing order for its result.")
+                : uncertainOrder && resumeStage === "sync" ? t("Проверьте заказ в кабинете HeyGen перед повторной отправкой.", "Check the order in your HeyGen account before resubmitting.")
                 : uncertainOrder ? t("Сверьте заказ в истории Polza. Если он существует, администратор может восстановить его по ID. Создание ещё одного заказа может привести к повторной оплате.", "Check your Polza history. An administrator can recover an existing order by ID. Creating another order may incur a second charge.")
                 : newOrder ? t("Повтор отправит новый заказ для этой сцены. Провайдер может списать средства.", "Retry submits a new order for this scene. The provider may charge for it.")
                 : ["edit", "storyboard"].includes(resumeStage) ? t("Повтор продолжит этап подготовки. Новый вызов модели расходует квоту.", "Retry resumes preparation. A new model call uses quota.")

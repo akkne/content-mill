@@ -7,6 +7,8 @@ from app.application.projects.ports import ProjectUnitOfWorkFactory
 from app.application.videos.cast import cast_options, resolve_cast
 from app.domain.project import ProjectContext, ProjectNotFound
 from app.domain.video import (
+    EDITING_DIRECTIONS,
+    VIDEO_DURATIONS,
     InvalidVideo,
     Video,
     VideoNotFound,
@@ -24,7 +26,8 @@ OPTIONS = {
         "Оффер",
     ],
     "platform": ["Instagram Reels", "YouTube Shorts", "VK Клипы", "Telegram", "TikTok"],
-    "duration": [15, 30, 45, 60],
+    "duration": VIDEO_DURATIONS,
+    "editing_style": list(EDITING_DIRECTIONS),
     "language": ["Русский", "English"],
 }
 
@@ -46,10 +49,13 @@ class VideoService:
         work: ProjectUnitOfWorkFactory,
         generator: VideoGenerator,
         assembly_error: str = "",
+        *,
+        lipsync_available: bool = False,
     ):
         self.work = work
         self.generator = generator
         self.assembly_error = assembly_error
+        self.lipsync_available = lipsync_available
 
     def create(
         self,
@@ -61,11 +67,17 @@ class VideoService:
         assemble: bool,
     ) -> Video:
         with self.work() as work:
-            if not work.repository.get_owned(project, owner):
+            current = work.repository.get_owned(project, owner)
+            if not current:
                 raise ProjectNotFound
             if assemble and self.assembly_error:
                 raise VideoTextUnavailable(self.assembly_error)
             context = work.repository.context(project)
+            settings = {
+                "editing_style": current.video_style,
+                "duration": current.video_duration,
+                **settings,
+            }
             if any(
                 settings.get(key) not in choices for key, choices in OPTIONS.items()
             ):
@@ -82,9 +94,27 @@ class VideoService:
                 settings["library_voice_id"] = voice
                 settings["voice"] = voices[voice]
             materials = work.videos.sources(project, sources)
+            photo = settings.get("product_photo_id")
+            if photo is not None:
+                if not any(
+                    s.id == photo
+                    and s.format in {"image/jpeg", "image/png", "image/webp"}
+                    for s in materials
+                ):
+                    raise InvalidVideo("Выберите фото товара из материалов ролика.")
+                settings["product_photo_id"] = str(photo)
             if settings.get("characters"):
                 settings["characters"] = resolve_cast(
                     settings["characters"], work.knowledge.list(project), materials
+                )
+            if settings.get("heygen_lipsync") and (
+                not self.lipsync_available
+                or not any(
+                    person.get("voice") for person in settings.get("characters", [])
+                )
+            ):
+                raise InvalidVideo(
+                    "Для HeyGen подключите озвучку и назначьте голос персонажу."
                 )
             if {item.id for item in materials} != set(sources):
                 raise InvalidVideo("Один из источников недоступен в проекте")
@@ -167,6 +197,11 @@ class VideoService:
             return {
                 "project": current.name,
                 "options": OPTIONS,
+                "defaults": {
+                    "duration": current.video_duration,
+                    "editing_style": current.video_style,
+                },
+                "lipsync_available": self.lipsync_available,
                 "voices": work.videos.voices(project),
                 **cast_options(nodes),
                 "folders": [
@@ -180,6 +215,7 @@ class VideoService:
                         "id": s.id,
                         "name": s.name,
                         "version": s.version,
+                        "format": s.format,
                         **source_labels(s.node_id),
                         "selected": s.id in context.source_version_ids,
                     }

@@ -207,6 +207,32 @@ def test_cast_dialogue_is_dubbed_onto_veo_clip():
         assert files[0][3] == b"source:Hello|Hi"
         assert state["stage"] == "frame" and "operation" not in state
 
+    # Only the on-screen voice reaches HeyGen. The final dub still includes both.
+    artifacts["scene-01.png"] = b"portrait"
+    orders = []
+
+    def submit_sync(clip, audio):
+        orders.append((clip, audio))
+        return "heygen-1"
+
+    worker.lipsync = SimpleNamespace(submit=submit_sync, collect=lambda op: b"synced")
+    video.settings["heygen_lipsync"] = True
+    state.update(stage="mix_speech", index=0)
+    for _ in range(4):
+        files, _ = worker.character_audio(video, shot, 2)
+        for name, _, _, body in files:
+            artifacts[name] = body
+            state["files"][name] = {}
+    assert orders == [(b"portrait", b"Hello")]
+    assert artifacts["scene-01.mp4"] == b"synced:Hello|Hi"
+    assert state["stage"] == "frame" and "operation" not in state
+
+    for line in shot.utterances:
+        line.delivery = "off_screen"
+    state.update(stage="mix_speech", index=0)
+    worker.character_audio(video, shot, 2)
+    assert state["stage"] == "dub" and len(orders) == 1
+
 
 @pytest.mark.skipif(not shutil.which("ffmpeg"), reason="requires ffmpeg")
 def test_dub_uses_complete_line_at_planned_sample_offset(tmp_path):
@@ -262,3 +288,266 @@ def test_kling_preserves_each_storyboard_window_on_retry_and_edit():
     plan[0]["keep_ms"], plan[1]["keep_ms"] = 8000, 7000
     with pytest.raises(ValueError, match="timecodes"):
         worker.upgrade_storyboard(old, 15)
+
+
+@pytest.mark.skipif(
+    not shutil.which("ffmpeg"), reason="requires the production renderer"
+)
+def test_product_photo_appears_only_during_selected_interval(tmp_path):
+    ffmpeg(
+        tmp_path,
+        [
+            "-f",
+            "lavfi",
+            "-i",
+            "color=red:s=90x160:r=24:d=3",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=f=440:d=3",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "base.mp4",
+        ],
+    )
+    photo = BytesIO()
+    Image.new("RGB", (180, 90), "lime").save(photo, "PNG")
+    plan = Timeline(
+        cuts=[{"scene": 1, "start_ms": 0, "end_ms": 3000}],
+        photo_cutaway={"start_ms": 1000, "end_ms": 2000},
+        subtitles=[{"start_ms": 1000, "end_ms": 2000, "text": "Product"}],
+    )
+    body = FFmpegEditor().render(
+        [(tmp_path / "base.mp4").read_bytes()], plan, 3, product_photo=photo.getvalue()
+    )
+    (tmp_path / "final.mp4").write_bytes(body)
+    for time, expected in [("0.5", 0), ("1.5", 1), ("2.5", 0)]:
+        frame = ffmpeg(
+            tmp_path,
+            [
+                "-ss",
+                time,
+                "-i",
+                "final.mp4",
+                "-frames:v",
+                "1",
+                "-f",
+                "image2pipe",
+                "-c:v",
+                "png",
+                "pipe:1",
+            ],
+        )
+        img = Image.open(BytesIO(frame)).convert("RGB")
+        assert img.getpixel((360, 640))[expected] > 200
+        if expected == 1:
+            assert max(img.getpixel((100, 100))) < 30
+            assert img.crop((100, 930, 620, 1260)).convert("L").getextrema()[1] > 120
+    audio = ffmpeg(
+        tmp_path,
+        [
+            "-ss",
+            "1.4",
+            "-i",
+            "final.mp4",
+            "-t",
+            "0.2",
+            "-vn",
+            "-ac",
+            "1",
+            "-f",
+            "s16le",
+            "pipe:1",
+        ],
+    )
+    assert max(array("h", audio)) > 500
+
+
+def test_reference_caption_accents_only_existing_words():
+    from app.application.videos.production import Subtitle
+    from app.domain.video import FACTS_STYLE, STORY_STYLE
+    from app.infrastructure.video.reference_captions import reference_captions
+
+    caption = Subtitle(
+        start_ms=999, end_ms=2310, text="Всего 12 дней", emphasis="12 дней"
+    )
+    facts = reference_captions([caption], FACTS_STYLE)
+    story = reference_captions([caption], STORY_STYLE)
+    assert "0:00:01.00,0:00:02.31" in facts
+    assert r"Всего {\1c&H54F2DB&\fnDejaVu Serif\i1}12 дней{\rCaption}" in facts
+    assert r"Всего {\1c&H63DFFF&\fnDejaVu Serif\i1}12 дней{\rCaption}" in story
+    caption.emphasis = "другое слово"
+    assert reference_captions([caption], STORY_STYLE).endswith("Всего 12 дней\n")
+
+
+@pytest.mark.skipif(
+    not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="requires FFmpeg"
+)
+def test_dub_keeps_short_trailing_pause_in_avatar_scene(tmp_path):
+    from app.infrastructure.video.video_edit import wav_bytes
+
+    ffmpeg(
+        tmp_path,
+        [
+            "-f",
+            "lavfi",
+            "-i",
+            "color=red:s=90x160:r=25:d=4.28",
+            "-an",
+            "-c:v",
+            "libx264",
+            "avatar.mp4",
+        ],
+    )
+    editor = FFmpegEditor()
+    clip = (tmp_path / "avatar.mp4").read_bytes()
+    for sounding_tail, expected_complete in [(False, True), (True, False)]:
+        speech = b"\x01\x00" * 84000
+        tail = (b"\x01\x00" if sounding_tail else b"\x00\x00") * 21600
+        duration, _ = editor.inspect(editor.dub(clip, wav_bytes(speech + tail)))
+        assert (duration >= 4400) is expected_complete
+
+
+@pytest.mark.skipif(
+    not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="requires FFmpeg"
+)
+def test_dub_retains_picture_through_shorter_voiceover(tmp_path):
+    from app.infrastructure.video.video_edit import wav_bytes
+
+    ffmpeg(
+        tmp_path,
+        [
+            "-f",
+            "lavfi",
+            "-i",
+            "color=blue:s=160x90:r=30:d=10",
+            "-c:v",
+            "libx264",
+            "source.mp4",
+        ],
+    )
+    editor = FFmpegEditor()
+    audio = wav_bytes(bytes(7200 * 48))
+    clip = editor.dub((tmp_path / "source.mp4").read_bytes(), audio)
+    assert editor.inspect(clip)[0] == 7200
+
+
+def test_reference_effects_follow_spoken_script_and_keep_the_audio(tmp_path):
+    from uuid import uuid4
+
+    from app.application.videos.production import Scene, validate_cards
+    from app.application.videos.spoken_script import (
+        ScriptScene,
+        format_script,
+        matches_script,
+    )
+
+    ref = uuid4()
+    shot = Scene(
+        keep_ms=4000,
+        composition="mid",
+        cast_and_wardrobe="host",
+        cut="match",
+        video_prompt="host presents",
+        image_prompt="host",
+        reference_ids=[],
+        utterances=[
+            {
+                "speaker": "Илья",
+                "delivery": "on_screen",
+                "text": "Визуалы и маркетинг.",
+                "start_ms": 0,
+                "end_ms": 3500,
+            },
+        ],
+    )
+    approved = format_script(
+        [ScriptScene(duration_ms=4000, lines=shot.model_dump()["utterances"])],
+        "Русский",
+    )
+    assert matches_script(approved, [shot])
+    assert not matches_script(approved.replace("маркетинг", "дизайн"), [shot])
+    board = SavedStoryboard(scenes=[shot])
+    timeline = Timeline(
+        cuts=[{"scene": 1, "start_ms": 0, "end_ms": 4000, "push_in": True}],
+        graphics=[
+            {
+                "kind": "list",
+                "beats": [
+                    {"at_ms": 150, "label": "Визуалы"},
+                    {"at_ms": 950, "label": "маркетинг"},
+                ],
+                "end_ms": 1850,
+            }
+        ],
+        photo_cards=[
+            {"start_ms": 2000, "end_ms": 2950, "cue": "маркетинг", "version_id": ref}
+        ],
+    )
+    validate_cards(timeline, board, 4, {str(ref)})
+    with pytest.raises(ValueError):
+        validate_cards(timeline, board, 4, set())
+    timeline.graphics[0].beats[0].label = "Рост"
+    with pytest.raises(ValueError):
+        validate_cards(timeline, board, 4, {str(ref)})
+    timeline.graphics[0].beats[0].label = "Визуалы"
+    if not shutil.which("ffmpeg"):
+        pytest.skip("requires FFmpeg")
+    ffmpeg(
+        tmp_path,
+        [
+            "-f",
+            "lavfi",
+            "-i",
+            "color=red:s=90x160:r=24:d=4",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=f=440:d=4",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "source.mp4",
+        ],
+    )
+    photo = BytesIO()
+    Image.new("RGB", (240, 260), "lime").save(photo, "PNG")
+    result = FFmpegEditor().render(
+        [(tmp_path / "source.mp4").read_bytes()],
+        timeline,
+        4,
+        card_images={ref: photo.getvalue()},
+    )
+    (tmp_path / "result.mp4").write_bytes(result)
+    tracks, _ = track_info(tmp_path / "result.mp4")
+    assert int(tracks["video"]["nb_frames"]) == 96
+    assert abs(float(tracks["audio"]["duration"]) - 4) < 0.03
+
+    def pixel(at):
+        return tuple(
+            ffmpeg(
+                tmp_path,
+                [
+                    "-ss",
+                    str(at),
+                    "-i",
+                    "result.mp4",
+                    "-vf",
+                    "crop=2:2:360:556,scale=1:1",
+                    "-frames:v",
+                    "1",
+                    "-pix_fmt",
+                    "rgb24",
+                    "-f",
+                    "rawvideo",
+                    "pipe:1",
+                ],
+            )
+        )
+
+    assert max(pixel(0.3)) < 80
+    assert pixel(2.5)[1] > 170
+    assert pixel(3.5)[0] > 170

@@ -24,10 +24,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   let project;
   let context;
   try { [project, context] = await Promise.all([loadProject(id), loadContext(id)]); }
-  catch { return <AppShell userName={user.display_name} section="Проекты"><main className={content} id="main-content"><Link href="/projects">{t("← Проекты", "← Projects")}</Link><h1 className={pageTitle}>{t("Проект недоступен", "Project unavailable")}</h1><p>{t("Проверьте адрес или обновите страницу.", "Check the address or refresh the page.")}</p></main></AppShell>; }
+  catch { return <AppShell userName={user.display_name} isAdmin={user.is_admin} section="Проекты"><main className={content} id="main-content"><Link href="/projects">{t("← Проекты", "← Projects")}</Link><h1 className={pageTitle}>{t("Проект недоступен", "Project unavailable")}</h1><p>{t("Проверьте адрес или обновите страницу.", "Check the address or refresh the page.")}</p></main></AppShell>; }
   const scripts = await loadScripts(id).catch(() => null);
   return (
-    <AppShell userName={user.display_name} section="Проекты">
+    <AppShell userName={user.display_name} isAdmin={user.is_admin} section="Проекты">
       <main className={content} id="main-content">
         <Link className={backLink} href="/projects">
           {t("← Все проекты", "← All projects")}

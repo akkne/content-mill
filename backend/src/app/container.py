@@ -2,6 +2,7 @@ import os
 import shutil
 from functools import lru_cache
 from pathlib import Path
+from uuid import UUID
 
 import httpx
 
@@ -9,6 +10,7 @@ from app.application.agents.files import AgentFiles
 from app.application.auth.service import AuthService
 from app.application.avatars.library import AvatarLibrary
 from app.application.knowledge.service import KnowledgeService
+from app.application.projects.admin import ClientAdministration
 from app.application.projects.service import ProjectService
 from app.application.scripts.jobs import ScriptModel, ScriptWriter
 from app.application.videos.production import VideoProduction
@@ -16,6 +18,7 @@ from app.application.videos.service import VideoService
 from app.application.videos.text import VideoTextGenerator
 from app.application.voices.library import VoiceLibrary
 from app.application.voices.speech import SpeechService
+from app.domain.video import FACTS_STYLE, STORY_STYLE
 from app.infrastructure.database.repositories.script_jobs import SqlScriptJobs
 from app.infrastructure.database.repositories.speech import SqlSpeechRepository
 from app.infrastructure.database.repositories.voice_library import SqlVoiceLibrary
@@ -26,6 +29,7 @@ from app.infrastructure.database.transactions.knowledge import (
 from app.infrastructure.database.transactions.projects import (
     SqlAlchemyProjectUnitOfWork,
 )
+from app.infrastructure.providers.media.heygen_avatar6 import HeyGenAvatar6
 from app.infrastructure.providers.media.polza_kling_26 import PolzaKling26
 from app.infrastructure.providers.media.polza_media import PolzaMedia
 from app.infrastructure.providers.media.polza_nano_banana import PolzaNanoBanana21
@@ -33,6 +37,7 @@ from app.infrastructure.providers.speech.lumean import LumeanElevenLabs
 from app.infrastructure.providers.text.astra_script import AstraCli
 from app.infrastructure.providers.text.claude_script import ClaudeCodeCli, ClaudeScript
 from app.infrastructure.providers.text.codex_script import CodexCli, CodexScript
+from app.infrastructure.providers.text.sol_script import SolCli
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
 from app.infrastructure.starter_prompts import starter_prompts
@@ -47,6 +52,10 @@ tokens = SecureTokens()
 
 def auth_service() -> AuthService:
     return AuthService(SqlAlchemyAuthUnitOfWork, passwords, tokens)
+
+
+def client_administration() -> ClientAdministration:
+    return ClientAdministration(SqlAlchemyProjectUnitOfWork)
 
 
 def project_service() -> ProjectService:
@@ -70,6 +79,16 @@ def voice_library() -> VoiceLibrary:
     return VoiceLibrary(SqlVoiceLibrary(), voice_catalog())
 
 
+def read_style_guide(project: UUID, style: str) -> bytes | None:
+    folder = os.getenv("CONTENT_MILL_STYLE_GUIDES")
+    name = {FACTS_STYLE: "facts.jpg", STORY_STYLE: "story.jpg"}.get(style)
+    if folder and name:
+        path = Path(folder) / str(project) / name
+        if path.is_file():
+            return path.read_bytes()
+    return None
+
+
 def video_service() -> VideoService:
     models, selected = text_models()
     assembly_error = ""
@@ -79,8 +98,12 @@ def video_service() -> VideoService:
         assembly_error = "Для монтажа подключите Codex на сервере."
     return VideoService(
         SqlAlchemyProjectUnitOfWork,
-        VideoTextGenerator(models.get(selected), agent_files()),
+        VideoTextGenerator(models.get(selected), agent_files(), read_style_guide),
         assembly_error,
+        lipsync_available=bool(
+            os.getenv("HEYGEN_API_KEY", "").strip()
+            and os.getenv("LUMEAN_API_KEY", "").strip()
+        ),
     )
 
 
@@ -96,6 +119,8 @@ def video_production() -> VideoProduction:
         FFmpegEditor(),
         AssetPreview(),
         voice_catalog() if os.getenv("LUMEAN_API_KEY", "").strip() else None,
+        style_guide=read_style_guide,
+        lipsync=HeyGenAvatar6(os.getenv("HEYGEN_API_KEY", "").strip()),
         describe_error=describe_video_error,
     )
 
@@ -131,10 +156,12 @@ def text_models() -> tuple[dict[str, ScriptModel], str]:
                 models[cli.model] = cli(key)
                 if name == "codex":
                     models[CodexCli.model] = CodexCli(key)
+                    models[SolCli.model] = SolCli(key)
     auth_file = os.getenv("CONTENT_MILL_CODEX_AUTH_FILE")
     if auth_file and AstraCli.model not in models and shutil.which("codex"):
         path = Path(auth_file)
         if path.is_file():
+            models[SolCli.model] = SolCli(auth_file=path)
             models[AstraCli.model] = AstraCli(auth_file=path)
     if provider:
         selected = providers[provider][1].model

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select, tuple_, update
+from sqlalchemy import func, or_, select, tuple_, update
 from sqlalchemy.orm import Session
 
 from app.domain.project import (
@@ -18,13 +18,20 @@ from app.infrastructure.database.models import (
     ProjectContextModel,
     ProjectModel,
     UserModel,
+    VideoModel,
 )
 from app.infrastructure.database.repositories.voice_library import SqlVoiceLibrary
 
 
 def as_project(model: ProjectModel) -> Project:
     return Project(
-        model.id, model.owner_id, model.name, model.revision, model.created_at
+        model.id,
+        model.owner_id,
+        model.name,
+        model.revision,
+        model.created_at,
+        model.video_duration,
+        model.video_style,
     )
 
 
@@ -45,6 +52,65 @@ def as_context(model: ProjectContextModel) -> ProjectContext:
 class SqlAlchemyProjectRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
+
+    def list_clients(self, query, mode, offset, limit):
+        project = ProjectModel
+        conditions = [~project.id.in_(select(AvatarWorkspaceModel.project_id))]
+        if query:
+            conditions.append(
+                or_(
+                    project.name.icontains(query, autoescape=True),
+                    UserModel.email.icontains(query, autoescape=True),
+                )
+            )
+        totals = dict(
+            self.session.execute(
+                select(project.sales_mode, func.count())
+                .join(UserModel, UserModel.id == project.owner_id)
+                .where(*conditions)
+                .group_by(project.sales_mode)
+            ).all()
+        )
+        if mode:
+            conditions.append(project.sales_mode == mode)
+        videos = (
+            select(func.count(VideoModel.id))
+            .where(VideoModel.project_id == project.id)
+            .scalar_subquery()
+        )
+        rows = self.session.execute(
+            select(
+                project.id,
+                project.name,
+                UserModel.email,
+                project.sales_mode,
+                project.package_name,
+                project.delivery_notes,
+                project.video_duration,
+                project.video_style,
+                project.admin_revision,
+                videos.label("video_count"),
+            )
+            .join(UserModel, UserModel.id == project.owner_id)
+            .where(*conditions)
+            .order_by(project.created_at.desc(), project.id.desc())
+            .offset(offset)
+            .limit(limit)
+        ).mappings()
+        return {"items": [dict(row) for row in rows], "totals": totals}
+
+    def update_client(self, project_id, revision, settings):
+        updated = self.session.scalar(
+            update(ProjectModel)
+            .where(
+                ProjectModel.id == project_id,
+                ProjectModel.admin_revision == revision,
+                ~ProjectModel.id.in_(select(AvatarWorkspaceModel.project_id)),
+            )
+            .values(**settings, admin_revision=revision + 1)
+            .returning(ProjectModel.id)
+        )
+        return updated is not None
 
     def list_owned(
         self, owner_id: UUID, limit: int, cursor: UUID | None

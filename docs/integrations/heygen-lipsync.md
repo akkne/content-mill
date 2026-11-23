@@ -1,5 +1,5 @@
 # HeyGen Lipsync Precision
 
-Статус — отложено. Адаптер отключён от текущей сборки роликов.
+Прежний адаптер отдельной синхронизации губ. Для новых роликов с ведущим используется [Avatar 6 Turbo](heygen-avatar-6.md).
 
-[Схема запросов и ответов, ограничения и особенности адаптера](../../backend/src/app/infrastructure/providers/media/heygen_lipsync.api.md).
+[Исторический контракт](../../backend/src/app/infrastructure/providers/media/heygen_lipsync.api.md).

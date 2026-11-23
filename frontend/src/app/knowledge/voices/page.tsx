@@ -25,7 +25,7 @@ export default async function VoicesPage({
     searchParams,
   ]);
   return (
-    <AppShell userName={user.display_name} section="База знаний">
+    <AppShell userName={user.display_name} isAdmin={user.is_admin} section="База знаний">
       <main className={content} id="main-content">
         <Link className={backLink} href="/knowledge">
           {t("← База знаний", "← Knowledge base")}

@@ -1,3 +1,4 @@
+import itertools
 import json
 import os
 from base64 import b64decode
@@ -13,6 +14,7 @@ from alembic.config import Config
 from app.application.knowledge.service import KnowledgeService
 from app.container import auth_service, knowledge_service
 from app.domain.knowledge import DocumentStorageError
+from app.domain.video import EDITING_DIRECTIONS
 from app.infrastructure.database.models import (
     AccessTokenModel,
     AvatarWorkspaceModel,
@@ -343,8 +345,21 @@ def video_model(monkeypatch):
     class Model:
         def generate(self, instructions, text, images):
             data = json.loads(text)
+            assert (
+                data["editing_direction"]
+                == EDITING_DIRECTIONS[data["settings"]["editing_style"]]
+            )
+            count = data["scene_count"]
+            boundaries = [
+                data["settings"]["duration"] * 1000 * n // count
+                for n in range(count + 1)
+            ]
             return json.dumps(
                 {
+                    "scenes": [
+                        {"duration_ms": b - a, "lines": []}
+                        for a, b in itertools.pairwise(boundaries)
+                    ],
                     "script": data["title"]
                     + " ".join(m.get("text", "") for m in data["materials"]),
                     "caption": "Подпись к ролику",
@@ -924,6 +939,7 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
 
     def storyboard(instructions, text, images, materials):
         data = json.loads(text)
+        assert data["editing_direction"] == EDITING_DIRECTIONS["Детали товара"]
         assert "prompt_guides" not in data and data["script"] == "Авторский сценарий"
         assert [m["origin"] for m in data["materials"]] == ["user"]
         assert [entry[0] for entry in materials] == [source_id]
@@ -939,7 +955,9 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
 
     def edit(instructions, text, images, clips, materials):
         assert len(images) == len(clips) == 2
-        frames = json.loads(text)["first_frames"]
+        data = json.loads(text)
+        assert data["editing_direction"] == EDITING_DIRECTIONS["Детали товара"]
+        frames = data["first_frames"]
         source, *frame_inputs = list(materials)
         assert source[0] == source_id and source[1] == "markdown" and source[2]
         assert [f["name"] for f in frames] == ["scene-01.png", "scene-02.png"]
@@ -990,13 +1008,30 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
             ).status_code
             == 422
         )
-        source_id = client.get(base + "/options", headers=owner).json()["sources"][0][
-            "id"
-        ]
+        options = client.get(base + "/options", headers=owner).json()
+        assert 40 in options["options"]["duration"]
+        assert options["options"]["editing_style"] == list(EDITING_DIRECTIONS)
+        assert (
+            client.post(
+                base, headers=owner, json={"title": "Тест", "editing_style": "?"}
+            ).status_code
+            == 422
+        )
+        draft = client.post(
+            base, headers=owner, json={"title": "Обзор", "duration": 40}
+        ).json()
+        assert draft["settings"]["editing_style"] == "По сценарию"
+        assert draft["settings"]["duration"] == 40
+        source_id = options["sources"][0]["id"]
         video = client.post(
             base,
             headers=owner,
-            json={"title": "Тест сборки", "duration": 15, "sources": [source_id]},
+            json={
+                "title": "Тест сборки",
+                "duration": 15,
+                "editing_style": "Детали товара",
+                "sources": [source_id],
+            },
         ).json()
         assert video["journal"] == ["0–3 с: общий план"]
         assert video["caption"] == "Подпись к ролику"
@@ -1483,3 +1518,99 @@ def test_avatar_library_project_snapshot_and_voice(login, video_model, missing_f
         client.post(
             videos + "/" + result.json()["id"] + "/actions", json={"action": "delete"}
         ).raise_for_status()
+
+
+def test_admin_client_settings_are_private_and_seed_new_videos(
+    login, video_model, monkeypatch
+):
+    admin, customer = login(), login()
+    with TestClient(app) as client:
+        me = "/api/v1/me"
+        base = "/api/v1/admin/clients"
+        monkeypatch.setenv(
+            "MILL_ADMIN_USER_ID", client.get(me, headers=admin).json()["id"]
+        )
+        name = "Studio " + str(uuid4())
+        project = client.post(
+            "/api/v1/projects", headers=customer, json={"name": name}
+        ).json()["id"]
+        path = "/api/v1/projects/" + project
+        assert client.get(me, headers=admin).json()["is_admin"]
+        assert not client.get(me, headers=customer).json().get("is_admin")
+        assert client.get(base).status_code == 401
+        assert client.get(base, headers=customer).status_code == 403
+
+        def listed(mode=None):
+            params = {"q": name}
+            if mode:
+                params["mode"] = mode
+            return client.get(base, params=params, headers=admin).json()
+
+        row = listed()["items"][0]
+        assert row["id"] == project and row["sales_mode"] == "unassigned"
+        settings = {
+            "sales_mode": "implementation",
+            "package_name": "Запуск",
+            "delivery_notes": "Внутренний бриф",
+            "video_duration": 40,
+            "video_style": "Детали товара",
+            "revision": row["admin_revision"],
+        }
+        assert (
+            client.put(
+                base + "/" + project, headers=customer, json=settings
+            ).status_code
+            == 403
+        )
+        assert (
+            client.put(
+                base + "/" + project,
+                headers=admin,
+                json={**settings, "video_duration": 999},
+            ).status_code
+            == 422
+        )
+        assert (
+            client.put(base + "/" + project, headers=admin, json=settings).status_code
+            == 204
+        )
+        assert (
+            client.put(base + "/" + project, headers=admin, json=settings).status_code
+            == 409
+        )
+        assert listed("saas")["items"] == []
+        updated = listed("implementation")
+        assert updated["totals"] == {"implementation": 1}
+        assert updated["items"][0]["delivery_notes"] == settings["delivery_notes"]
+        options = client.get(path + "/videos/options", headers=customer).json()
+        assert options["defaults"] == {"duration": 40, "editing_style": "Детали товара"}
+        assert (
+            "Внутренний бриф"
+            not in str(options) + client.get(path, headers=customer).text
+        )
+        for payload, secs, style in [
+            ({"title": "Авто"}, 40, "Детали товара"),
+            (
+                {"title": "Свой", "duration": 20, "editing_style": "Динамичный"},
+                20,
+                "Динамичный",
+            ),
+        ]:
+            draft = client.post(path + "/videos", headers=customer, json=payload)
+            assert draft.status_code == 201
+            params = draft.json()["settings"]
+            assert (params["duration"], params["editing_style"]) == (secs, style)
+        assert listed()["items"][0]["video_count"] == 2
+        assert (
+            client.put(
+                base + "/" + project,
+                headers=admin,
+                json={
+                    **settings,
+                    "revision": row["admin_revision"] + 1,
+                    "sales_mode": "saas",
+                },
+            ).status_code
+            == 204
+        )
+        assert listed("saas")["items"][0]["id"] == project

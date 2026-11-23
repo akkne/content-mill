@@ -32,6 +32,7 @@ function getTheme(): "light" | "dark" {
 }
 
 const navigation = [
+  ["Админ-панель", "Admin panel", "checks", "/admin"],
   ["Главная", "Home", "home", "/"],
   ["Проекты", "Projects", "brand", "/projects"],
   ["База знаний", "Knowledge base", "brand", "/knowledge"],
@@ -50,9 +51,11 @@ export function AppShell({
   children,
   userName,
   section = "Главная",
+  isAdmin = false,
 }: {
   children: React.ReactNode;
   userName: string;
+  isAdmin?: boolean;
   section?: string;
 }) {
   const language = useInterfaceLanguage();
@@ -126,6 +129,7 @@ export function AppShell({
           aria-label={t("Разделы", "Sections")}
         >
           {navigation.map(([label, en, icon, href]) => {
+            if (href === "/admin" && !isAdmin) return null;
             const content = (
               <>
                 <WorkspaceIcon

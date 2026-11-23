@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: content_mill
+      POSTGRES_DB: content_mill
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U content_mill"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  storage:
+    image: chrislusf/seaweedfs@sha256:7ca46aeae2f223b37e5d91593c17ab37738eec6df6ab69b48a0487f7643342b9
+    restart: unless-stopped
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?}
+      S3_BUCKET: content-mill
+    volumes:
+      - objects:/data
+    ports:
+      - "127.0.0.1:19000:8333"
+
+  backend:
+    build: ./backend/src
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://content_mill:${POSTGRES_PASSWORD:?}@postgres:5432/content_mill
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?}
+      S3_BUCKET: content-mill
+      S3_ENDPOINT_URL: http://storage:8333
+      S3_PUBLIC_ENDPOINT_URL: https://${MILL_DOMAIN:?}
+      CONTENT_MILL_STYLE_GUIDES: /run/mill-guides
+      CONTENT_MILL_SCRIPT_PROVIDER: codex
+      CONTENT_MILL_CODEX_AUTH_FILE: /run/mill-login/auth.json
+      POLZA_API_KEY: ${POLZA_API_KEY:-}
+      MILL_ADMIN_USER_ID: ${MILL_ADMIN_USER_ID:-}
+      HEYGEN_API_KEY: ${HEYGEN_API_KEY:-}
+      LUMEAN_API_KEY: ${LUMEAN_API_KEY:-}
+    volumes:
+      - /etc/mill/style-guides:/run/mill-guides:ro
+      - /etc/mill/codex:/run/mill-login:ro
+    ports:
+      - "127.0.0.1:18000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.server
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://backend:8000
+      SESSION_COOKIE_SECURE: "true"
+    ports:
+      - "127.0.0.1:13000:3000"
+
+volumes:
+  database:
+  objects:

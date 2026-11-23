@@ -10,7 +10,7 @@ export type VideoFailure = {
 export function videoFailureMessage(t: Translate, reason: string) {
   const messages: Record<string, string> = {
     order_unconfirmed: t("Polza не вернула номер заказа. Генерация могла начаться.", "Polza did not return an order ID. Generation may have started."),
-    heygen_key: t("Повторите этап, чтобы продолжить сборку с озвучкой ElevenLabs.","Retry the stage to continue with ElevenLabs dialogue."),
+    heygen_key: t("Подключите серверный ключ HeyGen и повторите этап.","Configure the HeyGen key on the server and retry the stage."),
     speech_failed: t("Сервис не выдал озвучку реплики.","The speech service did not deliver the line."),
     speech_too_long: t("Реплика не помещается в интервал. Создайте вариант с более короткой репликой.","The line exceeds its time slot. Create a variation with a shorter line."),
     speech_unavailable: t("Для голосов персонажей добавьте LUMEAN_API_KEY.","Set LUMEAN_API_KEY for character voices."),

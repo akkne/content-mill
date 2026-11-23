@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException
 
@@ -6,6 +7,7 @@ from app.application.auth.service import AuthService
 from app.application.knowledge.service import KnowledgeService
 from app.container import auth_service, knowledge_service
 from app.domain.auth import InvalidSession, User
+from app.owner import configured_owner
 
 AuthServiceDependency = Annotated[AuthService, Depends(auth_service)]
 KnowledgeServiceDependency = Annotated[KnowledgeService, Depends(knowledge_service)]
@@ -23,6 +25,15 @@ def current_user(
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
+
+
+def is_admin(user_id: UUID) -> bool:
+    return user_id == configured_owner()
+
+
+def require_admin(user: CurrentUser) -> None:
+    if not is_admin(user.id):
+        raise HTTPException(status_code=403, detail="Требуется доступ администратора")
 
 
 def expected_revision(value: str | None) -> int:

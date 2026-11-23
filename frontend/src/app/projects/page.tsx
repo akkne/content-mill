@@ -22,7 +22,7 @@ export default async function ProjectsPage() {
   let error = "";
   try { projects = await loadProjects(); } catch { projects = []; error = t("Не удалось загрузить список проектов. Обновите страницу.", "Could not load projects. Refresh the page."); }
   return (
-    <AppShell userName={user.display_name} section="Проекты">
+    <AppShell userName={user.display_name} isAdmin={user.is_admin} section="Проекты">
       <main className={content} id="main-content">
         <span className={eyebrow}>{t("Рабочее пространство", "Workspace")}</span>
         <h1 className={pageTitle}>{t("Проекты", "Projects")}</h1>

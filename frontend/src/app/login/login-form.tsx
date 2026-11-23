@@ -4,11 +4,18 @@ import { useTranslator } from "@/app/interface-language";
 import { field, formError, primaryButton } from "@/app/ui-styles";
 import { useActionState } from "react";
 
-import { loginAction, registerAction } from "./actions";
+import { loginAction, ownerSetupAction, registerAction } from "./actions";
 
-export function LoginForm({ register }: { register: boolean }) {
+export function LoginForm({ register, ownerSetup = false }: { register: boolean; ownerSetup?: boolean }) {
   const t = useTranslator();
-  const [error, action, pending] = useActionState(register ? registerAction : loginAction, "");
+  const newPassword = register || ownerSetup;
+  async function submitOwner(_: string, data: FormData) {
+    const token = window.location.hash.slice(1);
+    if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return t("Открой полную ссылку владельца.", "Open your complete owner setup link.");
+    data.set("token", token);
+    return ownerSetupAction(data);
+  }
+  const [error, action, pending] = useActionState(ownerSetup ? submitOwner : register ? registerAction : loginAction, "");
 
   return (
     <form action={action} className="grid gap-2">
@@ -34,23 +41,23 @@ export function LoginForm({ register }: { register: boolean }) {
       </label>
       <input
         className={`${field} min-h-11`}
-        autoComplete={register ? "new-password" : "current-password"}
-        minLength={register ? 15 : undefined}
+        autoComplete={newPassword ? "new-password" : "current-password"}
+        minLength={newPassword ? 8 : undefined}
         maxLength={1024}
-        aria-describedby={register ? "password-hint" : undefined}
+        aria-describedby={newPassword ? "password-hint" : undefined}
         id="password"
         name="password"
         required
         type="password"
       />
-      {register && <p className="text-sm text-muted" id="password-hint">{t("Минимум 15 символов", "At least 15 characters")}</p>}
+      {newPassword && <p className="text-sm text-muted" id="password-hint">{t("Минимум 8 символов", "At least 8 characters")}</p>}
       {error && (
         <p aria-live="polite" className={formError} role="alert">
           {error}
         </p>
       )}
       <button className={`${primaryButton} mt-[15px]`} disabled={pending} type="submit">
-        {register ? (pending ? t("Создаём аккаунт…", "Creating account…") : t("Создать аккаунт", "Create account")) : (pending ? t("Входим…", "Signing in…") : t("Войти", "Sign in"))}
+        {ownerSetup ? t("Сохранить и войти", "Save and sign in") : register ? (pending ? t("Создаём аккаунт…", "Creating account…") : t("Создать аккаунт", "Create account")) : (pending ? t("Входим…", "Signing in…") : t("Войти", "Sign in"))}
       </button>
     </form>
   );

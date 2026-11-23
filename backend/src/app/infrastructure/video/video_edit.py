@@ -1,12 +1,20 @@
 import base64
 import json
+import math
 import subprocess
 import wave
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from uuid import UUID
+
+from PIL import Image, ImageDraw, ImageOps
 
 from app.application.videos.production import ProductionError, Timeline
+from app.domain.video import DEFAULT_EDITING_STYLE, FACTS_STYLE, STORY_STYLE
+from app.infrastructure.video.asset_preview import check_size
+from app.infrastructure.video.editorial_graphic import graphic_frame
+from app.infrastructure.video.reference_captions import reference_captions
 
 
 def ffmpeg(directory: Path, args: list[str]) -> bytes:
@@ -101,6 +109,9 @@ class FFmpegEditor:
         timeline: Timeline,
         duration: int,
         music: tuple[str, bytes] | None = None,
+        product_photo: bytes | None = None,
+        editing_style: str = DEFAULT_EDITING_STYLE,
+        card_images: dict[UUID, bytes] | None = None,
     ) -> bytes:
         with TemporaryDirectory(prefix="cm-render-") as tmp:
             directory = Path(tmp)
@@ -114,16 +125,101 @@ class FFmpegEditor:
                 first, last = cut.frame_range(elapsed_ms)
                 elapsed_ms += cut.end_ms - cut.start_ms
                 inputs.extend(["-f", "mov", "-i", source.name])
+                motion = ""
+                if cut.push_in:
+                    frames = max(1, last - first - 1)
+                    motion = (
+                        f",scale=1440:2560,zoompan=z='1+0.09*on/{frames}'"
+                        ":x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=1:s=720x1280:fps=24"
+                    )
                 filters.extend(
                     [
-                        f"[{i}:v]fps=24:start_time=0,trim=start_frame={first}:end_frame={last},setpts=PTS-STARTPTS,scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}]",
+                        f"[{i}:v]fps=24:start_time=0,trim=start_frame={first}:end_frame={last},setpts=PTS-STARTPTS,scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1{motion}[v{i}]",
                         f"[{i}:a]aresample=48000:async=1:first_pts=0,atrim=start_sample={first * 2000}:end_sample={last * 2000},asetpts=PTS-STARTPTS,aformat=channel_layouts=stereo,apad,atrim=end_sample={(last - first) * 2000}[a{i}]",
                     ]
                 )
                 labels.append(f"[v{i}][a{i}]")
             filters.append("".join(labels) + f"concat=n={len(labels)}:v=1:a=1[v][a]")
             video_label, audio_label = "[v]", "[a]"
-            if timeline.subtitles:
+            insert = timeline.photo_cutaway
+            if insert:
+                if not product_photo:
+                    raise ValueError("Missing product photo")
+                with Image.open(
+                    BytesIO(product_photo), formats=["PNG", "JPEG", "WEBP"]
+                ) as original:
+                    check_size(*original.size)
+                    picture = ImageOps.exif_transpose(original).convert("RGBA")
+                    bounds = (648, 890) if editing_style == STORY_STYLE else (720, 1280)
+                    picture = ImageOps.contain(
+                        picture, bounds, Image.Resampling.LANCZOS
+                    )
+                    canvas = Image.new("RGB", (720, 1280), "#101010")
+                    canvas.paste(
+                        picture,
+                        ((720 - picture.width) // 2, (1280 - picture.height) // 2),
+                        picture,
+                    )
+                    canvas.save(directory / "product.png")
+                inputs.extend(["-f", "image2", "-i", "product.png"])
+                filters.append(
+                    f"[v][{len(labels)}:v]overlay=enable='gte(t,{insert.start_ms / 1000})*lt(t,{insert.end_ms / 1000})'[withphoto]"
+                )
+                video_label = "[withphoto]"
+            next_input = len(labels) + int(insert is not None)
+            for index, card in enumerate(timeline.photo_cards):
+                filename = f"card-{index}.png"
+                with Image.open(
+                    BytesIO((card_images or {})[card.version_id]),
+                    formats=["PNG", "JPEG", "WEBP"],
+                ) as source:
+                    check_size(*source.size)
+                    photo = ImageOps.contain(
+                        ImageOps.exif_transpose(source).convert("RGB"),
+                        (620, 790),
+                        Image.Resampling.LANCZOS,
+                    )
+                    mask = Image.new("L", photo.size)
+                    ImageDraw.Draw(mask).rounded_rectangle(
+                        (0, 0, photo.width - 1, photo.height - 1), radius=18, fill=255
+                    )
+                    photo.putalpha(mask)
+                    photo.save(directory / filename)
+                start = card.start_ms / 1000
+                active = f"gte(t,{start})*lt(t,{card.end_ms / 1000})"
+                inputs.extend(["-f", "image2", "-i", filename])
+                filters.extend(
+                    [
+                        f"{video_label}drawbox=w=iw:h=ih:c=0x101010:t=fill:enable='{active}'[matte{index}]",
+                        f"[matte{index}][{next_input}:v]overlay=x='(W-w)/2':y='(H-h)/2-82+48*max(0,1-(t-{start})/0.22)':enable='{active}'[card{index}]",
+                    ]
+                )
+                next_input += 1
+                video_label = f"[card{index}]"
+            for graphic in timeline.graphics:
+                for index, beat in enumerate(graphic.beats):
+                    end = (
+                        graphic.beats[index + 1].at_ms
+                        if index + 1 < len(graphic.beats)
+                        else graphic.end_ms
+                    )
+                    filename = f"graphic-{next_input}.png"
+                    graphic_frame(graphic, index).save(directory / filename)
+                    inputs.extend(["-f", "image2", "-i", filename])
+                    label = f"[graphic{next_input}]"
+                    filters.append(
+                        f"{video_label}[{next_input}:v]overlay=enable='gte(t,{beat.at_ms / 1000})*lt(t,{end / 1000})'{label}"
+                    )
+                    video_label = label
+                    next_input += 1
+            if timeline.subtitles and editing_style in (FACTS_STYLE, STORY_STYLE):
+                (directory / "captions.ass").write_text(
+                    reference_captions(timeline.subtitles, editing_style),
+                    encoding="utf-8",
+                )
+                filters.append(f"{video_label}subtitles=captions.ass[vsub]")
+                video_label = "[vsub]"
+            elif timeline.subtitles:
 
                 def stamp(ms):
                     return f"{ms // 3600000:02}:{ms // 60000 % 60:02}:{ms // 1000 % 60:02},{ms % 1000:03}"
@@ -136,7 +232,7 @@ class FFmpegEditor:
                     ),
                     encoding="utf-8",
                 )
-                filters.append("[v]subtitles=captions.srt[vsub]")
+                filters.append(f"{video_label}subtitles=captions.srt[vsub]")
                 video_label = "[vsub]"
             if music and timeline.music:
                 fmt, body = music
@@ -156,7 +252,7 @@ class FFmpegEditor:
                 )
                 filters.extend(
                     [
-                        f"[{len(labels)}:a]aresample=48000,volume={timeline.music.gain_db}dB,afade=t=out:st={duration - 1}:d=1[bg]",
+                        f"[{next_input}:a]aresample=48000,volume={timeline.music.gain_db}dB,afade=t=out:st={duration - 1}:d=1[bg]",
                         "[a][bg]amix=inputs=2:duration=first:normalize=0,alimiter=latency=1[mix]",
                     ]
                 )
@@ -234,6 +330,29 @@ class FFmpegEditor:
             directory = Path(tmp)
             (directory / "video.mp4").write_bytes(clip)
             (directory / "speech.wav").write_bytes(audio)
+            # Avatar providers can drop a few frames of trailing silence.
+            # Keep the authored audio intact and hold the last picture in that gap.
+            video = track_info(directory / "video.mp4")[0]["video"]
+            picture_end = float(video.get("start_time", 0)) + float(video["duration"])
+            # Montage trims both streams to the approved cut. Using -shortest
+            # with packet-copy here can drop reordered video frames at its end.
+            video_args = ["-c:v", "copy"]
+            with wave.open(BytesIO(audio), "rb") as track:
+                rate = track.getframerate()
+                samples = track.getnframes()
+                gap = samples / rate - picture_end
+                if 0 < gap <= 0.25:
+                    track.setpos(max(0, min(samples, math.floor(picture_end * rate))))
+                    if not any(track.readframes(samples - track.tell())):
+                        frames = math.ceil(samples * 24 / rate)
+                        video_args = [
+                            "-vf",
+                            f"fps=24:start_time=0,tpad=stop_mode=clone:stop=-1,trim=end_frame={frames}",
+                            "-c:v",
+                            "libx264",
+                            "-preset",
+                            "veryfast",
+                        ]
             ffmpeg(
                 directory,
                 [
@@ -245,11 +364,9 @@ class FFmpegEditor:
                     "0:v:0",
                     "-map",
                     "1:a:0",
-                    "-c:v",
-                    "copy",
+                    *video_args,
                     "-c:a",
                     "aac",
-                    "-shortest",
                     "out.mp4",
                 ],
             )
