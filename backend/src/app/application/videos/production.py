@@ -21,7 +21,12 @@ from app.application.projects.ports import ProjectUnitOfWorkFactory
 from app.application.scripts.jobs import ScriptModel
 from app.application.videos.cast import avatar_references, validate_cast_scene
 from app.domain.knowledge import ExampleEntry
-from app.domain.video import Video, editing_direction, scene_count
+from app.domain.video import (
+    DEFAULT_EDITING_STYLE,
+    Video,
+    editing_direction,
+    scene_count,
+)
 
 Description = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)
@@ -102,6 +107,11 @@ class BackgroundMusic(BaseModel):
 
 
 class Subtitle(BaseModel):
+    emphasis: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Optional exact contiguous phrase from this subtitle to accent.",
+    )
     start_ms: int = Field(ge=0)
     end_ms: int = Field(gt=0)
     text: str = Field(min_length=1, max_length=180, pattern=r"^[^\r\n<>{}\\]+$")
@@ -173,6 +183,7 @@ class VideoEditor(Protocol):
         duration: int,
         music: tuple[str, bytes] | None = None,
         product_photo: bytes | None = None,
+        editing_style: str = DEFAULT_EDITING_STYLE,
     ) -> bytes: ...
 
 
@@ -675,7 +686,14 @@ class VideoProduction:
             photo = self.artifact(
                 video, state["inputs"][video.settings["product_photo_id"]]
             )
-        result = self.editor.render(clips, timeline, duration, music, photo)
+        result = self.editor.render(
+            clips,
+            timeline,
+            duration,
+            music,
+            photo,
+            video.settings.get("editing_style", DEFAULT_EDITING_STYLE),
+        )
         state["stage"] = "done"
         video.status = "ready"
         return [("final.mp4", "video", "video/mp4", result)], 0

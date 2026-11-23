@@ -64,6 +64,7 @@ export function Wizard({
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
+  const [editingStyle, setEditingStyle] = useState(data.defaults.editing_style);
   const [duration, setDuration] = useState(data.defaults.duration);
   const [review, setReview] = useState<FormData>();
   const [error, setError] = useState("");
@@ -227,11 +228,10 @@ export function Wizard({
                     className={field}
                     name={k}
                     defaultValue={k === "duration" || k === "editing_style" ? data.defaults[k] : undefined}
-                    onChange={
-                      k === "duration"
-                        ? (e) => setDuration(Number(e.target.value))
-                        : undefined
-                    }
+                    onChange={e => {
+                      if (k === "duration") setDuration(Number(e.target.value));
+                      if (k === "editing_style") setEditingStyle(e.target.value);
+                    }}
                   >
                     {data.options[k].map((v) => (
                       <option key={v} value={v}>
@@ -240,6 +240,10 @@ export function Wizard({
                       </option>
                     ))}
                   </select>
+                  {k === "editing_style" && editingStyle === "История в цифрах" &&
+                    <span className="text-sm font-normal text-muted">{t("От факта к выводу. Числа и единицы выделяются в титрах.", "Lead with a fact and highlight its number and unit in captions.")}</span>}
+                  {k === "editing_style" && editingStyle === "История через детали" &&
+                    <span className="text-sm font-normal text-muted">{t("От общего плана к детали. Голос ведёт рассказ через вставки.", "Move from a wide shot to a telling detail, with narration across cutaways.")}</span>}
                 </label>
               ))}
 

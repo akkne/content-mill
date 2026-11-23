@@ -363,3 +363,20 @@ def test_product_photo_appears_only_during_selected_interval(tmp_path):
         ],
     )
     assert max(array("h", audio)) > 500
+
+
+def test_reference_caption_accents_only_existing_words():
+    from app.application.videos.production import Subtitle
+    from app.domain.video import FACTS_STYLE, STORY_STYLE
+    from app.infrastructure.video.reference_captions import reference_captions
+
+    caption = Subtitle(
+        start_ms=999, end_ms=2310, text="Всего 12 дней", emphasis="12 дней"
+    )
+    facts = reference_captions([caption], FACTS_STYLE)
+    story = reference_captions([caption], STORY_STYLE)
+    assert "0:00:01.00,0:00:02.31" in facts
+    assert r"Всего {\1c&H54F2DB&\i1}12 дней{\rCaption}" in facts
+    assert r"Всего {\1c&H63DFFF&}12 дней{\rCaption}" in story
+    caption.emphasis = "другое слово"
+    assert reference_captions([caption], STORY_STYLE).endswith("Всего 12 дней\n")

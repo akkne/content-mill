@@ -9,7 +9,9 @@ from tempfile import TemporaryDirectory
 from PIL import Image, ImageOps
 
 from app.application.videos.production import ProductionError, Timeline
+from app.domain.video import DEFAULT_EDITING_STYLE, FACTS_STYLE, STORY_STYLE
 from app.infrastructure.video.asset_preview import check_size
+from app.infrastructure.video.reference_captions import reference_captions
 
 
 def ffmpeg(directory: Path, args: list[str]) -> bytes:
@@ -105,6 +107,7 @@ class FFmpegEditor:
         duration: int,
         music: tuple[str, bytes] | None = None,
         product_photo: bytes | None = None,
+        editing_style: str = DEFAULT_EDITING_STYLE,
     ) -> bytes:
         with TemporaryDirectory(prefix="cm-render-") as tmp:
             directory = Path(tmp)
@@ -136,8 +139,9 @@ class FFmpegEditor:
                 ) as original:
                     check_size(*original.size)
                     picture = ImageOps.exif_transpose(original).convert("RGBA")
+                    bounds = (648, 890) if editing_style == STORY_STYLE else (720, 1280)
                     picture = ImageOps.contain(
-                        picture, (720, 1280), Image.Resampling.LANCZOS
+                        picture, bounds, Image.Resampling.LANCZOS
                     )
                     canvas = Image.new("RGB", (720, 1280), "#101010")
                     canvas.paste(
@@ -151,7 +155,14 @@ class FFmpegEditor:
                     f"[v][{len(labels)}:v]overlay=enable='gte(t,{insert.start_ms / 1000})*lt(t,{insert.end_ms / 1000})'[withphoto]"
                 )
                 video_label = "[withphoto]"
-            if timeline.subtitles:
+            if timeline.subtitles and editing_style in (FACTS_STYLE, STORY_STYLE):
+                (directory / "captions.ass").write_text(
+                    reference_captions(timeline.subtitles, editing_style),
+                    encoding="utf-8",
+                )
+                filters.append(f"{video_label}subtitles=captions.ass[vsub]")
+                video_label = "[vsub]"
+            elif timeline.subtitles:
 
                 def stamp(ms):
                     return f"{ms // 3600000:02}:{ms // 60000 % 60:02}:{ms // 1000 % 60:02},{ms % 1000:03}"
