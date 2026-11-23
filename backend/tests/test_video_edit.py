@@ -408,3 +408,27 @@ def test_dub_keeps_short_trailing_pause_in_avatar_scene(tmp_path):
         tail = (b"\x01\x00" if sounding_tail else b"\x00\x00") * 21600
         duration, _ = editor.inspect(editor.dub(clip, wav_bytes(speech + tail)))
         assert (duration >= 4400) is expected_complete
+
+
+@pytest.mark.skipif(
+    not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="requires FFmpeg"
+)
+def test_dub_retains_picture_through_shorter_voiceover(tmp_path):
+    from app.infrastructure.video.video_edit import wav_bytes
+
+    ffmpeg(
+        tmp_path,
+        [
+            "-f",
+            "lavfi",
+            "-i",
+            "color=blue:s=160x90:r=30:d=10",
+            "-c:v",
+            "libx264",
+            "source.mp4",
+        ],
+    )
+    editor = FFmpegEditor()
+    audio = wav_bytes(bytes(7200 * 48))
+    clip = editor.dub((tmp_path / "source.mp4").read_bytes(), audio)
+    assert editor.inspect(clip)[0] == 7200

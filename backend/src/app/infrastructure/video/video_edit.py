@@ -278,7 +278,9 @@ class FFmpegEditor:
             # Keep the authored audio intact and hold the last picture in that gap.
             video = track_info(directory / "video.mp4")[0]["video"]
             picture_end = float(video.get("start_time", 0)) + float(video["duration"])
-            video_args = ["-c:v", "copy", "-shortest"]
+            # Montage trims both streams to the approved cut. Using -shortest
+            # with packet-copy here can drop reordered video frames at its end.
+            video_args = ["-c:v", "copy"]
             with wave.open(BytesIO(audio), "rb") as track:
                 rate = track.getframerate()
                 samples = track.getnframes()
