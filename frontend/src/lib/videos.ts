@@ -8,6 +8,7 @@ export type VideoSource = {
   id: string;
   name: string;
   version: number;
+  format?: string;
   selected?: boolean;
   path?: string;
   node_id?: string;

@@ -38,7 +38,9 @@ export function Wizard({
     language: t("Язык", "Language"),
   };
   const [cast,setCast] = useState<CastRow[]>([]);
-  const [sources, setSources] = useState(data.sources);
+  const [uploadedSources, setUploadedSources] = useState<VideoOptions["sources"]>([]);
+  const savedIds = new Set(data.sources.map(source => source.id));
+  const sources = [...uploadedSources.filter(source => !savedIds.has(source.id)), ...data.sources];
   const [manualSelection, setManualSelection] = useState(() => [
     ...data.folders.filter(f => !f.parent_id && ["Промпты", "Бренд", "Формулы роликов"].includes(f.name)).map(f => f.id),
     ...data.sources.filter(source => source.selected).map(source => source.id),
@@ -58,6 +60,7 @@ export function Wizard({
     setExcludedCastFolders(previous => previous.filter(id => retained.has(id)));
     setCast(next);
   }
+  const [productPhoto, setProductPhoto] = useState("");
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
@@ -67,6 +70,8 @@ export function Wizard({
   const [pending, start] = useTransition();
   const selectedVersions = resolveMaterials(selection, data.folders, sources, avatarFolders);
   const attachments = sources.filter(source => selectedVersions.has(source.id));
+  const photos = attachments.filter(source => source.format?.startsWith("image/"));
+  const selectedPhoto = photos.find(photo => photo.id === productPhoto);
   return (
     <>
       <h1 className={pageTitle}>{t("Создать ролик", "Create video")}</h1>
@@ -173,12 +178,13 @@ export function Wizard({
                           null,
                           file,
                         );
-                        setSources((previous) => [
+                        setUploadedSources((previous) => [
                           ...previous,
                           {
                             id: version.id,
                             name: node.name,
                             version: version.version,
+                            format: version.format,
                             node_id: node.id,
                             parent_id: node.parent_id,
                           },
@@ -200,6 +206,15 @@ export function Wizard({
               </label>
               <MaterialPicker project={data.project} folders={data.folders} sources={sources}
                 selection={selection} avatarFolders={avatarFolders} onChange={changeSelection} disabled={pending || uploading} />
+              <label className={fieldLabel}>
+                {t("Фото товара для показа в ролике", "Product photo to show in the video")}
+                <select className={field} value={selectedPhoto?.id ?? ""} onChange={e => setProductPhoto(e.target.value)}>
+                  <option value="">{t("Без фотовставки", "No photo cutaway")}</option>
+                  {photos.map(photo => <option key={photo.id} value={photo.id}>{photo.name} · v{photo.version}</option>)}
+                </select>
+                <span className="text-sm font-normal text-muted">{t("Выбери изображение из материалов выше. В нужный момент зритель увидит оригинал на весь экран поверх звуковой дорожки.", "Choose an image from the materials above. The original appears full-screen at the relevant moment while the audio continues.")}</span>
+              </label>
+              {selectedPhoto && <input type="hidden" name="product_photo_id" value={selectedPhoto.id} />}
               {Array.from(selectedVersions, id => <input key={id} type="hidden" name="sources" value={id} />)}
             </div>
           </div>
@@ -260,6 +275,7 @@ export function Wizard({
                   t("Персонажи и голоса", "Characters and voices"),
                   cast.map(r=>(data.avatars.find(a=>a.id===r.character_id)?.name??"")+" · "+(data.cast_voices.find(v=>v.id===r.voice_id)?.name??t("Без реплик","No dialogue"))).join(", ") || t("Не выбраны","None selected"),
                 ],
+                ...(selectedPhoto ? [[t("Фотовставка", "Photo cutaway"), selectedPhoto.name]] : []),
                 [t("Материалы", "Materials"), attachments.length + t(" файлов", " files")],
               ].map(([k, v]) => (
                 <p

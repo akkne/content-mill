@@ -94,6 +94,15 @@ class VideoService:
                 settings["library_voice_id"] = voice
                 settings["voice"] = voices[voice]
             materials = work.videos.sources(project, sources)
+            photo = settings.get("product_photo_id")
+            if photo is not None:
+                if not any(
+                    s.id == photo
+                    and s.format in {"image/jpeg", "image/png", "image/webp"}
+                    for s in materials
+                ):
+                    raise InvalidVideo("Выберите фото товара из материалов ролика.")
+                settings["product_photo_id"] = str(photo)
             if settings.get("characters"):
                 settings["characters"] = resolve_cast(
                     settings["characters"], work.knowledge.list(project), materials
@@ -206,6 +215,7 @@ class VideoService:
                         "id": s.id,
                         "name": s.name,
                         "version": s.version,
+                        "format": s.format,
                         **source_labels(s.node_id),
                         "selected": s.id in context.source_version_ids,
                     }

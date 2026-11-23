@@ -107,7 +107,13 @@ class Subtitle(BaseModel):
     text: str = Field(min_length=1, max_length=180, pattern=r"^[^\r\n<>{}\\]+$")
 
 
+class PhotoCutaway(BaseModel):
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+
+
 class Timeline(BaseModel):
+    photo_cutaway: PhotoCutaway | None = None
     music: BackgroundMusic | None = None
     subtitles: list[Subtitle] = Field(default_factory=list, max_length=120)
 
@@ -166,6 +172,7 @@ class VideoEditor(Protocol):
         timeline: Timeline,
         duration: int,
         music: tuple[str, bytes] | None = None,
+        product_photo: bytes | None = None,
     ) -> bytes: ...
 
 
@@ -217,7 +224,10 @@ unused tail of a ten-second take. Respect editing_direction within the approved 
 Use every scene once in narrative order, hard cuts at meaningful actions,
 preserving each spoken line. Use integer millisecond source intervals. Keep audio
 and picture locked. The total MUST equal duration * 1000 exactly. Playback is 1x.
-Use subtitles for spoken lines when requested; time them on the FINAL timeline.
+Use short readable subtitles for spoken lines unless the brief requests otherwise; time them on the FINAL timeline.
+When product_photo_id is provided, inspect that exact selected photo and specify ONE photo_cutaway
+on the FINAL timeline lasting 1 to 6 seconds during the line about the product. Original audio continues.
+Keep critical on-screen actions and the speaker's opening visible. Otherwise omit photo_cutaway.
 If the brief selects a specific music track, use its supplied audio version ID,
 start offset and background gain; otherwise omit music. inspect_material provides a
 preview of selected project assets and generated first frames by version ID. The renderer executes this timeline. Your montage MCP tools inspect_frame
@@ -580,6 +590,7 @@ class VideoProduction:
             }
             payload = {
                 "editing_direction": editing_direction(video.settings),
+                "product_photo_id": video.settings.get("product_photo_id"),
                 "first_frames": [
                     {"version_id": ref, "name": name}
                     for ref, name in first_frames.items()
@@ -612,6 +623,14 @@ class VideoProduction:
                 materials(),
             )
             validate_cuts(timeline, board, [p[0] for p in probes], duration)
+            insert = timeline.photo_cutaway
+            if bool(video.settings.get("product_photo_id")) != bool(insert):
+                raise ValueError("Photo cutaway must match the selected product photo")
+            if insert and not (
+                1000 <= insert.end_ms - insert.start_ms <= 6000
+                and insert.end_ms <= duration * 1000
+            ):
+                raise ValueError("Invalid product photo interval")
             audio_ids = {
                 source["id"]
                 for source in video.settings["sources"]
@@ -651,7 +670,12 @@ class VideoProduction:
         if timeline.music:
             name = state["inputs"][str(timeline.music.version_id)]
             music = self.read(video.project_id, state["files"][name]["version"])
-        result = self.editor.render(clips, timeline, duration, music)
+        photo = None
+        if timeline.photo_cutaway:
+            photo = self.artifact(
+                video, state["inputs"][video.settings["product_photo_id"]]
+            )
+        result = self.editor.render(clips, timeline, duration, music, photo)
         state["stage"] = "done"
         video.status = "ready"
         return [("final.mp4", "video", "video/mp4", result)], 0

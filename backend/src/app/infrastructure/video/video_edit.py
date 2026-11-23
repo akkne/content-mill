@@ -6,7 +6,10 @@ from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from PIL import Image, ImageOps
+
 from app.application.videos.production import ProductionError, Timeline
+from app.infrastructure.video.asset_preview import check_size
 
 
 def ffmpeg(directory: Path, args: list[str]) -> bytes:
@@ -101,6 +104,7 @@ class FFmpegEditor:
         timeline: Timeline,
         duration: int,
         music: tuple[str, bytes] | None = None,
+        product_photo: bytes | None = None,
     ) -> bytes:
         with TemporaryDirectory(prefix="cm-render-") as tmp:
             directory = Path(tmp)
@@ -123,6 +127,30 @@ class FFmpegEditor:
                 labels.append(f"[v{i}][a{i}]")
             filters.append("".join(labels) + f"concat=n={len(labels)}:v=1:a=1[v][a]")
             video_label, audio_label = "[v]", "[a]"
+            insert = timeline.photo_cutaway
+            if insert:
+                if not product_photo:
+                    raise ValueError("Missing product photo")
+                with Image.open(
+                    BytesIO(product_photo), formats=["PNG", "JPEG", "WEBP"]
+                ) as original:
+                    check_size(*original.size)
+                    picture = ImageOps.exif_transpose(original).convert("RGBA")
+                    picture = ImageOps.contain(
+                        picture, (720, 1280), Image.Resampling.LANCZOS
+                    )
+                    canvas = Image.new("RGB", (720, 1280), "#101010")
+                    canvas.paste(
+                        picture,
+                        ((720 - picture.width) // 2, (1280 - picture.height) // 2),
+                        picture,
+                    )
+                    canvas.save(directory / "product.png")
+                inputs.extend(["-f", "image2", "-i", "product.png"])
+                filters.append(
+                    f"[v][{len(labels)}:v]overlay=enable='gte(t,{insert.start_ms / 1000})*lt(t,{insert.end_ms / 1000})'[withphoto]"
+                )
+                video_label = "[withphoto]"
             if timeline.subtitles:
 
                 def stamp(ms):
@@ -136,7 +164,7 @@ class FFmpegEditor:
                     ),
                     encoding="utf-8",
                 )
-                filters.append("[v]subtitles=captions.srt[vsub]")
+                filters.append(f"{video_label}subtitles=captions.srt[vsub]")
                 video_label = "[vsub]"
             if music and timeline.music:
                 fmt, body = music
@@ -156,7 +184,7 @@ class FFmpegEditor:
                 )
                 filters.extend(
                     [
-                        f"[{len(labels)}:a]aresample=48000,volume={timeline.music.gain_db}dB,afade=t=out:st={duration - 1}:d=1[bg]",
+                        f"[{len(labels) + int(insert is not None)}:a]aresample=48000,volume={timeline.music.gain_db}dB,afade=t=out:st={duration - 1}:d=1[bg]",
                         "[a][bg]amix=inputs=2:duration=first:normalize=0,alimiter=latency=1[mix]",
                     ]
                 )
