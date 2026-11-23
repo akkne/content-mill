@@ -26,7 +26,7 @@ OPTIONS = {
         "Оффер",
     ],
     "platform": ["Instagram Reels", "YouTube Shorts", "VK Клипы", "Telegram", "TikTok"],
-    "duration": [15, 30, 40, 45, 60],
+    "duration": [15, 20, 30, 40, 45, 60],
     "editing_style": list(EDITING_DIRECTIONS),
     "language": ["Русский", "English"],
 }
@@ -49,10 +49,13 @@ class VideoService:
         work: ProjectUnitOfWorkFactory,
         generator: VideoGenerator,
         assembly_error: str = "",
+        *,
+        lipsync_available: bool = False,
     ):
         self.work = work
         self.generator = generator
         self.assembly_error = assembly_error
+        self.lipsync_available = lipsync_available
 
     def create(
         self,
@@ -89,6 +92,15 @@ class VideoService:
             if settings.get("characters"):
                 settings["characters"] = resolve_cast(
                     settings["characters"], work.knowledge.list(project), materials
+                )
+            if settings.get("heygen_lipsync") and (
+                not self.lipsync_available
+                or not any(
+                    person.get("voice") for person in settings.get("characters", [])
+                )
+            ):
+                raise InvalidVideo(
+                    "Для HeyGen подключите озвучку и назначьте голос персонажу."
                 )
             if {item.id for item in materials} != set(sources):
                 raise InvalidVideo("Один из источников недоступен в проекте")
@@ -171,6 +183,7 @@ class VideoService:
             return {
                 "project": current.name,
                 "options": OPTIONS,
+                "lipsync_available": self.lipsync_available,
                 "voices": work.videos.voices(project),
                 **cast_options(nodes),
                 "folders": [

@@ -20,6 +20,7 @@ export type VideoOptions = {
   folders: { id: string; parent_id: string | null; name: string }[];
   sources: VideoSource[];
   avatars: {id:string;name:string;default_voice_id:string|null}[];
+  lipsync_available: boolean;
   cast_voices: {id:string;name:string;preview:string|null;external_id:string}[];
   voices: Record<string, string>;
   options: {

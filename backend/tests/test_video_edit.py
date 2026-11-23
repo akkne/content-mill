@@ -207,6 +207,32 @@ def test_cast_dialogue_is_dubbed_onto_veo_clip():
         assert files[0][3] == b"source:Hello|Hi"
         assert state["stage"] == "frame" and "operation" not in state
 
+    # Only the on-screen voice reaches HeyGen. The final dub still includes both.
+    artifacts["scene-01.png"] = b"portrait"
+    orders = []
+
+    def submit_sync(clip, audio):
+        orders.append((clip, audio))
+        return "heygen-1"
+
+    worker.lipsync = SimpleNamespace(submit=submit_sync, collect=lambda op: b"synced")
+    video.settings["heygen_lipsync"] = True
+    state.update(stage="mix_speech", index=0)
+    for _ in range(4):
+        files, _ = worker.character_audio(video, shot, 2)
+        for name, _, _, body in files:
+            artifacts[name] = body
+            state["files"][name] = {}
+    assert orders == [(b"portrait", b"Hello")]
+    assert artifacts["scene-01.mp4"] == b"synced:Hello|Hi"
+    assert state["stage"] == "frame" and "operation" not in state
+
+    for line in shot.utterances:
+        line.delivery = "off_screen"
+    state.update(stage="mix_speech", index=0)
+    worker.character_audio(video, shot, 2)
+    assert state["stage"] == "dub" and len(orders) == 1
+
 
 @pytest.mark.skipif(not shutil.which("ffmpeg"), reason="requires ffmpeg")
 def test_dub_uses_complete_line_at_planned_sample_offset(tmp_path):

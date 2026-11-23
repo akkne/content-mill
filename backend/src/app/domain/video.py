@@ -38,7 +38,7 @@ class Video:
         failure = state.get("failure", {})
         return (
             self.status == "failed"
-            and state.get("stage") in {"frame", "submit"}
+            and state.get("stage") in {"frame", "submit", "sync"}
             and not state.get("operation")
             and failure.get("stage") == state["stage"]
             and failure.get("reason") in {"network", "timeout", "order_unconfirmed"}

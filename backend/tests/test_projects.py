@@ -359,7 +359,7 @@ def video_model(monkeypatch):
 
     monkeypatch.setattr(
         "app.container.text_models",
-        lambda: ({"fake": Model(), "codex:gpt-6.2-astra": Model()}, "fake"),
+        lambda: ({"fake": Model(), "codex:gpt-6.2-sol": Model()}, "fake"),
     )
 
 

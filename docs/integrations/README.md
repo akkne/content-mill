@@ -24,8 +24,8 @@
 
 Серверные сценарии поддерживают [Claude Sonnet 4.6](anthropic-claude-sonnet-4-6.md) и [GPT-5.3-Codex](openai-gpt-5.3-codex.md). Вход и поиск материалов описаны в [решении 0013](../decisions/0013-managed-scripts.md).
 
-По умолчанию тексты готовит [GPT-6.2-Astra через Codex](openai-gpt-6.2-astra.md).
+Для монтажа и сценариев по умолчанию используется [GPT-6.2-Sol](openai-gpt-6.2-sol.md). Ранее сохранённые задания с [Astra](openai-gpt-6.2-astra.md) сохраняют свой выбор.
 
 Для видео подключены [Nano Banana 2.1](polza-nano-banana-2.1.md) и [Kling 2.6](polza-kling-26.md) через Polza AI. [Прежний адаптер Veo Fast](polza-veo-fast.md) сохранён. Архивные интеграции fal описаны в карточках [Nano Banana](fal-google-nano-banana-2.1.md) и [Veo](fal-veo3.1-fast.md).
 
-Отложенный адаптер для синхронизации губ — [HeyGen Lipsync Precision](heygen-lipsync.md).
+Синхронизация губ по выбору пользователя — [HeyGen Avatar 6 Turbo](heygen-avatar-6.md).

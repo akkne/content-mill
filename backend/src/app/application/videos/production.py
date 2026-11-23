@@ -143,6 +143,11 @@ class CastSpeech(Protocol):
     def collect_line(self, operation: str) -> bytes | None: ...
 
 
+class LipSync(Protocol):
+    def submit(self, video: bytes, audio: bytes) -> str: ...
+    def collect(self, operation: str) -> bytes | None: ...
+
+
 class ClipGenerator(Protocol):
     def submit(self, prompt: str, frame: bytes) -> str: ...
     def collect(self, operation: str) -> bytes | None: ...
@@ -282,10 +287,12 @@ class VideoProduction:
         preview: PreviewRenderer,
         speech: CastSpeech | None = None,
         *,
+        lipsync: LipSync | None = None,
         describe_error: Callable[[BaseException, str], dict],
     ):
         self.describe_error = describe_error
         self.speech = speech
+        self.lipsync = lipsync
         self.work, self.store, self.model = work, store, model
         self.frames, self.clips, self.editor, self.preview = (
             frames,
@@ -305,6 +312,8 @@ class VideoProduction:
                 # A lost process may already have submitted a billable operation.
                 video.status = "failed"
                 state["error"] = "interrupted"
+                if state["stage"] == "sync":
+                    state["failure"] = {"stage": "sync", "reason": "order_unconfirmed"}
                 state.pop("claim")
                 work.videos.save(video)
                 work.commit()
@@ -341,6 +350,7 @@ class VideoProduction:
                     "frame",
                     "submit",
                     "speech",
+                    "sync",
                 } and attempted.get("operation"):
                     # The provider already accepted the order before checkpointing failed.
                     for key in ("operation", "submitted", "stage"):
@@ -354,6 +364,9 @@ class VideoProduction:
                     state["stage"] = (
                         "frame" if state["stage"] == "collect_frame" else "submit"
                     )
+                if code == "lipsync_failed":
+                    state.pop("operation", None)
+                    state["stage"] = "sync"
                 if code == "speech_failed":
                     state.pop("operation", None)
                     state["stage"] = "speech"
@@ -531,7 +544,14 @@ class VideoProduction:
                 return [], 10
             if stage == "collect_frame":
                 state.pop("operation")
-                state["stage"] = "submit"
+                if (
+                    video.settings.get("heygen_lipsync")
+                    and isinstance(shot, Scene)
+                    and any(line.delivery == "on_screen" for line in shot.utterances)
+                ):
+                    state.update(stage="speech", line=0)
+                else:
+                    state["stage"] = "submit"
                 return [(prefix + ".png", "image", "image/png", media)], 0
             try:
                 length, _ = self.editor.inspect(media)
@@ -682,16 +702,42 @@ class VideoProduction:
                 )
                 for n, line in enumerate(shot.utterances)
             ]
-            # TODO: Revisit optional lip sync after the HeyGen pilot (ADR 0028).
+            duration_ms = 10000 if shot.keep_ms else 8000
+            if video.settings.get("heygen_lipsync") and shot.keep_ms:
+                duration_ms = shot.keep_ms
+            track = self.editor.speech_track(lines, duration_ms)
+            files = [(prefix + "-speech.wav", "audio", "audio/wav", track)]
+            visible_lines = [
+                row
+                for row, line in zip(lines, shot.utterances)
+                if line.delivery == "on_screen"
+            ]
             state["stage"] = "dub"
-            return [
-                (
-                    prefix + "-speech.wav",
-                    "audio",
-                    "audio/wav",
-                    self.editor.speech_track(lines, 10000 if shot.keep_ms else 8000),
+            if video.settings.get("heygen_lipsync") and visible_lines:
+                visible_audio = (
+                    track
+                    if visible_lines == lines
+                    else self.editor.speech_track(visible_lines, duration_ms)
                 )
-            ], 0
+                files.append(
+                    (prefix + "-onscreen.wav", "audio", "audio/wav", visible_audio)
+                )
+                state["stage"] = "sync"
+            return files, 0
+        elif stage in {"sync", "collect_sync"} and video.settings.get("heygen_lipsync"):
+            if self.lipsync is None:
+                raise ProductionError("heygen_key")
+            if stage == "sync":
+                operation = self.lipsync.submit(
+                    self.artifact(video, prefix + ".png"),
+                    self.artifact(video, prefix + "-onscreen.wav"),
+                )
+                return submit(operation, "collect_sync")
+            synced = self.lipsync.collect(state["operation"])
+            if synced is not None:
+                state.pop("operation")
+                state["stage"] = "dub"
+                return [(prefix + "-synced.mp4", "video", "video/mp4", synced)], 0
         else:
             # Older jobs may resume at sync/collect_sync with a saved provider order.
             # An already saved synced clip is still usable for dubbing.

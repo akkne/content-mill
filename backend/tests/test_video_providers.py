@@ -44,3 +44,29 @@ def test_portrait_image_and_native_audio_queue(monkeypatch):
     monkeypatch.setattr(api, "request", lambda *args: {"status": "FAILED"})
     with pytest.raises(ProductionError, match="clip_rejected"):
         clips.collect(order)
+
+
+def test_avatar6_generates_from_a_still_and_polls_the_model_job(monkeypatch):
+    from app.infrastructure.providers.media.heygen_avatar6 import HeyGenAvatar6
+
+    api = HeyGenAvatar6("test")
+    requests = []
+
+    def request(method, path, **kwargs):
+        requests.append((method, path, kwargs))
+        if path == "assets":
+            return {"asset_id": kwargs["files"]["file"][0]}
+        if path == "models/avatars":
+            return {"video_id": "order-6"}
+        return {"status": "processing"}
+
+    monkeypatch.setattr(api, "request", request)
+    assert api.submit(b"portrait", b"wav") == "order-6"
+    assert requests[-1][2]["json"] == {
+        "model": "heygen-avatar-6-turbo",
+        "reference_images": [{"type": "asset_id", "asset_id": "presenter.png"}],
+        "audio": {"type": "asset_id", "asset_id": "speech.wav"},
+        "resolution": "1080p",
+    }
+    assert api.collect("order-6") is None
+    assert requests[-1][:2] == ("GET", "models/videos/order-6")

@@ -236,6 +236,12 @@ export function Wizard({
                   value={t("9:16 · вертикальный ролик", "9:16 · vertical video")}
                 />
               </label>
+              {data.lipsync_available && cast.some(row => row.voice_id) && (
+                <label className={fieldLabel}>
+                  <input type="checkbox" name="heygen_lipsync" value="true" />{" "}
+                  {t("Ведущий HeyGen Avatar 6 Turbo · оплата за секунды аватара", "HeyGen Avatar 6 Turbo presenter · billed per avatar second")}
+                </label>
+              )}
             </div>
           </div>
           {step === 2 && (
@@ -264,6 +270,7 @@ export function Wizard({
                   <strong>{String(v)}</strong>
                 </p>
               ))}
+              {review?.get("heygen_lipsync") && <p>{t("HeyGen Avatar 6 Turbo оживит кадр ведущего под озвучку. Для этих сцен используется изображение без заказа клипа Kling.", "HeyGen Avatar 6 Turbo animates presenter images using the voice track. These scenes skip Kling clip generation.")}</p>}
               {attachments.length>0 && <details><summary className="cursor-pointer font-bold">{t("Файлы для агента","Files for the agent")}</summary>
                 <ul className="mt-2 grid max-h-52 gap-1 overflow-auto text-sm">{attachments.map(file=><li key={file.id}>{file.path??file.name} · v{file.version}</li>)}</ul>
               </details>}

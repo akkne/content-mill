@@ -26,6 +26,7 @@ from app.infrastructure.database.transactions.knowledge import (
 from app.infrastructure.database.transactions.projects import (
     SqlAlchemyProjectUnitOfWork,
 )
+from app.infrastructure.providers.media.heygen_avatar6 import HeyGenAvatar6
 from app.infrastructure.providers.media.polza_kling_26 import PolzaKling26
 from app.infrastructure.providers.media.polza_media import PolzaMedia
 from app.infrastructure.providers.media.polza_nano_banana import PolzaNanoBanana21
@@ -33,6 +34,7 @@ from app.infrastructure.providers.speech.lumean import LumeanElevenLabs
 from app.infrastructure.providers.text.astra_script import AstraCli
 from app.infrastructure.providers.text.claude_script import ClaudeCodeCli, ClaudeScript
 from app.infrastructure.providers.text.codex_script import CodexCli, CodexScript
+from app.infrastructure.providers.text.sol_script import SolCli
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
 from app.infrastructure.starter_prompts import starter_prompts
@@ -75,12 +77,16 @@ def video_service() -> VideoService:
     assembly_error = ""
     if not os.getenv("POLZA_API_KEY", "").strip():
         assembly_error = "Для сборки добавьте POLZA_API_KEY на сервере."
-    elif AstraCli.model not in models:
+    elif SolCli.model not in models:
         assembly_error = "Для монтажа подключите Codex на сервере."
     return VideoService(
         SqlAlchemyProjectUnitOfWork,
         VideoTextGenerator(models.get(selected), agent_files()),
         assembly_error,
+        lipsync_available=bool(
+            os.getenv("HEYGEN_API_KEY", "").strip()
+            and os.getenv("LUMEAN_API_KEY", "").strip()
+        ),
     )
 
 
@@ -90,12 +96,13 @@ def video_production() -> VideoProduction:
     return VideoProduction(
         SqlAlchemyProjectUnitOfWork,
         S3DocumentStore(),
-        models.get(AstraCli.model),
+        models.get(SolCli.model),
         PolzaNanoBanana21(api),
         PolzaKling26(api),
         FFmpegEditor(),
         AssetPreview(),
         voice_catalog() if os.getenv("LUMEAN_API_KEY", "").strip() else None,
+        lipsync=HeyGenAvatar6(os.getenv("HEYGEN_API_KEY", "").strip()),
         describe_error=describe_video_error,
     )
 
@@ -116,7 +123,7 @@ def text_models() -> tuple[dict[str, ScriptModel], str]:
     models: dict[str, ScriptModel] = {}
     providers = {
         "claude": (ClaudeScript, ClaudeCodeCli, "ANTHROPIC_API_KEY"),
-        "codex": (CodexScript, AstraCli, "OPENAI_API_KEY"),
+        "codex": (CodexScript, SolCli, "OPENAI_API_KEY"),
     }
     provider = os.getenv("CONTENT_MILL_SCRIPT_PROVIDER", "codex").strip().lower()
     if provider and provider not in providers:
@@ -131,10 +138,12 @@ def text_models() -> tuple[dict[str, ScriptModel], str]:
                 models[cli.model] = cli(key)
                 if name == "codex":
                     models[CodexCli.model] = CodexCli(key)
+                    models[AstraCli.model] = AstraCli(key)
     auth_file = os.getenv("CONTENT_MILL_CODEX_AUTH_FILE")
-    if auth_file and AstraCli.model not in models and shutil.which("codex"):
+    if auth_file and SolCli.model not in models and shutil.which("codex"):
         path = Path(auth_file)
         if path.is_file():
+            models[SolCli.model] = SolCli(auth_file=path)
             models[AstraCli.model] = AstraCli(auth_file=path)
     if provider:
         selected = providers[provider][1].model

@@ -5,7 +5,6 @@ from app.infrastructure.providers.media.media_download import download_result
 from app.infrastructure.video.video_failures import provider_cause
 
 
-# TODO: Reconnect this adapter only after the lip-sync pilot (ADR 0028).
 class HeyGenLipSync:
     def __init__(self, key: str):
         self.key = key
@@ -30,15 +29,22 @@ class HeyGenLipSync:
             asset = self.request("POST", "assets", files={"file": (name, body, fmt)})
             return {"type": "asset_id", "asset_id": asset["asset_id"]}
 
-        return self.request(
-            "POST",
-            "lipsyncs",
-            json={
-                "mode": "precision",
-                "video": upload("scene.mp4", video, "video/mp4"),
-                "audio": upload("speech.wav", audio, "audio/wav"),
-            },
-        )["lipsync_id"]
+        payload = {
+            "mode": "precision",
+            "video": upload("scene.mp4", video, "video/mp4"),
+            "audio": upload("speech.wav", audio, "audio/wav"),
+        }
+        try:
+            order = self.request("POST", "lipsyncs", json=payload)["lipsync_id"]
+            if not isinstance(order, str) or not order:
+                raise ValueError("Missing order ID")
+            return order
+        except httpx.HTTPStatusError as error:
+            if error.response.status_code >= 500:
+                raise ProductionError("order_unconfirmed") from error
+            raise
+        except (httpx.RequestError, ValueError, TypeError, KeyError) as error:
+            raise ProductionError("order_unconfirmed") from error
 
     def collect(self, operation: str) -> bytes | None:
         result = self.request("GET", "lipsyncs/" + operation)

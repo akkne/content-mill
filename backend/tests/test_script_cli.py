@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 from app.container import script_writer
-from app.infrastructure.providers.text.astra_script import AstraCli
 from app.infrastructure.providers.text.claude_script import ClaudeCodeCli, ClaudeScript
 from app.infrastructure.providers.text.codex_script import CodexScript
+from app.infrastructure.providers.text.sol_script import SolCli
 
 
 @pytest.mark.parametrize(
-    ("name", "adapter"), [("claude", ClaudeCodeCli), ("codex", AstraCli)]
+    ("name", "adapter"), [("claude", ClaudeCodeCli), ("codex", SolCli)]
 )
 def test_explicit_cli_runs_in_private_directory(monkeypatch, tmp_path, name, adapter):
     program = tmp_path / name
@@ -26,7 +26,7 @@ assert "DATABASE_URL" not in os.environ
 if Path(sys.argv[0]).name == "codex":
     assert "ANTHROPIC_API_KEY" not in os.environ
     assert os.environ["CODEX_API_KEY"] == "codex-test"
-    assert args[args.index("--model")+1] == "gpt-6.2-astra"
+    assert args[args.index("--model")+1] == "gpt-6.2-sol"
     assert 'model_reasoning_effort="high"' in args
     assert text == "brief" and args[0] == "exec"
     assert Path(args[args.index("--image")+1]).read_bytes() == b"jpeg"
@@ -118,7 +118,7 @@ def test_montage_tools_can_read_only_the_staged_production(monkeypatch):
         Path(command[command.index("--output-last-message") + 1]).write_text("timeline")
 
     monkeypatch.setattr("app.infrastructure.providers.text.codex_script.run_cli", run)
-    result = AstraCli("test").generate_edit(
+    result = SolCli("test").generate_edit(
         "edit", "brief", [], [b"test clip"], [(version, "image/png", b"test frame")]
     )
     assert result == "timeline"
@@ -136,7 +136,7 @@ def test_storyboard_waits_without_deadline_and_exposes_original(monkeypatch):
 
     monkeypatch.setattr("app.infrastructure.providers.text.codex_script.run_cli", run)
     assert (
-        AstraCli("test").generate_storyboard(
+        SolCli("test").generate_storyboard(
             "plan", "brief", [], [(version, "video/mp4", b"source")]
         )
         == "board"
