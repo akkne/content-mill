@@ -24,6 +24,7 @@ export type VideoOptions = {
   voices: Record<string, string>;
   options: {
     method: string[];
+    editing_style: string[];
     platform: string[];
     duration: number[];
     language: string[];
@@ -45,6 +46,7 @@ export type ProjectVideo = Omit<VideoCard, "duration" | "platform"> & {
     duration: number;
     platform: string;
     method: string;
+    editing_style?: string;
     sources: (VideoSource & { node_id: string; format: string })[];
     publication?: string;
   };

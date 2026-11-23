@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.domain.video import DEFAULT_EDITING_STYLE
+
 
 class CastRow(BaseModel):
     character_id: UUID
@@ -16,6 +18,7 @@ class VideoInput(BaseModel):
     product: str = Field(default="", max_length=200)
     platform: str = "Instagram Reels"
     method: str = "Проблема → решение"
+    editing_style: str = DEFAULT_EDITING_STYLE
     duration: int = 30
     voice: str = Field(default="Без озвучки", max_length=160)
     language: str = "Русский"

@@ -13,6 +13,7 @@ from alembic.config import Config
 from app.application.knowledge.service import KnowledgeService
 from app.container import auth_service, knowledge_service
 from app.domain.knowledge import DocumentStorageError
+from app.domain.video import EDITING_DIRECTIONS
 from app.infrastructure.database.models import (
     AccessTokenModel,
     AvatarWorkspaceModel,
@@ -343,6 +344,10 @@ def video_model(monkeypatch):
     class Model:
         def generate(self, instructions, text, images):
             data = json.loads(text)
+            assert (
+                data["editing_direction"]
+                == EDITING_DIRECTIONS[data["settings"]["editing_style"]]
+            )
             return json.dumps(
                 {
                     "script": data["title"]
@@ -924,6 +929,7 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
 
     def storyboard(instructions, text, images, materials):
         data = json.loads(text)
+        assert data["editing_direction"] == EDITING_DIRECTIONS["Детали товара"]
         assert "prompt_guides" not in data and data["script"] == "Авторский сценарий"
         assert [m["origin"] for m in data["materials"]] == ["user"]
         assert [entry[0] for entry in materials] == [source_id]
@@ -939,7 +945,9 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
 
     def edit(instructions, text, images, clips, materials):
         assert len(images) == len(clips) == 2
-        frames = json.loads(text)["first_frames"]
+        data = json.loads(text)
+        assert data["editing_direction"] == EDITING_DIRECTIONS["Детали товара"]
+        frames = data["first_frames"]
         source, *frame_inputs = list(materials)
         assert source[0] == source_id and source[1] == "markdown" and source[2]
         assert [f["name"] for f in frames] == ["scene-01.png", "scene-02.png"]
@@ -990,13 +998,30 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
             ).status_code
             == 422
         )
-        source_id = client.get(base + "/options", headers=owner).json()["sources"][0][
-            "id"
-        ]
+        options = client.get(base + "/options", headers=owner).json()
+        assert 40 in options["options"]["duration"]
+        assert options["options"]["editing_style"] == list(EDITING_DIRECTIONS)
+        assert (
+            client.post(
+                base, headers=owner, json={"title": "Тест", "editing_style": "?"}
+            ).status_code
+            == 422
+        )
+        draft = client.post(
+            base, headers=owner, json={"title": "Обзор", "duration": 40}
+        ).json()
+        assert draft["settings"]["editing_style"] == "По сценарию"
+        assert draft["settings"]["duration"] == 40
+        source_id = options["sources"][0]["id"]
         video = client.post(
             base,
             headers=owner,
-            json={"title": "Тест сборки", "duration": 15, "sources": [source_id]},
+            json={
+                "title": "Тест сборки",
+                "duration": 15,
+                "editing_style": "Детали товара",
+                "sources": [source_id],
+            },
         ).json()
         assert video["journal"] == ["0–3 с: общий план"]
         assert video["caption"] == "Подпись к ролику"

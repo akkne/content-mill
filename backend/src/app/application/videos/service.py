@@ -7,6 +7,8 @@ from app.application.projects.ports import ProjectUnitOfWorkFactory
 from app.application.videos.cast import cast_options, resolve_cast
 from app.domain.project import ProjectContext, ProjectNotFound
 from app.domain.video import (
+    DEFAULT_EDITING_STYLE,
+    EDITING_DIRECTIONS,
     InvalidVideo,
     Video,
     VideoNotFound,
@@ -24,7 +26,8 @@ OPTIONS = {
         "Оффер",
     ],
     "platform": ["Instagram Reels", "YouTube Shorts", "VK Клипы", "Telegram", "TikTok"],
-    "duration": [15, 30, 45, 60],
+    "duration": [15, 30, 40, 45, 60],
+    "editing_style": list(EDITING_DIRECTIONS),
     "language": ["Русский", "English"],
 }
 
@@ -66,6 +69,7 @@ class VideoService:
             if assemble and self.assembly_error:
                 raise VideoTextUnavailable(self.assembly_error)
             context = work.repository.context(project)
+            settings = {"editing_style": DEFAULT_EDITING_STYLE, **settings}
             if any(
                 settings.get(key) not in choices for key, choices in OPTIONS.items()
             ):

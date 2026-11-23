@@ -27,7 +27,7 @@ export default async function VideoPage({
       </div>
       <p className={pageLead}>
         {project.name} · {optionLabel(item.settings.method, t)} · {item.settings.duration} {t("сек ·", "sec ·")}{" "}
-        {optionLabel(item.settings.platform, t)}
+        {optionLabel(item.settings.platform, t)} · {optionLabel(item.settings.editing_style ?? "По сценарию", t)}
       </p>
       <VideoEditor item={item} project={project.name} projectId={id} />
     </>

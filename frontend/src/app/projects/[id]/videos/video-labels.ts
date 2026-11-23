@@ -21,6 +21,10 @@ export const badge = (t: Translate): Record<string, string> => ({
 
 const optionNames: Record<string, string> = {
   "Проблема → решение": "Problem → solution",
+  "По сценарию": "Follow the script",
+  "Динамичный": "Dynamic",
+  "Детали товара": "Product details",
+  "Спокойный обзор": "Calm walkthrough",
   "Доказательство": "Proof",
   "Обучение": "Tutorial",
   "Мнение": "Opinion",

@@ -3,6 +3,17 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 MOCK_SECONDS = 12
+DEFAULT_EDITING_STYLE = "По сценарию"
+EDITING_DIRECTIONS = {
+    DEFAULT_EDITING_STYLE: "Следуй указаниям брифа и утверждённого сценария.",
+    "Динамичный": "Начни с действия, меняй крупность на движении и оставь финальный акцент.",
+    "Детали товара": "Чередуй общий план товара, крупный план детали и показ в использовании. Дай зрителю время рассмотреть деталь.",
+    "Спокойный обзор": "Веди зрителя последовательно, удерживай общие планы и сохраняй направление движения между сценами.",
+}
+
+
+def editing_direction(settings: dict) -> str:
+    return EDITING_DIRECTIONS[settings.get("editing_style", DEFAULT_EDITING_STYLE)]
 
 
 def scene_count(duration: int) -> int:

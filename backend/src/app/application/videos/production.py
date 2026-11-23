@@ -21,7 +21,7 @@ from app.application.projects.ports import ProjectUnitOfWorkFactory
 from app.application.scripts.jobs import ScriptModel
 from app.application.videos.cast import avatar_references, validate_cast_scene
 from app.domain.knowledge import ExampleEntry
-from app.domain.video import Video, scene_count
+from app.domain.video import Video, editing_direction, scene_count
 
 Description = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)
@@ -166,6 +166,7 @@ class VideoEditor(Protocol):
 
 PLAN = """Create a shot-by-shot production storyboard from the approved script, brief,
 the materials explicitly chosen by the user (primary creative sources), and optional avatar media. Return JSON matching the supplied schema.
+Use editing_direction for framing, camera movement and cuts within the approved script timings.
 Inspect user materials first. Use inspect_material(version_id, at_ms) to inspect originals,
 including supplementary avatar photos and videos. Select the relevant versions for each shot.
 Use the specified number of scenes, one continuous shot per scene. Each source clip
@@ -207,7 +208,7 @@ previews (one contact sheet each, chronological), measured durations, dialogue,
 cut descriptions and project editing guides. Return a JSON timeline matching the
 schema. If a scene has keep_ms, use ONLY source [0, keep_ms] for that scene:
 start_ms must be 0 and end_ms must equal that exact keep_ms. Never include the
-unused tail of a ten-second take. These boundaries override creative cut notes.
+unused tail of a ten-second take. Respect editing_direction within the approved timings. These boundaries override creative cut notes.
 Use every scene once in narrative order, hard cuts at meaningful actions,
 preserving each spoken line. Use integer millisecond source intervals. Keep audio
 and picture locked. The total MUST equal duration * 1000 exactly. Playback is 1x.
@@ -558,6 +559,7 @@ class VideoProduction:
                 for name in (f"scene-{number:02}.png" for number in range(1, count + 1))
             }
             payload = {
+                "editing_direction": editing_direction(video.settings),
                 "first_frames": [
                     {"version_id": ref, "name": name}
                     for ref, name in first_frames.items()
@@ -838,6 +840,7 @@ class VideoProduction:
             "platform": video.settings["platform"],
             "product": video.settings.get("product", ""),
             "method": video.settings["method"],
+            "editing_direction": editing_direction(video.settings),
             "materials": materials,
         }
         originals = (

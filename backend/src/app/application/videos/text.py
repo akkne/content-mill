@@ -9,7 +9,12 @@ from app.application.agents.files import AgentFiles
 from app.application.agents.ports import AgentScope
 from app.application.scripts.jobs import ScriptModel
 from app.domain.project import ProjectContext
-from app.domain.video import VideoSource, VideoTextUnavailable, scene_count
+from app.domain.video import (
+    VideoSource,
+    VideoTextUnavailable,
+    editing_direction,
+    scene_count,
+)
 
 VideoText = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=6000)
@@ -51,6 +56,7 @@ class VideoTextGenerator:
             data = {
                 "title": title,
                 "settings": settings,
+                "editing_direction": editing_direction(settings),
                 "scene_count": scene_count(settings["duration"]),
                 "context": asdict(context),
                 "materials": materials,
@@ -58,6 +64,7 @@ class VideoTextGenerator:
             result = self.model.generate(
                 "Подготовь сценарий короткого ролика, подпись к публикации и монтажный лист "
                 "по сценам с таймкодами, кадрами, склейками и титрами на языке settings.language. "
+                "Следуй editing_direction при выборе темпа, крупности и склеек. "
                 "Напиши ровно scene_count непрерывных планов для десятисекундных исходников Kling. Для каждой сцены задай таймкод начала и конца в готовом ролике. Монтаж берёт с начала исходника ровно эту длительность. "
                 "Уложи историю и реплики в итоговую длительность settings.duration. Для каждого "
                 "плана опиши положение предметов, персонажей, одежду и склейку. Для каждой "

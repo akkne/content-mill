@@ -31,6 +31,7 @@ export function Wizard({
 }) {
   const t = useTranslator();
   const labels = {
+    editing_style: t("Стиль монтажа", "Editing style"),
     method: t("Формат подачи", "Presentation style"),
     platform: t("Площадка", "Platform"),
     duration: t("Длительность", "Duration"),
@@ -247,6 +248,7 @@ export function Wizard({
                   t("Формат", "Format"),
                   optionLabel(String(review?.get("method") ?? ""), t) + " · " + optionLabel(String(review?.get("platform") ?? ""), t),
                 ],
+                [labels.editing_style, optionLabel(String(review?.get("editing_style") ?? ""), t)],
                 [t("Настройки", "Settings"), duration + t(" сек · ", " sec · ") + optionLabel(String(review?.get("language") ?? ""), t)],
                 [
                   t("Персонажи и голоса", "Characters and voices"),
