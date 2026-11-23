@@ -44,6 +44,7 @@ services:
       CONTENT_MILL_SCRIPT_MODEL: ${CONTENT_MILL_SCRIPT_MODEL:-}
       MCP_PUBLIC_ORIGIN: ${MCP_PUBLIC_ORIGIN:-}
       POLZA_API_KEY: ${POLZA_API_KEY:-}
+      MILL_ADMIN_USER_ID: ${MILL_ADMIN_USER_ID:-}
       HEYGEN_API_KEY: ${HEYGEN_API_KEY:-}
       LUMEAN_API_KEY: ${LUMEAN_API_KEY:-}
       DATABASE_URL: postgresql://content_mill:${POSTGRES_PASSWORD:-content_mill}@postgres:5432/content_mill

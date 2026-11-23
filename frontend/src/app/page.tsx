@@ -27,7 +27,7 @@ export default async function Home() {
     <small className="block text-[10px] font-medium">{pending}</small>
   );
   return (
-    <AppShell userName={user.display_name}>
+    <AppShell userName={user.display_name} isAdmin={user.is_admin}>
       <main
         id="main-content"
         className="mx-auto w-full max-w-[1600px] flex-1 px-8 py-[29px] motion-safe:animate-[overview-appear_.24s_ease-out] max-[950px]:px-6 max-sm:px-[17px] max-sm:py-[23px] min-[1500px]:px-[45px]"

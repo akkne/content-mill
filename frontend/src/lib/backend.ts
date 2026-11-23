@@ -13,6 +13,7 @@ export async function getBackendStatus(): Promise<"online" | "offline"> {
 export type CurrentUser = {
   id: string;
   display_name: string;
+  is_admin?: boolean;
   projects: { id: string; name: string; role: string }[];
 };
 

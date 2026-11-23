@@ -11,7 +11,11 @@ from app.domain.auth import (
     TokenPair,
     TooManyAttempts,
 )
-from app.presentation.http.dependencies import AuthServiceDependency, CurrentUser
+from app.presentation.http.dependencies import (
+    AuthServiceDependency,
+    CurrentUser,
+    is_admin,
+)
 from app.presentation.http.schemas.auth import (
     LoginRequest,
     RefreshRequest,
@@ -96,6 +100,7 @@ def me(
     return {
         "id": user.id,
         "display_name": user.display_name,
+        **({"is_admin": True} if is_admin(user.id) else {}),
         "projects": [
             {"id": item.id, "name": item.name, "role": "owner"} for item in owned[:100]
         ],

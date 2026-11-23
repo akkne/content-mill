@@ -10,7 +10,7 @@ export async function VideoShell({ children }: { children: React.ReactNode }) {
   const user = token && (await fetchCurrentUser(token));
   if (!user) redirect("/login");
   return (
-    <AppShell userName={user.display_name} section="Ролики">
+    <AppShell userName={user.display_name} isAdmin={user.is_admin} section="Ролики">
       <main id="main-content" className={content}>
         {children}
       </main>

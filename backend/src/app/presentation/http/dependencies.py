@@ -1,4 +1,6 @@
+import os
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException
 
@@ -23,6 +25,15 @@ def current_user(
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
+
+
+def is_admin(user_id: UUID) -> bool:
+    return str(user_id) == os.getenv("MILL_ADMIN_USER_ID", "").strip().lower()
+
+
+def require_admin(user: CurrentUser) -> None:
+    if not is_admin(user.id):
+        raise HTTPException(status_code=403, detail="Требуется доступ администратора")
 
 
 def expected_revision(value: str | None) -> int:

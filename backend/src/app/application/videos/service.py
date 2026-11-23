@@ -7,8 +7,8 @@ from app.application.projects.ports import ProjectUnitOfWorkFactory
 from app.application.videos.cast import cast_options, resolve_cast
 from app.domain.project import ProjectContext, ProjectNotFound
 from app.domain.video import (
-    DEFAULT_EDITING_STYLE,
     EDITING_DIRECTIONS,
+    VIDEO_DURATIONS,
     InvalidVideo,
     Video,
     VideoNotFound,
@@ -26,7 +26,7 @@ OPTIONS = {
         "Оффер",
     ],
     "platform": ["Instagram Reels", "YouTube Shorts", "VK Клипы", "Telegram", "TikTok"],
-    "duration": [15, 20, 30, 40, 45, 60],
+    "duration": VIDEO_DURATIONS,
     "editing_style": list(EDITING_DIRECTIONS),
     "language": ["Русский", "English"],
 }
@@ -67,12 +67,17 @@ class VideoService:
         assemble: bool,
     ) -> Video:
         with self.work() as work:
-            if not work.repository.get_owned(project, owner):
+            current = work.repository.get_owned(project, owner)
+            if not current:
                 raise ProjectNotFound
             if assemble and self.assembly_error:
                 raise VideoTextUnavailable(self.assembly_error)
             context = work.repository.context(project)
-            settings = {"editing_style": DEFAULT_EDITING_STYLE, **settings}
+            settings = {
+                "editing_style": current.video_style,
+                "duration": current.video_duration,
+                **settings,
+            }
             if any(
                 settings.get(key) not in choices for key, choices in OPTIONS.items()
             ):
@@ -183,6 +188,10 @@ class VideoService:
             return {
                 "project": current.name,
                 "options": OPTIONS,
+                "defaults": {
+                    "duration": current.video_duration,
+                    "editing_style": current.video_style,
+                },
                 "lipsync_available": self.lipsync_available,
                 "voices": work.videos.voices(project),
                 **cast_options(nodes),

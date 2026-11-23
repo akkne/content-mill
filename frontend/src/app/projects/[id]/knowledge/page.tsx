@@ -28,10 +28,10 @@ export default async function KnowledgePage({ params }: { params: Promise<{ id: 
   try {
     [project, nodes, context] = await Promise.all([loadProject(id), loadKnowledge(id), loadContext(id)]);
   } catch {
-    return <AppShell userName={user.display_name} section="База знаний"><main className={content} id="main-content"><h1 className={pageTitle}>{t("Проект недоступен", "Project unavailable")}</h1><Link href="/projects">{t("Вернуться к проектам", "Back to projects")}</Link></main></AppShell>;
+    return <AppShell userName={user.display_name} isAdmin={user.is_admin} section="База знаний"><main className={content} id="main-content"><h1 className={pageTitle}>{t("Проект недоступен", "Project unavailable")}</h1><Link href="/projects">{t("Вернуться к проектам", "Back to projects")}</Link></main></AppShell>;
   }
   return (
-    <AppShell userName={user.display_name} section="База знаний">
+    <AppShell userName={user.display_name} isAdmin={user.is_admin} section="База знаний">
       <main className={content} id="main-content">
         <Link className={backLink} href={`/projects/${id}`}>
           {t("← Контекст проекта", "← Project context")}

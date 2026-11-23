@@ -80,6 +80,12 @@ class ProjectModel(Base):
     )
     name: Mapped[str] = mapped_column(String(160))
     revision: Mapped[int] = mapped_column(default=1)
+    sales_mode: Mapped[str] = mapped_column(String(20), server_default="unassigned")
+    package_name: Mapped[str] = mapped_column(String(160), server_default="")
+    delivery_notes: Mapped[str] = mapped_column(Text, server_default="")
+    video_duration: Mapped[int] = mapped_column(server_default="30")
+    video_style: Mapped[str] = mapped_column(String(64), server_default="По сценарию")
+    admin_revision: Mapped[int] = mapped_column(server_default="1")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -23,6 +23,7 @@ export type VideoOptions = {
   lipsync_available: boolean;
   cast_voices: {id:string;name:string;preview:string|null;external_id:string}[];
   voices: Record<string, string>;
+  defaults: { duration: number; editing_style: string };
   options: {
     method: string[];
     editing_style: string[];

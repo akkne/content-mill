@@ -10,6 +10,8 @@ class Project:
     name: str
     revision: int
     created_at: datetime
+    video_duration: int = 30
+    video_style: str = "По сценарию"
 
 
 @dataclass(frozen=True)

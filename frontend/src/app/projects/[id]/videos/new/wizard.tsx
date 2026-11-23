@@ -61,7 +61,7 @@ export function Wizard({
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(data.defaults.duration);
   const [review, setReview] = useState<FormData>();
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
@@ -211,7 +211,7 @@ export function Wizard({
                   <select
                     className={field}
                     name={k}
-                    defaultValue={k === "duration" ? 30 : undefined}
+                    defaultValue={k === "duration" || k === "editing_style" ? data.defaults[k] : undefined}
                     onChange={
                       k === "duration"
                         ? (e) => setDuration(Number(e.target.value))

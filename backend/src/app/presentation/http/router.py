@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.presentation.http.routers.admin import router as admin_router
 from app.presentation.http.routers.agent_tokens import router as agent_tokens_router
 from app.presentation.http.routers.auth import router as auth_router
 from app.presentation.http.routers.avatars import router as avatars_router
@@ -12,6 +13,7 @@ from app.presentation.http.routers.videos import router as videos_router
 from app.presentation.http.routers.voices import router as voices_router
 
 router = APIRouter()
+router.include_router(admin_router)
 router.include_router(script_jobs_router)
 router.include_router(agent_tokens_router)
 router.include_router(videos_router)

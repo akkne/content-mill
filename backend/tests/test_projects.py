@@ -1508,3 +1508,99 @@ def test_avatar_library_project_snapshot_and_voice(login, video_model, missing_f
         client.post(
             videos + "/" + result.json()["id"] + "/actions", json={"action": "delete"}
         ).raise_for_status()
+
+
+def test_admin_client_settings_are_private_and_seed_new_videos(
+    login, video_model, monkeypatch
+):
+    admin, customer = login(), login()
+    with TestClient(app) as client:
+        me = "/api/v1/me"
+        base = "/api/v1/admin/clients"
+        monkeypatch.setenv(
+            "MILL_ADMIN_USER_ID", client.get(me, headers=admin).json()["id"]
+        )
+        name = "Studio " + str(uuid4())
+        project = client.post(
+            "/api/v1/projects", headers=customer, json={"name": name}
+        ).json()["id"]
+        path = "/api/v1/projects/" + project
+        assert client.get(me, headers=admin).json()["is_admin"]
+        assert not client.get(me, headers=customer).json().get("is_admin")
+        assert client.get(base).status_code == 401
+        assert client.get(base, headers=customer).status_code == 403
+
+        def listed(mode=None):
+            params = {"q": name}
+            if mode:
+                params["mode"] = mode
+            return client.get(base, params=params, headers=admin).json()
+
+        row = listed()["items"][0]
+        assert row["id"] == project and row["sales_mode"] == "unassigned"
+        settings = {
+            "sales_mode": "implementation",
+            "package_name": "Запуск",
+            "delivery_notes": "Внутренний бриф",
+            "video_duration": 40,
+            "video_style": "Детали товара",
+            "revision": row["admin_revision"],
+        }
+        assert (
+            client.put(
+                base + "/" + project, headers=customer, json=settings
+            ).status_code
+            == 403
+        )
+        assert (
+            client.put(
+                base + "/" + project,
+                headers=admin,
+                json={**settings, "video_duration": 999},
+            ).status_code
+            == 422
+        )
+        assert (
+            client.put(base + "/" + project, headers=admin, json=settings).status_code
+            == 204
+        )
+        assert (
+            client.put(base + "/" + project, headers=admin, json=settings).status_code
+            == 409
+        )
+        assert listed("saas")["items"] == []
+        updated = listed("implementation")
+        assert updated["totals"] == {"implementation": 1}
+        assert updated["items"][0]["delivery_notes"] == settings["delivery_notes"]
+        options = client.get(path + "/videos/options", headers=customer).json()
+        assert options["defaults"] == {"duration": 40, "editing_style": "Детали товара"}
+        assert (
+            "Внутренний бриф"
+            not in str(options) + client.get(path, headers=customer).text
+        )
+        for payload, secs, style in [
+            ({"title": "Авто"}, 40, "Детали товара"),
+            (
+                {"title": "Свой", "duration": 20, "editing_style": "Динамичный"},
+                20,
+                "Динамичный",
+            ),
+        ]:
+            draft = client.post(path + "/videos", headers=customer, json=payload)
+            assert draft.status_code == 201
+            params = draft.json()["settings"]
+            assert (params["duration"], params["editing_style"]) == (secs, style)
+        assert listed()["items"][0]["video_count"] == 2
+        assert (
+            client.put(
+                base + "/" + project,
+                headers=admin,
+                json={
+                    **settings,
+                    "revision": row["admin_revision"] + 1,
+                    "sales_mode": "saas",
+                },
+            ).status_code
+            == 204
+        )
+        assert listed("saas")["items"][0]["id"] == project

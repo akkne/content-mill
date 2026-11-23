@@ -53,7 +53,8 @@ def options(project_id: UUID, user: CurrentUser, service: Service) -> dict:
 def create(
     project_id: UUID, payload: VideoInput, user: CurrentUser, service: Service
 ) -> Video:
-    settings = payload.model_dump(exclude={"title", "sources", "assemble"})
+    defaults = {"duration", "editing_style"} - payload.model_fields_set
+    settings = payload.model_dump(exclude={"title", "sources", "assemble"} | defaults)
     return service.create(
         user.id, project_id, payload.title, settings, payload.sources, payload.assemble
     )

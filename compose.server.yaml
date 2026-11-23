@@ -42,6 +42,7 @@ services:
       CONTENT_MILL_SCRIPT_PROVIDER: codex
       CONTENT_MILL_CODEX_AUTH_FILE: /run/mill-login/auth.json
       POLZA_API_KEY: ${POLZA_API_KEY:-}
+      MILL_ADMIN_USER_ID: ${MILL_ADMIN_USER_ID:-}
       HEYGEN_API_KEY: ${HEYGEN_API_KEY:-}
       LUMEAN_API_KEY: ${LUMEAN_API_KEY:-}
     volumes:

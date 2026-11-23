@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 MOCK_SECONDS = 12
+VIDEO_DURATIONS = [15, 20, 30, 40, 45, 60]
 DEFAULT_EDITING_STYLE = "По сценарию"
 EDITING_DIRECTIONS = {
     DEFAULT_EDITING_STYLE: "Следуй указаниям брифа и утверждённого сценария.",

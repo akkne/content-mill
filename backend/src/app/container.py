@@ -9,6 +9,7 @@ from app.application.agents.files import AgentFiles
 from app.application.auth.service import AuthService
 from app.application.avatars.library import AvatarLibrary
 from app.application.knowledge.service import KnowledgeService
+from app.application.projects.admin import ClientAdministration
 from app.application.projects.service import ProjectService
 from app.application.scripts.jobs import ScriptModel, ScriptWriter
 from app.application.videos.production import VideoProduction
@@ -49,6 +50,10 @@ tokens = SecureTokens()
 
 def auth_service() -> AuthService:
     return AuthService(SqlAlchemyAuthUnitOfWork, passwords, tokens)
+
+
+def client_administration() -> ClientAdministration:
+    return ClientAdministration(SqlAlchemyProjectUnitOfWork)
 
 
 def project_service() -> ProjectService:
