@@ -11,6 +11,7 @@ from app.domain.auth import (
     TokenPair,
     TooManyAttempts,
 )
+from app.owner import configured_owner
 from app.presentation.http.dependencies import (
     AuthServiceDependency,
     CurrentUser,
@@ -18,6 +19,7 @@ from app.presentation.http.dependencies import (
 )
 from app.presentation.http.schemas.auth import (
     LoginRequest,
+    OwnerSetupRequest,
     RefreshRequest,
     RegisterRequest,
     TokenPairResponse,
@@ -51,6 +53,24 @@ def register(
         raise HTTPException(
             status_code=429, detail="Слишком много попыток. Повторите через 15 минут"
         ) from error
+    return token_response(pair, response)
+
+
+@router.post("/auth/owner-setup", response_model=TokenPairResponse)
+def owner_setup(
+    payload: OwnerSetupRequest, response: Response, service: AuthServiceDependency
+) -> TokenPairResponse:
+    owner = configured_owner()
+    if owner is None:
+        raise HTTPException(status_code=403, detail="Ссылка недействительна")
+    try:
+        pair = service.complete_owner_setup(
+            owner, payload.token, payload.email, payload.password
+        )
+    except InvalidSession as error:
+        raise HTTPException(status_code=403, detail="Ссылка недействительна") from error
+    except EmailAlreadyRegistered as error:
+        raise HTTPException(status_code=409, detail="Эта почта уже занята") from error
     return token_response(pair, response)
 
 

@@ -1,3 +1,4 @@
+import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -31,6 +32,31 @@ class AuthService:
         self.unit_of_work = unit_of_work
         self.passwords = passwords
         self.tokens = tokens
+
+    def issue_owner_setup(self, owner_id: UUID) -> str:
+        token = secrets.token_urlsafe(32)
+        with self.unit_of_work() as work:
+            work.repository.store_owner_setup(
+                owner_id,
+                self.tokens.hash(token),
+                datetime.now(UTC) + timedelta(minutes=60),
+            )
+            work.commit()
+        return token
+
+    def complete_owner_setup(
+        self, owner_id: UUID, token: str, email: str, password: str
+    ) -> TokenPair:
+        now = datetime.now(UTC)
+        with self.unit_of_work() as work:
+            repo = work.repository
+            if not repo.consume_owner_setup(owner_id, self.tokens.hash(token), now):
+                raise InvalidSession
+            repo.set_credentials(owner_id, email, self.passwords.hash(password))
+            repo.revoke_user_sessions(owner_id, now)
+            pair = self._issue_tokens(repo, owner_id, uuid4(), now)
+            work.commit()
+            return pair
 
     def create_or_reset_user(
         self, email: str, display_name: str, password: str

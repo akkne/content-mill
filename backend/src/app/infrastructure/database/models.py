@@ -25,6 +25,16 @@ class UserModel(Base):
     )
 
 
+class OwnerSetupModel(Base):
+    __tablename__ = "owner_setup_links"
+
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class RefreshSessionModel(Base):
     __tablename__ = "auth_sessions"
     __table_args__ = (Index("auth_sessions_family_idx", "family_id"),)

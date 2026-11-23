@@ -3,12 +3,14 @@ from uuid import UUID
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.domain.auth import RefreshSession, User
+from app.domain.auth import EmailAlreadyRegistered, RefreshSession, User
 from app.infrastructure.database.models import (
     AccessTokenModel,
     LoginAttemptModel,
+    OwnerSetupModel,
     RefreshSessionModel,
     UserModel,
 )
@@ -21,6 +23,43 @@ def as_user(model: UserModel) -> User:
 class SqlAlchemyAuthRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
+
+    def store_owner_setup(self, owner_id: UUID, digest: str, expires: datetime) -> None:
+        stmt = insert(OwnerSetupModel).values(
+            user_id=owner_id, token_hash=digest, expires_at=expires
+        )
+        self.session.execute(
+            stmt.on_conflict_do_update(
+                index_elements=[OwnerSetupModel.user_id],
+                set_={"token_hash": digest, "expires_at": expires},
+            )
+        )
+
+    def consume_owner_setup(self, owner_id: UUID, digest: str, now: datetime) -> bool:
+        return (
+            self.session.scalar(
+                delete(OwnerSetupModel)
+                .where(
+                    OwnerSetupModel.user_id == owner_id,
+                    OwnerSetupModel.token_hash == digest,
+                    OwnerSetupModel.expires_at > now,
+                )
+                .returning(OwnerSetupModel.user_id)
+            )
+            is not None
+        )
+
+    def set_credentials(self, owner_id: UUID, email: str, password_hash: str) -> None:
+        try:
+            self.session.execute(
+                update(UserModel)
+                .where(UserModel.id == owner_id)
+                .values(email=email, password_hash=password_hash)
+            )
+        except IntegrityError as error:
+            if getattr(error.orig, "sqlstate", None) == "23505":
+                raise EmailAlreadyRegistered from error
+            raise
 
     def user_by_email(self, email: str) -> User | None:
         model = self.session.scalar(select(UserModel).where(UserModel.email == email))

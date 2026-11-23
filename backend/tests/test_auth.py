@@ -231,3 +231,49 @@ def test_login_is_rate_limited(account):
         )
         assert limited.status_code == 429
         assert limited.json()["error"]["code"] == "rate_limited"
+
+
+def test_owner_setup_preserves_identity_and_can_only_be_used_once(account, monkeypatch):
+    email, owner = account
+    monkeypatch.setenv("MILL_ADMIN_USER_ID", str(owner))
+    service = auth_service()
+    first = service.issue_owner_setup(owner)
+    token = service.issue_owner_setup(owner)
+    old_session = service.login(email, "correct-password-123", "setup-test")
+    new_email = f"new-{uuid4()}@example.com"
+    with TestClient(app) as client:
+
+        def claim(code):
+            return client.post(
+                "/api/v1/auth/owner-setup",
+                json={
+                    "email": new_email,
+                    "password": "new-owner-password-1234",
+                    "token": code,
+                },
+            )
+
+        assert claim(first).status_code == 403
+        try:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(claim, [token, token]))
+            assert sorted(r.status_code for r in results) == [200, 403]
+            success = next(r for r in results if r.is_success)
+            me = client.get(
+                "/api/v1/me",
+                headers={"Authorization": "Bearer " + success.json()["access_token"]},
+            ).json()
+            assert me["id"] == str(owner) and me["is_admin"]
+            assert (
+                client.get(
+                    "/api/v1/me",
+                    headers={"Authorization": "Bearer " + old_session.access_token},
+                ).status_code
+                == 401
+            )
+            assert service.login(new_email, "new-owner-password-1234", "setup-test")
+        finally:
+            with session_factory()() as session:
+                model = session.get(UserModel, owner)
+                model.email = email
+                session.commit()

@@ -182,3 +182,5 @@ PK обозначает первичный ключ, FK — внешний кл�
 ## Коммерческие настройки проекта
 
 В projects добавлены sales_mode (unassigned, saas или implementation), package_name и delivery_notes для условий сотрудничества. Поля video_duration и video_style содержат значения для новых роликов. admin_revision защищает от перезаписи одновременных правок. Коммерческие поля доступны через административный API. [Решение 0034](decisions/0034-client-administration.md).
+
+Таблица `owner_setup_links` хранит хеш одноразового приглашения и срок действия. Первичный ключ `user_id` ссылается на владельца в `users`.

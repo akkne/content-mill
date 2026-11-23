@@ -1,4 +1,3 @@
-import os
 from typing import Annotated
 from uuid import UUID
 
@@ -8,6 +7,7 @@ from app.application.auth.service import AuthService
 from app.application.knowledge.service import KnowledgeService
 from app.container import auth_service, knowledge_service
 from app.domain.auth import InvalidSession, User
+from app.owner import configured_owner
 
 AuthServiceDependency = Annotated[AuthService, Depends(auth_service)]
 KnowledgeServiceDependency = Annotated[KnowledgeService, Depends(knowledge_service)]
@@ -28,7 +28,7 @@ CurrentUser = Annotated[User, Depends(current_user)]
 
 
 def is_admin(user_id: UUID) -> bool:
-    return str(user_id) == os.getenv("MILL_ADMIN_USER_ID", "").strip().lower()
+    return user_id == configured_owner()
 
 
 def require_admin(user: CurrentUser) -> None:

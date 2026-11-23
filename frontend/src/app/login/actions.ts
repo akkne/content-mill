@@ -15,7 +15,11 @@ export async function registerAction(_: string, formData: FormData): Promise<str
   return authenticate("register", formData);
 }
 
-async function authenticate(mode: "login" | "register", formData: FormData): Promise<string> {
+export async function ownerSetupAction(formData: FormData): Promise<string> {
+  return authenticate("owner-setup", formData);
+}
+
+async function authenticate(mode: "login" | "register" | "owner-setup", formData: FormData): Promise<string> {
   const t = await getTranslator();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
@@ -29,19 +33,21 @@ async function authenticate(mode: "login" | "register", formData: FormData): Pro
     response = await fetch(backendUrl(`/api/v1/auth/${mode}`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, display_name: displayName }),
+      body: JSON.stringify({ email, password, display_name: displayName, token: mode === "owner-setup" ? formData.get("token") : undefined }),
       cache: "no-store",
     });
   } catch {
     return t("Сервер недоступен. Повторите попытку позже", "Server unavailable. Try again later");
   }
+  if (mode === "owner-setup" && response.status === 403) return t("Срок ссылки истёк или она уже использована.", "This link has expired or has already been used.");
+  if (mode === "owner-setup" && response.status === 409) return t("Эта почта уже занята. Введи другую.", "This email is already in use. Enter another one.");
   if (response.status === 429) return t("Слишком много попыток. Повторите через 15 минут", "Too many attempts. Try again in 15 minutes");
   if (response.status === 401) return t("Неверная почта или пароль", "Incorrect email or password");
   if (response.status === 409) return t("Не удалось зарегистрировать эту почту. Попробуйте войти", "Could not register this email. Try signing in");
   if (response.status === 422) return t("Проверьте введённые данные", "Check the information you entered");
   if (!response.ok) return t("Сервер недоступен. Повторите попытку позже", "Server unavailable. Try again later");
   await setSession(await response.json() as TokenPair);
-  redirect("/");
+  redirect(mode === "owner-setup" ? "/admin" : "/");
 }
 
 export async function logoutAction(): Promise<string> {

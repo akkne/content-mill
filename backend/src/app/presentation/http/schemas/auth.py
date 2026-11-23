@@ -10,20 +10,11 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=1024)
 
 
-class RegisterRequest(BaseModel):
+class NewCredentials(BaseModel):
     email: Annotated[
         str,
         StringConstraints(
             strip_whitespace=True, to_lower=True, min_length=3, max_length=254
-        ),
-    ]
-    display_name: Annotated[
-        str,
-        StringConstraints(
-            strip_whitespace=True,
-            min_length=1,
-            max_length=120,
-            pattern=r"^[^\x00-\x1f\x7f]+$",
         ),
     ]
     password: str = Field(min_length=15, max_length=1024)
@@ -33,6 +24,22 @@ class RegisterRequest(BaseModel):
     def validate_address(cls, email: str) -> str:
         validate_email(email, check_deliverability=False)
         return email
+
+
+class OwnerSetupRequest(NewCredentials):
+    token: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$", max_length=43)
+
+
+class RegisterRequest(NewCredentials):
+    display_name: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True,
+            min_length=1,
+            max_length=120,
+            pattern=r"^[^\x00-\x1f\x7f]+$",
+        ),
+    ]
 
 
 class RefreshRequest(BaseModel):
