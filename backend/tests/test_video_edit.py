@@ -380,3 +380,31 @@ def test_reference_caption_accents_only_existing_words():
     assert r"Всего {\1c&H63DFFF&}12 дней{\rCaption}" in story
     caption.emphasis = "другое слово"
     assert reference_captions([caption], STORY_STYLE).endswith("Всего 12 дней\n")
+
+
+@pytest.mark.skipif(
+    not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="requires FFmpeg"
+)
+def test_dub_keeps_short_trailing_pause_in_avatar_scene(tmp_path):
+    from app.infrastructure.video.video_edit import wav_bytes
+
+    ffmpeg(
+        tmp_path,
+        [
+            "-f",
+            "lavfi",
+            "-i",
+            "color=red:s=90x160:r=25:d=4.28",
+            "-an",
+            "-c:v",
+            "libx264",
+            "avatar.mp4",
+        ],
+    )
+    editor = FFmpegEditor()
+    clip = (tmp_path / "avatar.mp4").read_bytes()
+    for sounding_tail, expected_complete in [(False, True), (True, False)]:
+        speech = b"\x01\x00" * 84000
+        tail = (b"\x01\x00" if sounding_tail else b"\x00\x00") * 21600
+        duration, _ = editor.inspect(editor.dub(clip, wav_bytes(speech + tail)))
+        assert (duration >= 4400) is expected_complete

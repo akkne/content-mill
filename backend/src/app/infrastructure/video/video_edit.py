@@ -1,5 +1,6 @@
 import base64
 import json
+import math
 import subprocess
 import wave
 from io import BytesIO
@@ -273,6 +274,27 @@ class FFmpegEditor:
             directory = Path(tmp)
             (directory / "video.mp4").write_bytes(clip)
             (directory / "speech.wav").write_bytes(audio)
+            # Avatar providers can drop a few frames of trailing silence.
+            # Keep the authored audio intact and hold the last picture in that gap.
+            video = track_info(directory / "video.mp4")[0]["video"]
+            picture_end = float(video.get("start_time", 0)) + float(video["duration"])
+            video_args = ["-c:v", "copy", "-shortest"]
+            with wave.open(BytesIO(audio), "rb") as track:
+                rate = track.getframerate()
+                samples = track.getnframes()
+                gap = samples / rate - picture_end
+                if 0 < gap <= 0.25:
+                    track.setpos(max(0, min(samples, math.floor(picture_end * rate))))
+                    if not any(track.readframes(samples - track.tell())):
+                        frames = math.ceil(samples * 24 / rate)
+                        video_args = [
+                            "-vf",
+                            f"fps=24:start_time=0,tpad=stop_mode=clone:stop=-1,trim=end_frame={frames}",
+                            "-c:v",
+                            "libx264",
+                            "-preset",
+                            "veryfast",
+                        ]
             ffmpeg(
                 directory,
                 [
@@ -284,11 +306,9 @@ class FFmpegEditor:
                     "0:v:0",
                     "-map",
                     "1:a:0",
-                    "-c:v",
-                    "copy",
+                    *video_args,
                     "-c:a",
                     "aac",
-                    "-shortest",
                     "out.mp4",
                 ],
             )
