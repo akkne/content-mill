@@ -1,3 +1,4 @@
+import itertools
 import json
 import os
 from base64 import b64decode
@@ -348,8 +349,17 @@ def video_model(monkeypatch):
                 data["editing_direction"]
                 == EDITING_DIRECTIONS[data["settings"]["editing_style"]]
             )
+            count = data["scene_count"]
+            boundaries = [
+                data["settings"]["duration"] * 1000 * n // count
+                for n in range(count + 1)
+            ]
             return json.dumps(
                 {
+                    "scenes": [
+                        {"duration_ms": b - a, "lines": []}
+                        for a, b in itertools.pairwise(boundaries)
+                    ],
                     "script": data["title"]
                     + " ".join(m.get("text", "") for m in data["materials"]),
                     "caption": "Подпись к ролику",
@@ -359,7 +369,7 @@ def video_model(monkeypatch):
 
     monkeypatch.setattr(
         "app.container.text_models",
-        lambda: ({"fake": Model(), "codex:gpt-6.2-sol": Model()}, "fake"),
+        lambda: ({"fake": Model(), "codex:gpt-6.2-astra": Model()}, "fake"),
     )
 
 

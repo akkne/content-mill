@@ -39,6 +39,7 @@ services:
       S3_BUCKET: content-mill
       S3_ENDPOINT_URL: http://storage:8333
       S3_PUBLIC_ENDPOINT_URL: https://${MILL_DOMAIN:?}
+      CONTENT_MILL_STYLE_GUIDES: /run/mill-guides
       CONTENT_MILL_SCRIPT_PROVIDER: codex
       CONTENT_MILL_CODEX_AUTH_FILE: /run/mill-login/auth.json
       POLZA_API_KEY: ${POLZA_API_KEY:-}
@@ -46,6 +47,7 @@ services:
       HEYGEN_API_KEY: ${HEYGEN_API_KEY:-}
       LUMEAN_API_KEY: ${LUMEAN_API_KEY:-}
     volumes:
+      - /etc/mill/style-guides:/run/mill-guides:ro
       - /etc/mill/codex:/run/mill-login:ro
     ports:
       - "127.0.0.1:18000:8000"

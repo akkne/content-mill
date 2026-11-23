@@ -376,8 +376,8 @@ def test_reference_caption_accents_only_existing_words():
     facts = reference_captions([caption], FACTS_STYLE)
     story = reference_captions([caption], STORY_STYLE)
     assert "0:00:01.00,0:00:02.31" in facts
-    assert r"Всего {\1c&H54F2DB&\i1}12 дней{\rCaption}" in facts
-    assert r"Всего {\1c&H63DFFF&}12 дней{\rCaption}" in story
+    assert r"Всего {\1c&H54F2DB&\fnDejaVu Serif\i1}12 дней{\rCaption}" in facts
+    assert r"Всего {\1c&H63DFFF&\fnDejaVu Serif\i1}12 дней{\rCaption}" in story
     caption.emphasis = "другое слово"
     assert reference_captions([caption], STORY_STYLE).endswith("Всего 12 дней\n")
 
@@ -432,3 +432,122 @@ def test_dub_retains_picture_through_shorter_voiceover(tmp_path):
     audio = wav_bytes(bytes(7200 * 48))
     clip = editor.dub((tmp_path / "source.mp4").read_bytes(), audio)
     assert editor.inspect(clip)[0] == 7200
+
+
+def test_reference_effects_follow_spoken_script_and_keep_the_audio(tmp_path):
+    from uuid import uuid4
+
+    from app.application.videos.production import Scene, validate_cards
+    from app.application.videos.spoken_script import (
+        ScriptScene,
+        format_script,
+        matches_script,
+    )
+
+    ref = uuid4()
+    shot = Scene(
+        keep_ms=4000,
+        composition="mid",
+        cast_and_wardrobe="host",
+        cut="match",
+        video_prompt="host presents",
+        image_prompt="host",
+        reference_ids=[],
+        utterances=[
+            {
+                "speaker": "Илья",
+                "delivery": "on_screen",
+                "text": "Визуалы и маркетинг.",
+                "start_ms": 0,
+                "end_ms": 3500,
+            },
+        ],
+    )
+    approved = format_script(
+        [ScriptScene(duration_ms=4000, lines=shot.model_dump()["utterances"])],
+        "Русский",
+    )
+    assert matches_script(approved, [shot])
+    assert not matches_script(approved.replace("маркетинг", "дизайн"), [shot])
+    board = SavedStoryboard(scenes=[shot])
+    timeline = Timeline(
+        cuts=[{"scene": 1, "start_ms": 0, "end_ms": 4000, "push_in": True}],
+        graphics=[
+            {
+                "kind": "list",
+                "beats": [
+                    {"at_ms": 150, "label": "Визуалы"},
+                    {"at_ms": 950, "label": "маркетинг"},
+                ],
+                "end_ms": 1850,
+            }
+        ],
+        photo_cards=[
+            {"start_ms": 2000, "end_ms": 2950, "cue": "маркетинг", "version_id": ref}
+        ],
+    )
+    validate_cards(timeline, board, 4, {str(ref)})
+    with pytest.raises(ValueError):
+        validate_cards(timeline, board, 4, set())
+    timeline.graphics[0].beats[0].label = "Рост"
+    with pytest.raises(ValueError):
+        validate_cards(timeline, board, 4, {str(ref)})
+    timeline.graphics[0].beats[0].label = "Визуалы"
+    if not shutil.which("ffmpeg"):
+        pytest.skip("requires FFmpeg")
+    ffmpeg(
+        tmp_path,
+        [
+            "-f",
+            "lavfi",
+            "-i",
+            "color=red:s=90x160:r=24:d=4",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=f=440:d=4",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "source.mp4",
+        ],
+    )
+    photo = BytesIO()
+    Image.new("RGB", (240, 260), "lime").save(photo, "PNG")
+    result = FFmpegEditor().render(
+        [(tmp_path / "source.mp4").read_bytes()],
+        timeline,
+        4,
+        card_images={ref: photo.getvalue()},
+    )
+    (tmp_path / "result.mp4").write_bytes(result)
+    tracks, _ = track_info(tmp_path / "result.mp4")
+    assert int(tracks["video"]["nb_frames"]) == 96
+    assert abs(float(tracks["audio"]["duration"]) - 4) < 0.03
+
+    def pixel(at):
+        return tuple(
+            ffmpeg(
+                tmp_path,
+                [
+                    "-ss",
+                    str(at),
+                    "-i",
+                    "result.mp4",
+                    "-vf",
+                    "crop=2:2:360:556,scale=1:1",
+                    "-frames:v",
+                    "1",
+                    "-pix_fmt",
+                    "rgb24",
+                    "-f",
+                    "rawvideo",
+                    "pipe:1",
+                ],
+            )
+        )
+
+    assert max(pixel(0.3)) < 80
+    assert pixel(2.5)[1] > 170
+    assert pixel(3.5)[0] > 170

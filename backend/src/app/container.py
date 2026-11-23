@@ -2,6 +2,7 @@ import os
 import shutil
 from functools import lru_cache
 from pathlib import Path
+from uuid import UUID
 
 import httpx
 
@@ -17,6 +18,7 @@ from app.application.videos.service import VideoService
 from app.application.videos.text import VideoTextGenerator
 from app.application.voices.library import VoiceLibrary
 from app.application.voices.speech import SpeechService
+from app.domain.video import FACTS_STYLE, STORY_STYLE
 from app.infrastructure.database.repositories.script_jobs import SqlScriptJobs
 from app.infrastructure.database.repositories.speech import SqlSpeechRepository
 from app.infrastructure.database.repositories.voice_library import SqlVoiceLibrary
@@ -77,16 +79,26 @@ def voice_library() -> VoiceLibrary:
     return VoiceLibrary(SqlVoiceLibrary(), voice_catalog())
 
 
+def read_style_guide(project: UUID, style: str) -> bytes | None:
+    folder = os.getenv("CONTENT_MILL_STYLE_GUIDES")
+    name = {FACTS_STYLE: "facts.jpg", STORY_STYLE: "story.jpg"}.get(style)
+    if folder and name:
+        path = Path(folder) / str(project) / name
+        if path.is_file():
+            return path.read_bytes()
+    return None
+
+
 def video_service() -> VideoService:
     models, selected = text_models()
     assembly_error = ""
     if not os.getenv("POLZA_API_KEY", "").strip():
         assembly_error = "Для сборки добавьте POLZA_API_KEY на сервере."
-    elif SolCli.model not in models:
+    elif AstraCli.model not in models:
         assembly_error = "Для монтажа подключите Codex на сервере."
     return VideoService(
         SqlAlchemyProjectUnitOfWork,
-        VideoTextGenerator(models.get(selected), agent_files()),
+        VideoTextGenerator(models.get(selected), agent_files(), read_style_guide),
         assembly_error,
         lipsync_available=bool(
             os.getenv("HEYGEN_API_KEY", "").strip()
@@ -101,12 +113,13 @@ def video_production() -> VideoProduction:
     return VideoProduction(
         SqlAlchemyProjectUnitOfWork,
         S3DocumentStore(),
-        models.get(SolCli.model),
+        models.get(AstraCli.model),
         PolzaNanoBanana21(api),
         PolzaKling26(api),
         FFmpegEditor(),
         AssetPreview(),
         voice_catalog() if os.getenv("LUMEAN_API_KEY", "").strip() else None,
+        style_guide=read_style_guide,
         lipsync=HeyGenAvatar6(os.getenv("HEYGEN_API_KEY", "").strip()),
         describe_error=describe_video_error,
     )
@@ -128,7 +141,7 @@ def text_models() -> tuple[dict[str, ScriptModel], str]:
     models: dict[str, ScriptModel] = {}
     providers = {
         "claude": (ClaudeScript, ClaudeCodeCli, "ANTHROPIC_API_KEY"),
-        "codex": (CodexScript, SolCli, "OPENAI_API_KEY"),
+        "codex": (CodexScript, AstraCli, "OPENAI_API_KEY"),
     }
     provider = os.getenv("CONTENT_MILL_SCRIPT_PROVIDER", "codex").strip().lower()
     if provider and provider not in providers:
@@ -143,9 +156,9 @@ def text_models() -> tuple[dict[str, ScriptModel], str]:
                 models[cli.model] = cli(key)
                 if name == "codex":
                     models[CodexCli.model] = CodexCli(key)
-                    models[AstraCli.model] = AstraCli(key)
+                    models[SolCli.model] = SolCli(key)
     auth_file = os.getenv("CONTENT_MILL_CODEX_AUTH_FILE")
-    if auth_file and SolCli.model not in models and shutil.which("codex"):
+    if auth_file and AstraCli.model not in models and shutil.which("codex"):
         path = Path(auth_file)
         if path.is_file():
             models[SolCli.model] = SolCli(auth_file=path)

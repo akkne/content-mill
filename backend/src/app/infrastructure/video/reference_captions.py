@@ -33,7 +33,7 @@ def reference_captions(subtitles: list[Subtitle], style: str) -> str:
         # Only highlight a literal substring of the approved caption.
         if sub.emphasis and sub.emphasis.strip() and sub.emphasis in text:
             start, emphasis, end = text.partition(sub.emphasis)
-            accent = r"{\1c" + color + (r"\i1" if factual else "") + "}"
+            accent = r"{\1c" + color + r"\fnDejaVu Serif\i1}"
             text = start + accent + emphasis + r"{\rCaption}" + end
         output.append(
             f"Dialogue: 0,{timestamp(sub.start_ms)},{timestamp(sub.end_ms)},Caption,,0,0,0,,{text}"

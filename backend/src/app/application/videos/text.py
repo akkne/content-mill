@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field, StringConstraints
 from app.application.agents.files import AgentFiles
 from app.application.agents.ports import AgentScope
 from app.application.scripts.jobs import ScriptModel
+from app.application.videos.spoken_script import ScriptScene, format_script
+from app.application.videos.style_guide import GuideReader, attach_style_guide
 from app.domain.project import ProjectContext
 from app.domain.video import (
     VideoSource,
@@ -27,8 +29,20 @@ class VideoCopy(BaseModel):
     edit_plan: list[VideoText] = Field(min_length=1)
 
 
+class CastVideoCopy(BaseModel):
+    scenes: list[ScriptScene] = Field(min_length=1, max_length=8)
+    caption: VideoText
+    edit_plan: list[VideoText] = Field(min_length=1)
+
+
 class VideoTextGenerator:
-    def __init__(self, model: ScriptModel | None, files: AgentFiles):
+    def __init__(
+        self,
+        model: ScriptModel | None,
+        files: AgentFiles,
+        style_guide: GuideReader | None = None,
+    ):
+        self.style_guide = style_guide
         self.model = model
         self.files = files
 
@@ -96,10 +110,19 @@ class VideoTextGenerator:
                 "context": asdict(context),
                 "materials": materials,
             }
+            attach_style_guide(
+                self.style_guide,
+                scope.project_id,
+                settings.get("editing_style", ""),
+                data,
+                images,
+            )
+            schema = CastVideoCopy if cast else VideoCopy
+            data["output_schema"] = schema.model_json_schema()
             result = self.model.generate(
                 "Подготовь сценарий короткого ролика, подпись к публикации и монтажный лист "
                 "по сценам с таймкодами, кадрами, склейками и титрами на языке settings.language. "
-                "В поле script оставь только интервалы сцен, говорящих, режим реплики и дословную речь. "
+                "Сценарий содержит интервалы сцен, говорящих, режим реплики и дословную речь. "
                 "Вынеси указания по картинке в edit_plan. Исключи из текста ID, настройки сервисов и указания о записи голоса. "
                 "Голос каждого говорящего уже выбран в settings.characters. "
                 "Сохраняй мысль, оговорки и мотивацию автора из settings.brief. "
@@ -121,15 +144,34 @@ class VideoTextGenerator:
                 "Выбранные пользователем материалы — первоочередные творческие источники. "
                 "Если задан состав, реплики могут принадлежать только персонажам с голосом. "
                 "Верни только JSON "
-                "с полями script и caption (строки до 6000 символов) и edit_plan (список строк).",
+                "по output_schema. Если заданы scenes, сумма duration_ms равна длительности ролика в мс. Объединяй последовательные фразы одного говорящего в одну реплику, пока не меняется план или говорящий.",
                 json.dumps(data, ensure_ascii=False, default=str),
                 images,
             )
-            copy = VideoCopy.model_validate_json(
+            copy = schema.model_validate_json(
                 result.strip().removeprefix("```json").removesuffix("```").strip()
             )
+            if isinstance(copy, CastVideoCopy):
+                if (
+                    len(copy.scenes) != data["scene_count"]
+                    or sum(scene.duration_ms for scene in copy.scenes)
+                    != settings["duration"] * 1000
+                ):
+                    raise ValueError("Script timing differs from the brief")
+                speakers = {p["display_name"] for p in cast if p.get("voice")}
+                if any(
+                    line.speaker not in speakers
+                    for scene in copy.scenes
+                    for line in scene.lines
+                ):
+                    raise ValueError("Script assigns speech to an unvoiced character")
+                script = format_script(copy.scenes, settings["language"])
+                if len(script) > 6000:
+                    raise ValueError("Script exceeds the editable length")
+            else:
+                script = copy.script
         except Exception as error:
             raise VideoTextUnavailable(
                 "Не удалось подготовить текст ролика. Повторите запуск позже."
             ) from error
-        return copy.script, copy.caption, copy.edit_plan
+        return script, copy.caption, copy.edit_plan
