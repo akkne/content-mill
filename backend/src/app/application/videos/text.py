@@ -43,8 +43,43 @@ class VideoTextGenerator:
         if self.model is None:
             raise VideoTextUnavailable("Модель для подготовки текста недоступна.")
         try:
+            # The legacy narrator setting applies only to videos without a cast.
+            # Describe cast voices by name and keep technical IDs out of the copy.
+            script_settings = dict(settings)
+            cast = settings.get("characters") or []
+            if cast:
+                script_settings.pop("voice", None)
+                script_settings["characters"] = [
+                    {
+                        "display_name": person["display_name"],
+                        "voice": (person.get("voice") or {}).get("name"),
+                        "visual_references": [
+                            ref
+                            for ref in person.get("files", [])
+                            if ref.get("role")
+                            in {
+                                "face_reference",
+                                "angle_reference",
+                                "full_body_reference",
+                                "outfit_reference",
+                            }
+                        ],
+                    }
+                    for person in cast
+                ]
+            script_settings.pop("sources", None)
+            avatar_attachments = {
+                ref["version_id"]
+                for person in cast
+                for ref in person.get("files", [])
+                if ref.get("role") == "attachment"
+            }
             materials, images = [], []
             for source in sources:
+                if str(source.id) in avatar_attachments and source.format.startswith(
+                    "audio/"
+                ):
+                    continue
                 item = asdict(source)
                 if source.format in {"markdown", "plain"}:
                     item.update(self.files.read(scope, source.id, 0, 20000))
@@ -55,7 +90,7 @@ class VideoTextGenerator:
                 materials.append(item)
             data = {
                 "title": title,
-                "settings": settings,
+                "settings": script_settings,
                 "editing_direction": editing_direction(settings),
                 "scene_count": scene_count(settings["duration"]),
                 "context": asdict(context),
@@ -64,6 +99,15 @@ class VideoTextGenerator:
             result = self.model.generate(
                 "Подготовь сценарий короткого ролика, подпись к публикации и монтажный лист "
                 "по сценам с таймкодами, кадрами, склейками и титрами на языке settings.language. "
+                "В поле script оставь только интервалы сцен, говорящих, режим реплики и дословную речь. "
+                "Вынеси указания по картинке в edit_plan. Исключи из текста ID, настройки сервисов и указания о записи голоса. "
+                "Голос каждого говорящего уже выбран в settings.characters. "
+                "Сохраняй мысль, оговорки и мотивацию автора из settings.brief. "
+                "Если автор сравнивает варианты, свяжи его выбор с причиной в одной разговорной фразе. "
+                "Не превращай личную оценку в статистический факт или гарантию. "
+                "При нехватке времени сокращай вводные, сохраняя объяснение. "
+                "У каждой вставки в edit_plan укажи точные слова реплики и то, что зритель должен увидеть. "
+                "Не выдумывай для вставок посторонние товары, кейсы, суммы или графики роста. "
                 "Следуй editing_direction при выборе темпа, крупности и склеек. "
                 "Напиши ровно scene_count непрерывных планов для десятисекундных исходников Kling. Для каждой сцены задай таймкод начала и конца в готовом ролике. Монтаж берёт с начала исходника ровно эту длительность. "
                 "Уложи историю и реплики в итоговую длительность settings.duration. Для каждого "
