@@ -42,7 +42,7 @@ export function LoginForm({ register, ownerSetup = false }: { register: boolean;
       <input
         className={`${field} min-h-11`}
         autoComplete={newPassword ? "new-password" : "current-password"}
-        minLength={newPassword ? 15 : undefined}
+        minLength={newPassword ? 8 : undefined}
         maxLength={1024}
         aria-describedby={newPassword ? "password-hint" : undefined}
         id="password"
@@ -50,7 +50,7 @@ export function LoginForm({ register, ownerSetup = false }: { register: boolean;
         required
         type="password"
       />
-      {newPassword && <p className="text-sm text-muted" id="password-hint">{t("Минимум 15 символов", "At least 15 characters")}</p>}
+      {newPassword && <p className="text-sm text-muted" id="password-hint">{t("Минимум 8 символов", "At least 8 characters")}</p>}
       {error && (
         <p aria-live="polite" className={formError} role="alert">
           {error}

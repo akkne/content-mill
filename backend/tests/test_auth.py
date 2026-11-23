@@ -105,7 +105,7 @@ def test_concurrent_registration_and_session(unused_email):
 
 @pytest.mark.parametrize(
     "field,value",
-    [("email", "invalid"), ("display_name", "   "), ("password", "short")],
+    [("email", "invalid"), ("display_name", "   "), ("password", "1234567")],
 )
 def test_registration_validation(field, value):
     data = {
@@ -248,7 +248,7 @@ def test_owner_setup_preserves_identity_and_can_only_be_used_once(account, monke
                 "/api/v1/auth/owner-setup",
                 json={
                     "email": new_email,
-                    "password": "new-owner-password-1234",
+                    "password": "owner-08",
                     "token": code,
                 },
             )
@@ -271,7 +271,7 @@ def test_owner_setup_preserves_identity_and_can_only_be_used_once(account, monke
                 ).status_code
                 == 401
             )
-            assert service.login(new_email, "new-owner-password-1234", "setup-test")
+            assert service.login(new_email, "owner-08", "setup-test")
         finally:
             with session_factory()() as session:
                 model = session.get(UserModel, owner)

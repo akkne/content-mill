@@ -17,7 +17,7 @@ class NewCredentials(BaseModel):
             strip_whitespace=True, to_lower=True, min_length=3, max_length=254
         ),
     ]
-    password: str = Field(min_length=15, max_length=1024)
+    password: str = Field(min_length=8, max_length=1024)
 
     @field_validator("email")
     @classmethod
