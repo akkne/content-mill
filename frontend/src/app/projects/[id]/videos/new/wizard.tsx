@@ -240,6 +240,10 @@ export function Wizard({
                       </option>
                     ))}
                   </select>
+                  {k === "editing_style" && editingStyle === "Аватар с моушн-графикой" &&
+                    <span className="text-sm font-normal text-muted">{t("Ведущий с акцентными титрами и карточками по ходу речи.", "Presenter with animated captions and callouts timed to speech.")}</span>}
+                  {k === "editing_style" && editingStyle === "Текст в интерфейсе" &&
+                    <span className="text-sm font-normal text-muted">{t("Слова появляются над светлым окном, в котором разворачивается действие.", "Words appear above a light interface window showing the action.")}</span>}
                   {k === "editing_style" && editingStyle === "История в цифрах" &&
                     <span className="text-sm font-normal text-muted">{t("От факта к выводу. Числа и единицы выделяются в титрах.", "Lead with a fact and highlight its number and unit in captions.")}</span>}
                   {k === "editing_style" && editingStyle === "История через детали" &&

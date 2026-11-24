@@ -21,27 +21,37 @@ def font(size: int, *, bold: bool = False):
         raise
 
 
-def graphic_frame(graphic, active: int) -> Image.Image:
+def graphic_frame(graphic, active: int, *, overlay: bool = False) -> Image.Image:
     canvas = Image.new("RGB", (720, 1280), "#101115")
+    if overlay:
+        canvas = Image.new("RGBA", canvas.size)
     draw = ImageDraw.Draw(canvas)
     ink, muted, lime = "#f5f5f0", "#777a82", "#deee65"
+    if overlay:
+        draw.rounded_rectangle((44, 515, 676, 910), radius=30, fill="#17274bf0")
+        lime = "#a8edda"
     if graphic.kind == "share":
         label = graphic.beats[0].label
         portion = float(label.rstrip("%").strip().replace(",", "."))
-        bounds = (172, 323, 548, 699)
+        bounds = (252, 530, 468, 746) if overlay else (172, 323, 548, 699)
         draw.ellipse(bounds, fill="#35373d")
         if portion:
             draw.pieslice(bounds, -90, -90 + 3.6 * portion, fill=lime)
         draw.text((360, 770), label, font=font(78, bold=True), fill=ink, anchor="mm")
     else:
-        top = 585 - len(graphic.beats) * 69
+        step = 88 if overlay else 138
+        top = (
+            712 - len(graphic.beats) * step // 2
+            if overlay
+            else 585 - len(graphic.beats) * 69
+        )
         for index, beat in enumerate(graphic.beats):
-            y = top + index * 138
+            y = top + index * step
             chosen = index == active
             color = ink if chosen else muted
             draw.line((70, y, 650, y), fill="#42454c", width=2)
             draw.text(
-                (72, y + 65),
+                (72, y + step // 2),
                 f"{index + 1:02}",
                 font=font(29),
                 fill=lime if chosen else muted,
@@ -54,7 +64,7 @@ def graphic_frame(graphic, active: int) -> Image.Image:
             ):
                 size -= 2
             draw.text(
-                (157, y + 65),
+                (157, y + step // 2),
                 beat.label,
                 font=font(size, bold=chosen),
                 fill=color,

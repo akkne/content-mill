@@ -23,6 +23,8 @@ const optionNames: Record<string, string> = {
   "Проблема → решение": "Problem → solution",
   "По сценарию": "Follow the script",
   "История в цифрах": "Story in numbers",
+  "Текст в интерфейсе": "Words in the interface",
+  "Аватар с моушн-графикой": "Avatar with motion graphics",
   "История через детали": "Story through details",
   "Динамичный": "Dynamic",
   "Детали товара": "Product details",

@@ -43,3 +43,4 @@
 - [Фото товара в готовом ролике](0037-product-photo-cutaway.md)
 - [Стили монтажа по двум примерам с ведущей](0038-reference-editing-styles.md)
 - [Астра, речь и монтаж по референсу проекта](0039-astra-editorial-montage.md)
+- [Два стиля монтажа в мастере роликов](0040-browser-motion-styles.md)

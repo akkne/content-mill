@@ -11,9 +11,16 @@ from uuid import UUID
 from PIL import Image, ImageDraw, ImageOps
 
 from app.application.videos.production import ProductionError, Timeline
-from app.domain.video import DEFAULT_EDITING_STYLE, FACTS_STYLE, STORY_STYLE
+from app.domain.video import (
+    AVATAR_MOTION_STYLE,
+    DEFAULT_EDITING_STYLE,
+    FACTS_STYLE,
+    INTERFACE_STYLE,
+    STORY_STYLE,
+)
 from app.infrastructure.video.asset_preview import check_size
 from app.infrastructure.video.editorial_graphic import graphic_frame
+from app.infrastructure.video.motion_styles import interface_frame, motion_captions
 from app.infrastructure.video.reference_captions import reference_captions
 
 
@@ -204,15 +211,45 @@ class FFmpegEditor:
                         else graphic.end_ms
                     )
                     filename = f"graphic-{next_input}.png"
-                    graphic_frame(graphic, index).save(directory / filename)
+                    graphic_frame(
+                        graphic, index, overlay=editing_style == AVATAR_MOTION_STYLE
+                    ).save(directory / filename)
                     inputs.extend(["-f", "image2", "-i", filename])
                     label = f"[graphic{next_input}]"
+                    slide = (
+                        f"y='36*max(0,1-(t-{beat.at_ms / 1000})/0.18)':"
+                        if editing_style == AVATAR_MOTION_STYLE
+                        else ""
+                    )
                     filters.append(
-                        f"{video_label}[{next_input}:v]overlay=enable='gte(t,{beat.at_ms / 1000})*lt(t,{end / 1000})'{label}"
+                        f"{video_label}[{next_input}:v]overlay={slide}enable='gte(t,{beat.at_ms / 1000})*lt(t,{end / 1000})'{label}"
                     )
                     video_label = label
                     next_input += 1
-            if timeline.subtitles and editing_style in (FACTS_STYLE, STORY_STYLE):
+            if editing_style == INTERFACE_STYLE:
+                interface_frame().save(directory / "interface.png")
+                inputs.extend(["-f", "image2", "-i", "interface.png"])
+                filters.extend(
+                    [
+                        (
+                            f"{video_label}scale=540:529:force_original_aspect_ratio=decrease,"
+                            "pad=720:1280:(ow-iw)/2:716-ih/2:color=0xf2f4f8,setsar=1[window]"
+                        ),
+                        f"[window][{next_input}:v]overlay[interface]",
+                    ]
+                )
+                next_input += 1
+                video_label = "[interface]"
+            if timeline.subtitles and editing_style in (
+                AVATAR_MOTION_STYLE,
+                INTERFACE_STYLE,
+            ):
+                (directory / "captions.ass").write_text(
+                    motion_captions(timeline.subtitles, editing_style), encoding="utf-8"
+                )
+                filters.append(f"{video_label}subtitles=captions.ass[vsub]")
+                video_label = "[vsub]"
+            elif timeline.subtitles and editing_style in (FACTS_STYLE, STORY_STYLE):
                 (directory / "captions.ass").write_text(
                     reference_captions(timeline.subtitles, editing_style),
                     encoding="utf-8",

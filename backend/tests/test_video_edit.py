@@ -551,3 +551,83 @@ def test_reference_effects_follow_spoken_script_and_keep_the_audio(tmp_path):
     assert max(pixel(0.3)) < 80
     assert pixel(2.5)[1] > 170
     assert pixel(3.5)[0] > 170
+
+
+@pytest.mark.parametrize("style", ["Аватар с моушн-графикой", "Текст в интерфейсе"])
+def test_browser_motion_styles_render_timed_picture_and_audio(tmp_path, style):
+    from app.application.videos.service import OPTIONS
+    from PIL import ImageChops, ImageStat
+
+    assert style in OPTIONS["editing_style"]
+    clip = ffmpeg(
+        tmp_path,
+        [
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=red:s=90x160:r=24:d=2",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=d=2",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "-movflags",
+            "frag_keyframe+empty_moov",
+            "-f",
+            "mp4",
+            "pipe:1",
+        ],
+    )
+    timeline = Timeline(
+        cuts=[{"scene": 1, "start_ms": 0, "end_ms": 2000}],
+        subtitles=[{"start_ms": 200, "end_ms": 1900, "text": "Открыть готовый проект"}],
+        graphics=[
+            {
+                "kind": "list",
+                "beats": [
+                    {"at_ms": 200, "label": "Открыть"},
+                    {"at_ms": 1000, "label": "Проект"},
+                ],
+                "end_ms": 1900,
+            }
+        ],
+    )
+    path = tmp_path / "checked.mp4"
+    path.write_bytes(FFmpegEditor().render([clip], timeline, 2, editing_style=style))
+    tracks, _ = track_info(path)
+    assert all(
+        float(tracks[k]["duration"]) == pytest.approx(2, abs=0.045)
+        for k in ("audio", "video")
+    )
+
+    def picture(t):
+        raw = ffmpeg(
+            tmp_path,
+            [
+                "-ss",
+                str(t),
+                "-i",
+                path.name,
+                "-frames:v",
+                "1",
+                "-f",
+                "image2pipe",
+                "-c:v",
+                "png",
+                "pipe:1",
+            ],
+        )
+        return Image.open(BytesIO(raw)).convert("RGB")
+
+    first, later = picture(0.25), picture(1.5)
+    r, g, b = later.getpixel((20, 100))
+    if style == "Текст в интерфейсе":
+        assert min(r, g, b) > 220
+        area = (30, 210, 690, 385)
+    else:
+        assert r > 200 and g < 30
+        area = (35, 515, 690, 905)
+    assert max(ImageStat.Stat(ImageChops.difference(first, later).crop(area)).mean) > 1
