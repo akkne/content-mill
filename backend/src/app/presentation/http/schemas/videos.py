@@ -18,6 +18,8 @@ class VideoInput(BaseModel):
     product: str = Field(default="", max_length=200)
     platform: str = "Instagram Reels"
     method: str = "Проблема → решение"
+    reel_format: str | None = Field(default=None, max_length=80)
+    outro_template: str | None = Field(default=None, max_length=80)
     motion_template: str | None = Field(default=None, max_length=80)
     motion_layout: Literal["panel", "split", "intro"] = "panel"
     editing_style: str = DEFAULT_EDITING_STYLE

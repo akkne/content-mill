@@ -6,7 +6,7 @@ export default async function NewVideo({
   params,
   searchParams,
 }: {
-  searchParams: Promise<{ style?: string }>;
+  searchParams: Promise<{ style?: string; reel?: string }>;
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
@@ -14,6 +14,7 @@ export default async function NewVideo({
     <Wizard
       projectId={id}
       library={await motionLibrary(id)}
+      initialReel={(await searchParams).reel}
       initialStyle={(await searchParams).style}
       motionOrigin={
         process.env.OPENMOTION_PUBLIC_URL ?? "http://127.0.0.1:4173"

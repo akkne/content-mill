@@ -1,6 +1,6 @@
 "use client";
 import { MotionPicker } from "./motion-picker";
-import type { MotionStyle } from "@/lib/motion";
+import type { MotionStyle, ReelFormat } from "@/lib/motion";
 import { useInterfaceLanguage } from "@/app/interface-language";
 import { optionLabel } from "../video-labels";
 import { useTranslator } from "@/app/interface-language";
@@ -27,9 +27,9 @@ import { saveVideo } from "../actions";
 
 export function Wizard({
   projectId,
-  data, library, initialStyle, motionOrigin,
+  data, library, initialStyle, initialReel, motionOrigin,
 }: {
-  projectId: string; library:{styles:MotionStyle[];saved:string[]}; initialStyle?:string; motionOrigin:string;
+  projectId: string; library:{styles:MotionStyle[];reels:ReelFormat[];saved:string[]}; initialReel?:string; initialStyle?:string; motionOrigin:string;
   data: VideoOptions;
 }) {
   const t = useTranslator();
@@ -67,7 +67,11 @@ export function Wizard({
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
   const lang=useInterfaceLanguage();
-  const [styleId,setStyleId]=useState(library.styles.find(s=>s.id===initialStyle)?.id ?? library.saved[0] ?? data.motion_default);
+  const [styleId,setStyleId]=useState(library.styles.find(s=>s.id===initialStyle)?.id ?? "");
+  const [outroId,setOutro]=useState("");
+  const outro=library.styles.find(s=>s.id===outroId);
+  const [reelId,setReelId]=useState(library.reels.find(r=>r.id===initialReel)?.id ?? library.reels.find(r=>library.saved.includes(r.id))?.id ?? library.reels[0].id);
+  const reel=library.reels.find(r=>r.id===reelId)!;
   const style=library.styles.find(s=>s.id===styleId);
   const [duration, setDuration] = useState(data.defaults.duration);
   const [review, setReview] = useState<FormData>();
@@ -160,7 +164,7 @@ export function Wizard({
                   maxLength={2000}
                 />
               </label>
-              <MotionPicker library={library} styleId={styleId} onChange={setStyleId} origin={motionOrigin}/>
+              <MotionPicker title={title} outroId={outroId} onOutro={setOutro} reel={reel} onReel={setReelId} library={library} styleId={styleId} onChange={setStyleId} origin={motionOrigin}/>
               <CastPicker data={data} rows={cast} change={changeCast}/>
               <label className="grid gap-2 rounded-xl border border-dashed border-line p-4">
                 <strong>{t("Свои кадры и фото товара", "Your footage and product photos")}</strong>
@@ -273,7 +277,9 @@ export function Wizard({
                   t("Формат", "Format"),
                   optionLabel(String(review?.get("method") ?? ""), t) + " · " + optionLabel(String(review?.get("platform") ?? ""), t),
                 ],
-                [t("Стиль монтажа","Editing style"), style?.[lang].title ?? ""],
+                [t("Монтаж рилса","Reel edit"), reel[lang].title],
+                [t("Основная вставка","Main insert"), style?.[lang].title ?? t("Без вставки","No insert")],
+                ...(outro ? [[t("Финальная вставка","Closing insert"),outro[lang].title]] : []),
                 [t("Настройки", "Settings"), duration + t(" сек · ", " sec · ") + optionLabel(String(review?.get("language") ?? ""), t)],
                 [
                   t("Персонажи и голоса", "Characters and voices"),

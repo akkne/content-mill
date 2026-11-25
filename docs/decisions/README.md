@@ -44,3 +44,4 @@
 - [Стили монтажа по двум примерам с ведущей](0038-reference-editing-styles.md)
 - [Астра, речь и монтаж по референсу проекта](0039-astra-editorial-montage.md)
 - [Каталог монтажа и локальная OpenMotion Studio](0040-openmotion.md)
+- [0041. Форматы рилсов и анимированные вставки](0041-reel-edits.md)

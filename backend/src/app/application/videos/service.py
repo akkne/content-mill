@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 from app.application.agents.ports import AgentScope
 from app.application.projects.ports import ProjectUnitOfWorkFactory
 from app.application.videos.cast import cast_options, resolve_cast
-from app.domain.motion import DEFAULT_STYLE, STYLES
+from app.domain.motion import DEFAULT_STYLE, REELS, STYLES
 from app.domain.project import ProjectContext, ProjectNotFound
 from app.domain.video import (
     EDITING_DIRECTIONS,
@@ -79,6 +79,11 @@ class VideoService:
                 "duration": current.video_duration,
                 **settings,
             }
+            if settings.get("reel_format") and settings["reel_format"] not in REELS:
+                raise InvalidVideo("Неизвестный формат монтажа рилса")
+            outro = settings.get("outro_template")
+            if outro and (outro not in STYLES or not settings.get("reel_format")):
+                raise InvalidVideo("Проверьте финальную вставку")
             if (
                 settings.get("motion_template")
                 and settings["motion_template"] not in STYLES
