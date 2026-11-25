@@ -44,6 +44,7 @@ from app.infrastructure.starter_prompts import starter_prompts
 from app.infrastructure.storage.s3_documents import S3DocumentStore
 from app.infrastructure.video.asset_preview import AssetPreview
 from app.infrastructure.video.openmotion import OpenMotion
+from app.infrastructure.video.reel_media import ReelMediaEditor
 from app.infrastructure.video.video_edit import FFmpegEditor
 from app.infrastructure.video.video_failures import describe_video_error
 
@@ -120,6 +121,7 @@ def video_production() -> VideoProduction:
         FFmpegEditor(),
         AssetPreview(),
         voice_catalog() if os.getenv("LUMEAN_API_KEY", "").strip() else None,
+        reel_media=ReelMediaEditor(),
         motion=OpenMotion(os.environ.get("OPENMOTION_URL", "http://localhost:4173")),
         style_guide=read_style_guide,
         lipsync=HeyGenAvatar6(os.getenv("HEYGEN_API_KEY", "").strip()),

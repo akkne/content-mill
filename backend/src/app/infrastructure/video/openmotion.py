@@ -1,6 +1,7 @@
 """Transfer pinned media into a native OpenMotion template and export its revision."""
 
 import json
+import math
 import mimetypes
 import shutil
 from html import escape
@@ -34,6 +35,7 @@ def composition(
     reel_format=None,
     insert=True,
     outro=None,
+    overlays=None,
 ):
     """Reuse the guide's actual renderer, palette and keyframes."""
     w, h = source["width"], source["height"]
@@ -117,6 +119,32 @@ def composition(
         layers.append(
             f'<div class="clip" id="guide" data-composition-id="guide" data-start="{start}" data-duration="{seconds}" data-track-index="5" data-width="{w}" data-height="{h}"><canvas width="{w}" height="{h}"></canvas></div>'
         )
+    animation_keys = []
+    for i, (start_ms, end_ms, position, frames) in enumerate(overlays or []):
+        rows = math.ceil(frames / 8)
+        sprite = f"overlay-{i}"
+        layers.append(
+            f'<div id="{sprite}" class="clip overlay {position}" data-start="{start_ms / 1000:g}" data-duration="{(end_ms - start_ms) / 1000:g}" data-track-index="5" '
+            f'style="background-image:url(&quot;{escape(paths[sprite], quote=True)}&quot;);background-size:800% {rows * 100}%;background-repeat:no-repeat"></div>'
+        )
+        if sprite + "-audio" in paths:
+            layers.append(
+                clip_tag(
+                    "audio",
+                    f"foley-{i}",
+                    paths[sprite + "-audio"],
+                    start_ms,
+                    end_ms - start_ms,
+                    7,
+                    'data-volume="0.12589"',
+                )
+            )
+        for frame in range(frames):
+            x = (frame % 8) * 100 / 7
+            y = (frame // 8) * 100 / max(1, rows - 1)
+            animation_keys.append(
+                f'window.__timelines.main.set("#{sprite}",{{backgroundPosition:"{x:.6f}% {y:.6f}%"}},{start_ms / 1000 + frame / 24:.6f});'
+            )
     for i, cue in enumerate(timeline.subtitles):
         layers.append(
             f'<div class="clip caption" id="caption-{i}" data-start="{cue.start_ms / 1000:g}" data-duration="{(cue.end_ms - cue.start_ms) / 1000:g}" data-track-index="6">{escape(cue.text)}</div>'
@@ -160,16 +188,19 @@ canvas{{width:100%;height:100%;object-fit:contain}}
 .split video{{height:56%}}.split #guide{{left:0;top:56%;height:44%;width:100%;border-radius:0}}
 .intro #guide{{inset:0;width:100%;height:100%;background:#17191e;border-radius:0}}
 .caption,.fact{{position:absolute;text-align:center;left:6%;right:6%;bottom:7%;text-shadow:0 2px 9px black;background:#13151cce;border-radius:10px;padding:8px}}
+.overlay{{position:absolute;top:38%;width:47%;aspect-ratio:9/16;overflow:hidden;z-index:5}}
+.overlay.left{{left:4%}}.overlay.right{{right:4%}}.overlay.center{{left:26.5%}}
+.talking-head .caption{{z-index:6;bottom:11%;font:500 36px/1.16 Arial,sans-serif;background:none;text-shadow:0 2px 4px #000,0 0 12px #000;padding:0 16px}}
 .fact{{bottom:auto;top:8%;font-size:50px;color:{style["accent"]}}}
 .reel-story .caption{{left:8%;right:8%;bottom:11%;background:#111b24da;border-radius:0;border-left:6px solid #e7bc76;padding:16px 20px;text-align:left;font-family:Georgia,serif}}
 .reel-steps .caption{{left:7%;right:7%;bottom:11%;text-align:left;background:#f8efda;color:#162b31;text-shadow:none;border-radius:16px;padding:18px 24px;border-top:8px solid #ef744b}}
 .reel-pulse .caption{{bottom:13%;background:#e9fb55;color:#151515;text-transform:uppercase;font-weight:900;text-shadow:none;border-radius:2px;transform:rotate(-2deg)}}
-</style></head><body data-mode="sequence"><main class="{layout if insert else ""} {reel_format or ""}" data-composition-id="main" data-start="0" data-duration="{duration}" data-width="720" data-height="1280" data-fps="24">
+</style></head><body data-mode="sequence"><main class="{layout if insert else ""} {reel_format or ""} {"talking-head" if overlays is not None else ""}" data-composition-id="main" data-start="0" data-duration="{duration}" data-width="720" data-height="1280" data-fps="24">
 {"".join(layers)}</main><script src="assets/gsap.min.js"></script>{guide_scripts}{'<script src="demos/cm-outro.js"></script>' if outro else ""}
 <script>const clock={{time:0}},endClock={{time:0}};const draw=()=>{{window.motionDemo.setParams({params});window.motionDemo.renderAt(clock.time % ({guide_seconds}+0.001))}};
 window.__timelines={{main:gsap.timeline({{paused:true}}){guide_timeline}{outro_timeline}}};
 {f'window.__timelines.main.set("video",{{height:"100%"}},0).set("video",{{height:"56%"}},{start}).set("video",{{height:"100%"}},{start + seconds});' if insert and reel_format and layout == "split" else ""}
-{"draw();" if insert else ""}</script></body></html>"""
+{"".join(animation_keys)}{"draw();" if insert else ""}</script></body></html>"""
 
 
 class OpenMotion:
@@ -203,6 +234,7 @@ class OpenMotion:
         cards,
         reel_format=None,
         outro_template=None,
+        overlays=None,
     ):
         style = STYLES[template or DEFAULT_STYLE]
         key = "cm-" + str(video_id)
@@ -259,6 +291,50 @@ class OpenMotion:
                         ],
                     )
                     files[name + "-audio"] = audio
+            overlay_tracks = []
+            for i, (start, end, position, data) in enumerate(overlays or []):
+                name = f"overlay-{i}"
+                source = folder / f"{name}.webm"
+                source.write_bytes(data)
+                # Studio can decode video into opaque intermediates. Import lossless
+                # RGBA frames as one atlas and seek them on the project clock.
+                frames = round((end - start) * 24 / 1000)
+                rows = math.ceil(frames / 8)
+                files[name] = folder / (name + ".png")
+                ffmpeg(
+                    folder,
+                    [
+                        "-y",
+                        "-c:v",
+                        "libvpx-vp9",
+                        "-i",
+                        source.name,
+                        "-vf",
+                        f"format=rgba,tpad=stop_mode=clone:stop_duration=0.1,trim=end_frame={frames},tile=8x{rows}:color=black@0",
+                        "-frames:v",
+                        "1",
+                        files[name].name,
+                    ],
+                )
+                tracks, _ = track_info(source, "matroska")
+                if "audio" in tracks:
+                    audio = folder / (name + ".m4a")
+                    ffmpeg(
+                        folder,
+                        [
+                            "-y",
+                            "-f",
+                            "matroska",
+                            "-i",
+                            source.name,
+                            "-vn",
+                            "-c:a",
+                            "aac",
+                            audio.name,
+                        ],
+                    )
+                    files[name + "-audio"] = audio
+                overlay_tracks.append((start, end, position, frames))
             if music:
                 add("music", mimetypes.guess_extension(music[0]) or ".mp3", music[1])
             for name, data in ([("product", photo)] if photo else []) + list(
@@ -306,6 +382,7 @@ class OpenMotion:
             reel_format,
             bool(template),
             outro,
+            overlay_tracks if overlays is not None else None,
         )
         rev = result["version"]
         saved = self.call(

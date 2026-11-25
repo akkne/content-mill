@@ -53,7 +53,10 @@ services:
     volumes:
       - ./backend/src:/app
       - motion_inbox:/motion-inbox
+      - whisper_models:/var/cache/mill-whisper
     environment:
+      HF_HOME: /var/cache/mill-whisper
+      CONTENT_MILL_WHISPER_MODEL: ${CONTENT_MILL_WHISPER_MODEL:-small}
       OPENMOTION_URL: http://openmotion:4173
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -100,6 +103,7 @@ services:
     command: npm run dev -- --hostname 0.0.0.0
 
 volumes:
+  whisper_models:
   motion_inbox:
   openmotion_data:
   postgres_data:

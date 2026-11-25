@@ -35,7 +35,7 @@ def ffmpeg(directory: Path, args: list[str]) -> bytes:
     ).stdout
 
 
-def track_info(path: Path) -> tuple[dict, float]:
+def track_info(path: Path, demuxer: str = "mov") -> tuple[dict, float]:
     info = subprocess.run(
         [
             "ffprobe",
@@ -44,7 +44,7 @@ def track_info(path: Path) -> tuple[dict, float]:
             "-protocol_whitelist",
             "file,pipe",
             "-f",
-            "mov",
+            demuxer,
             "-show_streams",
             "-show_format",
             "-of",

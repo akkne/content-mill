@@ -43,6 +43,11 @@ def editing_direction(settings: dict) -> str:
     if reel := REELS.get(settings.get("reel_format")):
         text = reel["ru"]
         direction = text["beats"] + ". " + text["description"]
+        if settings.get("generated_overlays"):
+            direction += " Построй цельный рассказ ведущего: сильная первая реплика, объяснение, вывод. Сохрани лицо в верхней половине кадра. Оставь нижнюю половину под отдельные прозрачные иллюстрации и титры. Снимай чистую сцену со спикером без встроенного текста и графики."
+            if style:
+                direction += " Визуальный референс: " + style["ru"]["description"]
+            return direction
         if style:
             direction += (
                 " Отдельная анимированная вставка: " + style["ru"]["description"]
@@ -77,7 +82,8 @@ class Video:
         failure = state.get("failure", {})
         return (
             self.status == "failed"
-            and state.get("stage") in {"frame", "submit", "sync"}
+            and state.get("stage")
+            in {"frame", "submit", "sync", "overlay_design", "overlay_animate"}
             and not state.get("operation")
             and failure.get("stage") == state["stage"]
             and failure.get("reason") in {"network", "timeout", "order_unconfirmed"}
@@ -86,6 +92,27 @@ class Video:
     def progress(self) -> int:
         state = self.settings.get("production")
         if state and self.status in ("generating", "failed"):
+            if self.settings.get("generated_overlays"):
+                stage = state["stage"]
+                if stage in ("render", "reel_export"):
+                    return 96
+                if stage in (
+                    "overlay_design",
+                    "collect_overlay_design",
+                    "overlay_animate",
+                    "collect_overlay_animation",
+                ):
+                    base = 68 if "design" in stage else 81
+                    return base + 13 * state.get("overlay_index", 0) // max(
+                        1, state.get("overlay_count", 1)
+                    )
+                if stage in ("edit", "reel_captions", "reel_plan"):
+                    return {"edit": 55, "reel_captions": 60, "reel_plan": 65}[stage]
+                if stage == "reel_select":
+                    return 35
+                return 5 + 50 * state.get("index", 0) // scene_count(
+                    self.settings["duration"]
+                )
             return min(
                 95,
                 5

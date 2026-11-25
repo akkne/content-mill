@@ -105,6 +105,22 @@ class VideoService:
                 settings["library_voice_id"] = voice
                 settings["voice"] = voices[voice]
             materials = work.videos.sources(project, sources)
+            if settings.get("reel_format"):
+                settings["generated_overlays"] = True
+            speaker = settings.get("speaker_source_id")
+            if speaker:
+                if not settings.get("reel_format") or not any(
+                    s.id == speaker and s.format in {"video/mp4", "video/webm"}
+                    for s in materials
+                ):
+                    raise InvalidVideo(
+                        "Выберите видеозапись спикера из материалов ролика."
+                    )
+                if settings.get("characters") or settings.get("heygen_lipsync"):
+                    raise InvalidVideo(
+                        "Для записи спикера используется исходный голос."
+                    )
+                settings["speaker_source_id"] = str(speaker)
             photo = settings.get("product_photo_id")
             if photo is not None:
                 if not any(
@@ -142,13 +158,16 @@ class VideoService:
                     for s in materials
                 ],
             }
-            script, caption, journal = self.generator.prepare(
-                AgentScope(project, owner),
-                title,
-                settings,
-                context,
-                materials,
-            )
+            if speaker:
+                script, caption, journal = "", title, []
+            else:
+                script, caption, journal = self.generator.prepare(
+                    AgentScope(project, owner),
+                    title,
+                    settings,
+                    context,
+                    materials,
+                )
             video = Video(
                 uuid4(),
                 project,
@@ -161,7 +180,11 @@ class VideoService:
                 datetime.now(UTC),
             )
             if assemble:
-                video.settings["production"] = {"stage": "storyboard"}
+                video.settings["production"] = {
+                    "stage": "reel_source"
+                    if settings.get("speaker_source_id")
+                    else "storyboard"
+                }
                 video.ready_at = video.created_at
             work.videos.save(video)
             work.commit()
@@ -258,8 +281,10 @@ class VideoService:
             if action == "delete":
                 work.videos.delete(video)
             else:
-                if action == "script" and (
-                    video.status == "draft" or "production" not in video.settings
+                if (
+                    action == "script"
+                    and not video.settings.get("speaker_source_id")
+                    and (video.status == "draft" or "production" not in video.settings)
                 ):
                     if video.script != value:
                         video.journal = []
@@ -275,7 +300,12 @@ class VideoService:
                         )
                     video.status = "generating"
                     state = video.settings.setdefault(
-                        "production", {"stage": "storyboard"}
+                        "production",
+                        {
+                            "stage": "reel_source"
+                            if video.settings.get("speaker_source_id")
+                            else "storyboard"
+                        },
                     )
                     state.pop("error", None)
                     if state.get("motion_export") and state.get("failure", {}).get(

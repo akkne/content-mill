@@ -16,9 +16,6 @@ export default async function NewVideo({
       library={await motionLibrary(id)}
       initialReel={(await searchParams).reel}
       initialStyle={(await searchParams).style}
-      motionOrigin={
-        process.env.OPENMOTION_PUBLIC_URL ?? "http://127.0.0.1:4173"
-      }
       data={await loadVideos<VideoOptions>(id, "/options")}
     />
   );

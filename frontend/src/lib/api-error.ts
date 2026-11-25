@@ -54,6 +54,8 @@ const messages: Record<string, string> = {
   "Некорректный If-Match": "Invalid If-Match header",
   "Хранилище документов недоступно": "Document storage unavailable",
   "Укажите поля контекста": "Specify the context fields",
+  "Выберите видеозапись спикера из материалов ролика.": "Choose a speaker recording from the video materials.",
+  "Для записи спикера используется исходный голос.": "A speaker recording uses its original voice.",
   "Проект не найден": "Project not found",
   "Некорректный курсор": "Invalid cursor",
   "Версия проекта изменилась": "Project version changed",

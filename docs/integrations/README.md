@@ -29,3 +29,5 @@
 Для видео подключены [Nano Banana 2.1](polza-nano-banana-2.1.md) и [Kling 2.6](polza-kling-26.md) через Polza AI. [Прежний адаптер Veo Fast](polza-veo-fast.md) сохранён. Архивные интеграции fal описаны в карточках [Nano Banana](fal-google-nano-banana-2.1.md) и [Veo](fal-veo3.1-fast.md).
 
 Синхронизация губ по выбору пользователя — [HeyGen Avatar 6 Turbo](heygen-avatar-6.md).
+
+Для субтитров по звуковой дорожке используется [локальный Whisper](local-whisper.md).

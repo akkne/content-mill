@@ -27,9 +27,9 @@ import { saveVideo } from "../actions";
 
 export function Wizard({
   projectId,
-  data, library, initialStyle, initialReel, motionOrigin,
+  data, library, initialStyle, initialReel,
 }: {
-  projectId: string; library:{styles:MotionStyle[];reels:ReelFormat[];saved:string[]}; initialReel?:string; initialStyle?:string; motionOrigin:string;
+  projectId: string; library:{styles:MotionStyle[];reels:ReelFormat[];saved:string[]}; initialReel?:string; initialStyle?:string;
   data: VideoOptions;
 }) {
   const t = useTranslator();
@@ -68,8 +68,7 @@ export function Wizard({
   const [title, setTitle] = useState("");
   const lang=useInterfaceLanguage();
   const [styleId,setStyleId]=useState(library.styles.find(s=>s.id===initialStyle)?.id ?? "");
-  const [outroId,setOutro]=useState("");
-  const outro=library.styles.find(s=>s.id===outroId);
+  const [recordingId, setRecordingId] = useState("");
   const [reelId,setReelId]=useState(library.reels.find(r=>r.id===initialReel)?.id ?? library.reels.find(r=>library.saved.includes(r.id))?.id ?? library.reels[0].id);
   const reel=library.reels.find(r=>r.id===reelId)!;
   const style=library.styles.find(s=>s.id===styleId);
@@ -81,6 +80,8 @@ export function Wizard({
   const attachments = sources.filter(source => selectedVersions.has(source.id));
   const photos = attachments.filter(source => source.format?.startsWith("image/"));
   const selectedPhoto = photos.find(photo => photo.id === productPhoto);
+  const recordings = attachments.filter(source => source.format?.startsWith("video/"));
+  const recording = recordings.find(source => source.id === recordingId);
   return (
     <>
       <h1 className={pageTitle}>{t("Создать ролик", "Create video")}</h1>
@@ -164,8 +165,8 @@ export function Wizard({
                   maxLength={2000}
                 />
               </label>
-              <MotionPicker title={title} outroId={outroId} onOutro={setOutro} reel={reel} onReel={setReelId} library={library} styleId={styleId} onChange={setStyleId} origin={motionOrigin}/>
-              <CastPicker data={data} rows={cast} change={changeCast}/>
+              <MotionPicker reel={reel} onReel={setReelId} library={library} styleId={styleId} onChange={setStyleId}/>
+              {!recording && <CastPicker data={data} rows={cast} change={changeCast}/>}
               <label className="grid gap-2 rounded-xl border border-dashed border-line p-4">
                 <strong>{t("Свои кадры и фото товара", "Your footage and product photos")}</strong>
                 <span className="text-muted">
@@ -216,6 +217,14 @@ export function Wizard({
               </label>
               <MaterialPicker project={data.project} folders={data.folders} sources={sources}
                 selection={selection} avatarFolders={avatarFolders} onChange={changeSelection} disabled={pending || uploading} />
+              {recordings.length > 0 && <label className={fieldLabel}>
+                {t("Запись спикера для нарезки", "Speaker recording to clip")}
+                <select className={field} value={recording?.id ?? ""} onChange={e => {setRecordingId(e.target.value); if (e.target.value) changeCast([]);}}>
+                  <option value="">{t("Сгенерировать сцены по брифу", "Generate scenes from the brief")}</option>
+                  {recordings.map(file => <option key={file.id} value={file.id}>{file.name} · v{file.version}</option>)}
+                </select>
+                {recording && <input type="hidden" name="speaker_source_id" value={recording.id}/>}
+              </label>}
               <label className={fieldLabel}>
                 {t("Фото товара для показа в ролике", "Product photo to show in the video")}
                 <select className={field} value={selectedPhoto?.id ?? ""} onChange={e => setProductPhoto(e.target.value)}>
@@ -278,8 +287,8 @@ export function Wizard({
                   optionLabel(String(review?.get("method") ?? ""), t) + " · " + optionLabel(String(review?.get("platform") ?? ""), t),
                 ],
                 [t("Монтаж рилса","Reel edit"), reel[lang].title],
-                [t("Основная вставка","Main insert"), style?.[lang].title ?? t("Без вставки","No insert")],
-                ...(outro ? [[t("Финальная вставка","Closing insert"),outro[lang].title]] : []),
+                [t("Визуальный референс","Visual reference"), style?.[lang].title ?? t("Материалы проекта","Project branding")],
+                ...(recording ? [[t("Запись спикера","Speaker recording"),recording.name]] : []),
                 [t("Настройки", "Settings"), duration + t(" сек · ", " sec · ") + optionLabel(String(review?.get("language") ?? ""), t)],
                 [
                   t("Персонажи и голоса", "Characters and voices"),
@@ -301,7 +310,8 @@ export function Wizard({
                 <ul className="mt-2 grid max-h-52 gap-1 overflow-auto text-sm">{attachments.map(file=><li key={file.id}>{file.path??file.name} · v{file.version}</li>)}</ul>
               </details>}
               <p className="text-muted">
-                {t("Nano Banana создаст кадры, Kling 2.6 — клипы по 10 секунд. В монтаж попадёт начало каждого клипа по таймкодам раскадровки. Для выбранных персонажей ElevenLabs озвучивает реплики. При сборке эта дорожка накладывается на клип. Эти операции оплачиваются отдельно. Готовый MP4 появится в проекте.", "Nano Banana creates the frames and Kling 2.6 generates 10-second clips. The edit keeps the opening of each clip for the duration in the storyboard. For selected characters, ElevenLabs generates dialogue. The resulting voice track is added to the clip. These are billed separately. The final MP4 will appear in your project.")}
+                {recording ? t("GPT выберет отрывок из записи, сохранив голос спикера.", "GPT selects a short from the recording and keeps the speaker’s voice.") : t("Nano Banana и Kling создадут исходные сцены по брифу. Для выбранных голосов используется ElevenLabs.", "Nano Banana and Kling generate the source scenes from the brief. Selected character voices use ElevenLabs.")}
+                {" "}{t("Субтитры создаются локально. Для каждой иллюстрации оплачиваются отдельный макет Nano Banana и пятисекундная анимация Kling. OpenMotion собирает готовый MP4.", "Captions are generated locally. Each illustration is billed as a separate Nano Banana design and a five-second Kling animation. OpenMotion assembles the final MP4.")}
               </p>
             </div>
           )}

@@ -114,7 +114,7 @@ export function Catalog({
             category("");
           }}
         >
-          {t("Анимированные вставки", "Animated inserts")} · {styles.length}
+          {t("Референсы анимации", "Animation references")} · {styles.length}
         </button>
       </div>
       <div className="my-5 grid gap-3 rounded-2xl border border-line bg-surface p-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -342,6 +342,10 @@ export function Catalog({
               "Архивные кадры · NASA Kennedy Space Center",
               "Archive footage · NASA Kennedy Space Center",
             )}
+          </a>
+          <a className="underline" target="_blank" rel="noreferrer"
+            href="https://images.nasa.gov/details/iss069m262001424_Expedition_69_Education_Inflight_Big_Brothers_and_Sisters_of_Wyoming_230719">
+            {t("Интервью с МКС · NASA", "ISS interview · NASA")}
           </a>
           {project && (
             <Link
