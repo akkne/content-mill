@@ -46,7 +46,7 @@ def composition(
     start = 0
     if reel_format:
         start = 0 if layout == "intro" else round(duration * 0.4, 3)
-        seconds = min(seconds, 3, duration - start)
+        seconds = min(guide_seconds, 3, duration - start)
     layers = []
     elapsed = 0
     for index, cut in enumerate(timeline.cuts):
