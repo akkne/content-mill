@@ -206,6 +206,8 @@ class MotionRenderer(Protocol):
         music,
         photo,
         cards,
+        reel_format=None,
+        outro_template=None,
     ) -> dict: ...
     def retry(self, receipt: dict) -> dict: ...
     def collect(self, receipt: dict) -> bytes | None: ...
@@ -783,7 +785,9 @@ class VideoProduction:
             photo = self.artifact(
                 video, state["inputs"][video.settings["product_photo_id"]]
             )
-        if template := video.settings.get("motion_template"):
+        template = video.settings.get("motion_template")
+        reel_format = video.settings.get("reel_format")
+        if template or reel_format:
             if self.motion is None:
                 raise ValueError("OpenMotion is unavailable")
             cards = {
@@ -801,6 +805,8 @@ class VideoProduction:
                 music,
                 photo,
                 cards,
+                reel_format=reel_format,
+                outro_template=video.settings.get("outro_template"),
             )
             return [], 2
         result = self.editor.render(

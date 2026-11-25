@@ -9,7 +9,7 @@ from fastapi.responses import Response
 
 from app.application.videos.service import VideoService
 from app.container import video_service
-from app.domain.motion import STYLES
+from app.domain.motion import REELS, STYLES
 from app.domain.video import Video
 from app.presentation.http.dependencies import CurrentUser
 from app.presentation.http.schemas.videos import VideoAction, VideoInput
@@ -68,7 +68,9 @@ def detail(
     video = service.detail(user.id, project_id, video_id)
     progress = video.progress()
     journal = video.journal
-    style = STYLES.get(video.settings.get("motion_template"))
+    style = REELS.get(video.settings.get("reel_format")) or STYLES.get(
+        video.settings.get("motion_template")
+    )
     return {
         **asdict(video),
         "progress": progress,

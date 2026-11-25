@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
-from app.domain.motion import STYLES
+from app.domain.motion import REELS, STYLES
 
 MOCK_SECONDS = 12
 VIDEO_DURATIONS = [15, 20, 30, 40, 45, 60]
@@ -40,6 +40,16 @@ EDITING_DIRECTIONS = {
 
 def editing_direction(settings: dict) -> str:
     style = STYLES.get(settings.get("motion_template"))
+    if reel := REELS.get(settings.get("reel_format")):
+        text = reel["ru"]
+        direction = text["beats"] + ". " + text["description"]
+        if style:
+            direction += (
+                " Отдельная анимированная вставка: " + style["ru"]["description"]
+            )
+        if outro := STYLES.get(settings.get("outro_template")):
+            direction += " Финальная вставка: " + outro["ru"]["description"]
+        return direction
     if style:
         return style["ru"]["description"] + " " + style["ru"]["use"]
     return EDITING_DIRECTIONS[settings.get("editing_style", DEFAULT_EDITING_STYLE)]

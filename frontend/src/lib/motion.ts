@@ -11,6 +11,18 @@ export type MotionStyle = {
   ru: MotionText;
   en: MotionText;
 };
+export type ReelFormat = {
+  id: string;
+  duration: number;
+  ru: ReelText;
+  en: ReelText;
+};
+type ReelText = {
+  title: string;
+  description: string;
+  pace: string;
+  beats: string;
+};
 type MotionText = {
   title: string;
   description: string;
@@ -19,21 +31,23 @@ type MotionText = {
 };
 
 export async function motionLibrary(project?: string) {
-  const [catalog, saved] = await Promise.all([
+  const [catalog, reels, saved] = await Promise.all([
     projectRequest("/api/v1/motion/styles"),
+    projectRequest("/api/v1/motion/reels"),
     project
       ? projectRequest(
           `/api/v1/projects/${encodeURIComponent(project)}/motion/styles`,
         )
       : null,
   ]);
-  if (!catalog.ok || (saved && !saved.ok)) {
+  if (!reels.ok || !catalog.ok || (saved && !saved.ok)) {
     const t = await getTranslator();
     throw new Error(
       t("Каталог монтажа недоступен.", "Editing catalog unavailable."),
     );
   }
   return {
+    reels: (await reels.json()) as ReelFormat[],
     styles: (await catalog.json()) as MotionStyle[],
     saved: saved ? ((await saved.json()) as string[]) : [],
   };

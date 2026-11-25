@@ -1634,3 +1634,6 @@ def test_motion_assignment_is_owned_and_idempotent(login):
             == first.json()["id"]
         )
         assert client.get(path, headers=owner).json() == [style["id"]]
+        reel = client.get("/api/v1/motion/reels", headers=owner).json()[0]
+        assert client.put(path + "/" + reel["id"], headers=owner).status_code == 200
+        assert set(client.get(path, headers=owner).json()) == {style["id"], reel["id"]}

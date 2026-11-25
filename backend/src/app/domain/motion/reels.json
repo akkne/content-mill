@@ -1,0 +1,53 @@
+[
+  {
+    "id": "reel-story",
+    "duration": 14,
+    "reference": "/reels/reel-story-ru.mp4",
+    "ru": {
+      "title": "Мини-история",
+      "pace": "Размеренный",
+      "beats": "Завязка → деталь → развязка",
+      "description": "Открой общим планом, свяжи две детали последовательным действием, задержи финальный кадр. Титры короткими фразами по дыханию."
+    },
+    "en": {
+      "title": "Mini documentary",
+      "pace": "Measured",
+      "beats": "Hook → detail → payoff",
+      "description": "Establish the scene, connect details through action, and hold on the final shot. Caption short phrases."
+    }
+  },
+  {
+    "id": "reel-steps",
+    "duration": 12,
+    "reference": "/reels/reel-steps-ru.mp4",
+    "ru": {
+      "title": "Разбор по шагам",
+      "pace": "Умеренный",
+      "beats": "Результат → этапы → итог",
+      "description": "Покажи результат в первой сцене. Затем выдели по одному действию на этап, синхронизируй склейку с новым шагом, заверши результатом."
+    },
+    "en": {
+      "title": "Step by step",
+      "pace": "Steady",
+      "beats": "Result → steps → recap",
+      "description": "Lead with the result. Show one action per step, cut as each step changes, and return to the result."
+    }
+  },
+  {
+    "id": "reel-pulse",
+    "duration": 10,
+    "reference": "/reels/reel-pulse-ru.mp4",
+    "ru": {
+      "title": "Динамичная нарезка",
+      "pace": "Быстрый",
+      "beats": "Хук → серия склеек → акцент",
+      "description": "Открой сильным кадром, чередуй дальние планы и детали, используй короткие склейки на движении, задержи финальный акцент."
+    },
+    "en": {
+      "title": "Quick cuts",
+      "pace": "Fast",
+      "beats": "Hook → rapid cuts → payoff",
+      "description": "Open on a strong shot, alternate wide shots and details, cut quickly on movement, then hold the payoff."
+    }
+  }
+]
