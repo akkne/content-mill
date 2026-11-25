@@ -11,26 +11,16 @@ export function MotionPicker({
   onReel,
   styleId,
   onChange,
-  outroId,
-  onOutro,
-  title,
-  origin,
 }: {
   library: { styles: MotionStyle[]; reels: ReelFormat[]; saved: string[] };
   reel: ReelFormat;
   onReel: (id: string) => void;
-  outroId: string;
-  onOutro: (id: string) => void;
-  title: string;
   styleId: string;
   onChange: (id: string) => void;
-  origin: string;
 }) {
   const lang = useInterfaceLanguage(),
     t = useTranslator();
-  const [layout, place] = useState("panel");
   const style = library.styles.find((s) => s.id === styleId);
-  const outro = library.styles.find((s) => s.id === outroId);
   return (
     <fieldset className="rounded-2xl border border-line p-4">
       <legend className="px-2 font-bold">
@@ -65,75 +55,23 @@ export function MotionPicker({
               </label>
             ))}
           </fieldset>
-          <details
-            open={styleId || outroId ? true : undefined}
-            className="rounded-xl border border-line p-3"
-          >
+          <p className="text-sm text-muted">
+            {t("GPT выберет реплики для иллюстраций. Для каждой модель создаст макет и прозрачную анимацию поверх спикера. В паузах останутся только спикер и субтитры.", "GPT chooses which lines to illustrate. Each gets its own design and transparent animation over the speaker. Breather moments keep just the speaker and captions.")}
+          </p>
+          <details className="rounded-xl border border-line p-3">
             <summary className="cursor-pointer font-semibold">
-              {t("Анимированная вставка", "Animated insert")} ·{" "}
-              {[style?.[lang].title, outro?.[lang].title]
-                .filter(Boolean)
-                .join(" + ") || t("Без вставок", "None")}
+              {t("Визуальный референс", "Visual reference")} · {style?.[lang].title ?? t("Из материалов проекта", "Project branding")}
             </summary>
-            <div className="mt-3 grid gap-3">
-              <InsertSelect
-                library={library}
-                value={styleId}
-                change={onChange}
-                label={t("Основная вставка", "Main insert")}
-              />
-              {style && (
-                <label className={fieldLabel}>
-                  {t("Где показать вставку", "Insert placement")}
-                  <select
-                    name="motion_layout"
-                    className={field}
-                    value={layout}
-                    onChange={(e) => place(e.target.value)}
-                  >
-                    <option value="intro">
-                      {t("В начале · заставка", "Opening · intro")}
-                    </option>
-                    <option value="panel">
-                      {t("В середине · поверх кадра", "Middle · overlay")}
-                    </option>
-                    <option value="split">
-                      {t(
-                        "В середине · разделённый экран",
-                        "Middle · split screen",
-                      )}
-                    </option>
-                  </select>
-                </label>
-              )}
-              <InsertSelect
-                library={library}
-                value={outroId}
-                change={onOutro}
-                label={t("Финальная вставка", "Closing insert")}
-              />
-            </div>
+            <InsertSelect library={library} value={styleId} change={onChange} label={t("Стиль иллюстраций", "Illustration style")} />
           </details>
-          {outro && (
-            <input type="hidden" name="outro_template" value={outro.id} />
-          )}
           {style && (
             <input type="hidden" name="motion_template" value={style.id} />
           )}
         </div>
         <div>
-          <ReelPreview
-            key={reel.id}
-            reel={reel}
-            insert={style}
-            outro={outro}
-            title={title}
-            layout={layout}
-            origin={origin}
-          />
+          <ReelPreview reel={reel} />
           <p className="mt-2 text-center text-xs text-muted">
             {t("Пример на архивных кадрах", "Sample using archive footage")}
-            {style && " · " + t("вставка до 3 сек", "insert up to 3 sec")}
           </p>
         </div>
       </div>
@@ -175,20 +113,20 @@ function InsertSelect({
         />
       </label>
       <label className={fieldLabel}>
-        {t("Анимация", "Animation")}
+        {t("Референс", "Reference")}
         <select
           className={field}
           value={value}
           onChange={(e) => change(e.target.value)}
         >
-          <option value="">{t("Без вставки", "No insert")}</option>
+          <option value="">{t("Из материалов проекта", "Project branding")}</option>
           {[true, false].map((saved) => (
             <optgroup
               key={String(saved)}
               label={
                 saved
                   ? t("База знаний", "Project library")
-                  : t("Все вставки", "All inserts")
+                  : t("Все референсы", "All references")
               }
             >
               {matches

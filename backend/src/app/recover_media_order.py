@@ -36,9 +36,18 @@ def main() -> None:
         if video is None or not video.needs_order_check():
             parser.error("The video has no unresolved submission")
         state = video.settings["production"]
-        if state.get("index", 0) + 1 != args.scene:
+        stages = {
+            "frame": "collect_frame",
+            "submit": "collect",
+            "overlay_design": "collect_overlay_design",
+            "overlay_animate": "collect_overlay_animation",
+        }
+        if state["stage"] not in stages:
+            parser.error("The stopped operation is not a Polza order")
+        index = "overlay_index" if state["stage"].startswith("overlay_") else "index"
+        if state.get(index, 0) + 1 != args.scene:
             parser.error("The stopped scene has changed")
-        frame = state["stage"] == "frame"
+        frame = state["stage"] in {"frame", "overlay_design"}
         model = state["failure"].get("model") or (
             "google/gemini-nano-banana-2.1" if frame else "kling/v2.6"
         )
@@ -46,10 +55,10 @@ def main() -> None:
             parser.error("The order belongs to another model")
         state.update(
             operation="polza:" + args.order,
-            stage="collect_frame" if frame else "collect",
+            stage=stages[state["stage"]],
             submitted=datetime.now(UTC).isoformat(),
         )
-        if not frame:
+        if state["stage"] == "collect":
             state["clip_model"] = model
         work.videos.save(video)
         work.commit()

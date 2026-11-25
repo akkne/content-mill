@@ -1,4 +1,10 @@
 services:
+  openmotion:
+    extends:
+      file: compose.yaml
+      service: openmotion
+    restart: unless-stopped
+
   postgres:
     image: postgres:17
     restart: unless-stopped
@@ -39,6 +45,9 @@ services:
       S3_BUCKET: content-mill
       S3_ENDPOINT_URL: http://storage:8333
       S3_PUBLIC_ENDPOINT_URL: https://${MILL_DOMAIN:?}
+      HF_HOME: /var/cache/mill-whisper
+      CONTENT_MILL_WHISPER_MODEL: ${CONTENT_MILL_WHISPER_MODEL:-small}
+      OPENMOTION_URL: http://openmotion:4173
       CONTENT_MILL_STYLE_GUIDES: /run/mill-guides
       CONTENT_MILL_SCRIPT_PROVIDER: codex
       CONTENT_MILL_CODEX_AUTH_FILE: /run/mill-login/auth.json
@@ -47,6 +56,8 @@ services:
       HEYGEN_API_KEY: ${HEYGEN_API_KEY:-}
       LUMEAN_API_KEY: ${LUMEAN_API_KEY:-}
     volumes:
+      - motion_inbox:/motion-inbox
+      - whisper_models:/var/cache/mill-whisper
       - /etc/mill/style-guides:/run/mill-guides:ro
       - /etc/mill/codex:/run/mill-login:ro
     ports:
@@ -64,5 +75,8 @@ services:
       - "127.0.0.1:13000:3000"
 
 volumes:
+  openmotion_data:
+  motion_inbox:
+  whisper_models:
   database:
   objects:

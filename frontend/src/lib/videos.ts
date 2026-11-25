@@ -46,6 +46,7 @@ export type ProjectVideo = Omit<VideoCard, "duration" | "platform"> & {
   motion_title?: {ru:string; en:string} | null;
   settings: {
     production?: { motion_export?: { project: string }; stage: string; clip_model?: string; index?: number; line?: number; operation?: string; error?: string; failure?: VideoFailure; files?: Record<string, { node: string; version: string }> };
+    speaker_source_id?: string;
     library_voice_id?: string;
     voice?: string;
     duration: number;

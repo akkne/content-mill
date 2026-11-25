@@ -1,5 +1,22 @@
 [
   {
+    "id": "reel-speaker",
+    "duration": 16,
+    "reference": "/reels/reel-speaker-ru.mp4",
+    "ru": {
+      "title": "Спикер с иллюстрациями",
+      "pace": "По речи",
+      "beats": "Вопрос → объяснение → вывод",
+      "description": "Открой сильной репликой спикера. Объясни ключевые мысли прозрачными иллюстрациями по ходу речи, выдержи паузы на лице ведущего."
+    },
+    "en": {
+      "title": "Illustrated talking head",
+      "pace": "Speech-led",
+      "beats": "Question → explanation → takeaway",
+      "description": "Open on the speaker’s strongest line. Illustrate key ideas over their delivery and hold on the speaker between explanations."
+    }
+  },
+  {
     "id": "reel-story",
     "duration": 14,
     "reference": "/reels/reel-story-ru.mp4",

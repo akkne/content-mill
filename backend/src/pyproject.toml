@@ -10,6 +10,7 @@ dependencies = [
   "mcp>=1.23,<2",
   "pillow>=11,<14",
   "av>=16,<18",
+  "faster-whisper>=1.2.1,<2",
   "httpx>=0.27,<1",
   "email-validator>=2.2,<3",
   "fastapi>=0.120,<1",

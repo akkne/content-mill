@@ -28,6 +28,7 @@ class VideoInput(BaseModel):
     language: str = "Русский"
     characters: list[CastRow] = Field(default_factory=list, max_length=32)
     sources: list[UUID] = Field(default_factory=list, max_length=100)
+    speaker_source_id: UUID | None = None
     product_photo_id: UUID | None = None
     heygen_lipsync: bool = False
     assemble: bool = False

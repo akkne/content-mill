@@ -36,9 +36,8 @@ export function VideoEditor({
     const timer = setInterval(() => router.refresh(), 1500);
     return () => clearInterval(timer);
   }, [working, router]);
-  const original = item.settings.sources.find((s) =>
-    s.format.startsWith("video/"),
-  );
+  const recording = item.settings.speaker_source_id;
+  const original = item.settings.sources.find(s => recording ? s.id === recording : s.format.startsWith("video/"));
   const originalUrl =
     original &&
     `/projects/${projectId}/knowledge/files/${original.node_id}/${original.version}`;
@@ -48,6 +47,15 @@ export function VideoEditor({
   const final = files["final.mp4"];
   const mediaUrl = final ? fileUrl(final.node) : originalUrl;
   const stages: Record<string, string> = {
+    reel_source: t("Распознавание исходной записи","Transcribing recording"),
+    reel_select: t("Выбор отрывка · GPT","Selecting a short · GPT"),
+    reel_captions: t("Субтитры · локальный Whisper","Captions · local Whisper"),
+    reel_plan: t("План иллюстраций · GPT","Illustration plan · GPT"),
+    overlay_design: t("Макет иллюстрации · Nano Banana","Illustration design · Nano Banana"),
+    collect_overlay_design: t("Проверка макета","Checking the design"),
+    overlay_animate: t("Анимация иллюстрации · Kling","Animating illustration · Kling"),
+    collect_overlay_animation: t("Подготовка прозрачного слоя","Preparing the transparent overlay"),
+    reel_export: t("Сборка слоёв · OpenMotion","Assembling layers · OpenMotion"),
     storyboard: t("Раскадровка и промпты", "Storyboard and prompts"),
     frame: t("Стартовый кадр · Nano Banana 2.1", "First frame · Nano Banana 2.1"),
     collect_frame: t("Получение кадра · Nano Banana", "Retrieving frame · Nano Banana"),
@@ -70,9 +78,9 @@ export function VideoEditor({
   const stoppedStage = failure?.stage ?? production?.stage ?? "";
   const resumeStage = production?.stage ?? "";
   const polling = resumeStage.startsWith("collect") && !!production?.operation;
-  const newOrder = ["frame", "submit", "sync", "speech"].includes(resumeStage);
+  const newOrder = ["frame", "submit", "sync", "speech","overlay_design","overlay_animate"].includes(resumeStage);
   const sceneStage = ["frame", "collect_frame", "submit", "collect", "speech", "collect_speech", "sync", "collect_sync", "mix_speech", "dub"].includes(stoppedStage);
-  const uncertainOrder = ["frame", "submit", "sync"].includes(resumeStage) && !production?.operation && stoppedStage === resumeStage && ["order_unconfirmed", "network", "timeout"].includes(reason);
+  const uncertainOrder = ["frame", "submit", "sync","overlay_design","overlay_animate"].includes(resumeStage) && !production?.operation && stoppedStage === resumeStage && ["order_unconfirmed", "network", "timeout"].includes(reason);
   const failed = item.status === "failed";
   const draft = item.status === "draft";
   const [tab, setTab] = useState("publication");
@@ -229,25 +237,25 @@ export function VideoEditor({
             <h2 className="text-xl font-bold">
               {draft ? t("Черновик готов к работе", "Draft ready") : t("Сценарий ролика", "Video script")}
             </h2>
-            <label className={fieldLabel}>
-              {t("Сценарий", "Script")}
+            {draft && recording ? <p>{t("При сборке GPT выберет отрывок из записи. Здесь появится расшифровка выбранной речи.", "During assembly, GPT selects a short from the recording. Its transcript will appear here.")}</p> : <label className={fieldLabel}>
+              {recording ? t("Расшифровка", "Transcript") : t("Сценарий", "Script")}
               <textarea
                 className={field}
                 rows={9}
                 readOnly={!draft && !!production}
-                value={script}
+                value={draft ? script : item.script}
                 maxLength={6000}
                 onChange={(e) => setScript(e.target.value)}
               />
-            </label>
+            </label>}
             <div className="flex flex-wrap gap-2">
-              <button
+              {!recording && <button
                 className={secondaryButton}
                 disabled={pending || (!draft && !!production)}
                 onClick={() => act("script", script)}
               >
                 {t("Сохранить сценарий", "Save script")}
-              </button>
+              </button>}
               {draft && (
                 <button
                   className={primaryButton}

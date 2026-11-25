@@ -20,6 +20,7 @@ from app.application.knowledge.seed_documents import create_entry
 from app.application.projects.ports import ProjectUnitOfWorkFactory
 from app.application.scripts.jobs import ScriptModel
 from app.application.videos.cast import avatar_references, validate_cast_scene
+from app.application.videos.reel_media import ReelMedia
 from app.application.videos.spoken_script import matches_script
 from app.application.videos.style_guide import GuideReader, attach_style_guide
 from app.domain.knowledge import ExampleEntry
@@ -189,6 +190,7 @@ class LipSync(Protocol):
 
 
 class ClipGenerator(Protocol):
+    def submit_overlay(self, prompt: str, frame: bytes) -> str: ...
     def submit(self, prompt: str, frame: bytes) -> str: ...
     def collect(self, operation: str) -> bytes | None: ...
 
@@ -208,6 +210,7 @@ class MotionRenderer(Protocol):
         cards,
         reel_format=None,
         outro_template=None,
+        overlays=None,
     ) -> dict: ...
     def retry(self, receipt: dict) -> dict: ...
     def collect(self, receipt: dict) -> bytes | None: ...
@@ -360,10 +363,12 @@ class VideoProduction:
         speech: CastSpeech | None = None,
         *,
         motion: MotionRenderer | None = None,
+        reel_media: ReelMedia | None = None,
         style_guide: GuideReader | None = None,
         lipsync: LipSync | None = None,
         describe_error: Callable[[BaseException, str], dict],
     ):
+        self.reel_media = reel_media
         self.motion = motion
         self.style_guide = style_guide
         self.describe_error = describe_error
@@ -388,8 +393,11 @@ class VideoProduction:
                 # A lost process may already have submitted a billable operation.
                 video.status = "failed"
                 state["error"] = "interrupted"
-                if state["stage"] == "sync":
-                    state["failure"] = {"stage": "sync", "reason": "order_unconfirmed"}
+                if state["stage"] in {"sync", "overlay_design", "overlay_animate"}:
+                    state["failure"] = {
+                        "stage": state["stage"],
+                        "reason": "order_unconfirmed",
+                    }
                 state.pop("claim")
                 work.videos.save(video)
                 work.commit()
@@ -401,7 +409,13 @@ class VideoProduction:
 
         try:
             with ExitStack() as stack:
-                if state["stage"] == "storyboard":
+                if state["stage"] in {
+                    "storyboard",
+                    "reel_source",
+                    "reel_select",
+                    "reel_captions",
+                    "reel_plan",
+                }:
                     stack.enter_context(self.renew_claim(video, claim))
                 files, delay = self.step(video)
             self.save_step(video, claim, files, delay)
@@ -423,6 +437,8 @@ class VideoProduction:
                 state["failure"] = self.describe_error(error, state["stage"])
                 attempted = video.settings["production"]
                 if state["stage"] in {
+                    "overlay_design",
+                    "overlay_animate",
                     "frame",
                     "submit",
                     "speech",
@@ -439,6 +455,16 @@ class VideoProduction:
                     state.pop("operation", None)
                     state["stage"] = (
                         "frame" if state["stage"] == "collect_frame" else "submit"
+                    )
+                if state["stage"] in {
+                    "collect_overlay_design",
+                    "collect_overlay_animation",
+                } and code in {"frame_rejected", "clip_rejected"}:
+                    state.pop("operation", None)
+                    state["stage"] = (
+                        "overlay_design"
+                        if state["stage"] == "collect_overlay_design"
+                        else "overlay_animate"
                     )
                 if code == "lipsync_failed":
                     state.pop("operation", None)
@@ -569,6 +595,13 @@ class VideoProduction:
                 document("openmotion.json", state["motion_export"]),
                 ("final.mp4", "video", "video/mp4", result),
             ], 0
+        if video.settings.get("generated_overlays") and (
+            stage == "edit"
+            or stage.startswith(("reel_", "overlay_", "collect_overlay_"))
+        ):
+            from app.application.videos.reel import ReelEdit
+
+            return ReelEdit(self, video).step()
         if stage == "storyboard":
             return self.storyboard(video)
 
@@ -1083,10 +1116,18 @@ class VideoProduction:
                 for source in sources
             )
 
+        directions = PLAN
+        if video.settings.get("generated_overlays"):
+            directions += (
+                " Film clean talking-head source footage. In both image_prompt and video_prompt "
+                "keep the speaking face visible, maintain the presenter's identity and background "
+                "across shots, and leave torso space for later overlays. No baked-in graphics, "
+                "text, diagrams, music or animated inserts. Preserve the approved spoken lines."
+            )
         board = model_json(
             self.model.generate_storyboard,
             Storyboard,
-            PLAN,
+            directions,
             payload,
             previews,
             originals(),
@@ -1095,7 +1136,7 @@ class VideoProduction:
             board = model_json(
                 self.model.generate_storyboard,
                 Storyboard,
-                PLAN,
+                directions,
                 {
                     **payload,
                     "correction": "Copy every spoken line, speaker, delivery, order and scene duration verbatim from script. Remove any added words.",
