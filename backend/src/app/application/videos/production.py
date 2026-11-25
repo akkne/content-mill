@@ -193,6 +193,24 @@ class ClipGenerator(Protocol):
     def collect(self, operation: str) -> bytes | None: ...
 
 
+class MotionRenderer(Protocol):
+    def submit(
+        self,
+        video_id,
+        title,
+        template,
+        layout,
+        clips,
+        timeline,
+        duration,
+        music,
+        photo,
+        cards,
+    ) -> dict: ...
+    def retry(self, receipt: dict) -> dict: ...
+    def collect(self, receipt: dict) -> bytes | None: ...
+
+
 class VideoEditor(Protocol):
     def prepare_line(self, audio: bytes, window_ms: int) -> bytes: ...
     def speech_track(
@@ -339,10 +357,12 @@ class VideoProduction:
         preview: PreviewRenderer,
         speech: CastSpeech | None = None,
         *,
+        motion: MotionRenderer | None = None,
         style_guide: GuideReader | None = None,
         lipsync: LipSync | None = None,
         describe_error: Callable[[BaseException, str], dict],
     ):
+        self.motion = motion
         self.style_guide = style_guide
         self.describe_error = describe_error
         self.speech = speech
@@ -532,6 +552,21 @@ class VideoProduction:
 
         duration = video.settings["duration"]
         count = scene_count(duration)
+        if stage == "render" and state.get("motion_export"):
+            if self.motion is None:
+                raise ValueError("OpenMotion is unavailable")
+            if state.pop("retry_motion_export", False):
+                state["motion_export"] = self.motion.retry(state["motion_export"])
+                return [], 2
+            result = self.motion.collect(state["motion_export"])
+            if result is None:
+                return [], 5
+            state["stage"] = "done"
+            video.status = "ready"
+            return [
+                document("openmotion.json", state["motion_export"]),
+                ("final.mp4", "video", "video/mp4", result),
+            ], 0
         if stage == "storyboard":
             return self.storyboard(video)
 
@@ -657,6 +692,7 @@ class VideoProduction:
                 "storyboard": board.model_dump(mode="json"),
                 "duration": duration,
                 "source_ms": [p[0] for p in probes],
+                "motion_template": video.settings.get("motion_template"),
                 "clip_versions": [
                     state["files"][f"scene-{i:02}.mp4"]["version"]
                     for i in range(1, count + 1)
@@ -674,14 +710,20 @@ class VideoProduction:
             attach_style_guide(
                 self.style_guide,
                 video.project_id,
-                video.settings.get("editing_style", ""),
+                video.settings.get("motion_template")
+                or video.settings.get("editing_style", ""),
                 payload,
                 previews,
             )
             timeline = model_json(
                 self.model.generate_edit,
                 Timeline,
-                EDIT,
+                EDIT
+                + (
+                    " Call openmotion_get_template to inspect the selected animation. Plan captions and cutaways around that animation."
+                    if payload["motion_template"]
+                    else ""
+                ),
                 payload,
                 previews,
                 clips,
@@ -741,6 +783,26 @@ class VideoProduction:
             photo = self.artifact(
                 video, state["inputs"][video.settings["product_photo_id"]]
             )
+        if template := video.settings.get("motion_template"):
+            if self.motion is None:
+                raise ValueError("OpenMotion is unavailable")
+            cards = {
+                ref: self.artifact(video, state["inputs"][str(ref)])
+                for ref in {card.version_id for card in timeline.photo_cards}
+            }
+            state["motion_export"] = self.motion.submit(
+                video.id,
+                video.title,
+                template,
+                video.settings.get("motion_layout", "panel"),
+                clips,
+                timeline,
+                duration,
+                music,
+                photo,
+                cards,
+            )
+            return [], 2
         result = self.editor.render(
             clips,
             timeline,
@@ -999,7 +1061,8 @@ class VideoProduction:
         attach_style_guide(
             self.style_guide,
             video.project_id,
-            video.settings.get("editing_style", ""),
+            video.settings.get("motion_template")
+            or video.settings.get("editing_style", ""),
             payload,
             previews,
         )

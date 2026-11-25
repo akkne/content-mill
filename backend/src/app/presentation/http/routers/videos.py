@@ -9,6 +9,7 @@ from fastapi.responses import Response
 
 from app.application.videos.service import VideoService
 from app.container import video_service
+from app.domain.motion import STYLES
 from app.domain.video import Video
 from app.presentation.http.dependencies import CurrentUser
 from app.presentation.http.schemas.videos import VideoAction, VideoInput
@@ -67,7 +68,15 @@ def detail(
     video = service.detail(user.id, project_id, video_id)
     progress = video.progress()
     journal = video.journal
-    return {**asdict(video), "progress": progress, "journal": journal}
+    style = STYLES.get(video.settings.get("motion_template"))
+    return {
+        **asdict(video),
+        "progress": progress,
+        "journal": journal,
+        "motion_title": {lang: style[lang]["title"] for lang in ("ru", "en")}
+        if style
+        else None,
+    }
 
 
 @router.post("/{video_id}/actions")

@@ -36,3 +36,4 @@ line-length = 88
 [tool.setuptools.package-data]
 "app.infrastructure.examples" = ["*.json", "*.m4a", "*.mp4", "*.png"]
 "app.infrastructure.starter_prompts" = ["*.md"]
+"app.domain.motion" = ["styles.json"]

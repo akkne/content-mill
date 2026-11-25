@@ -1614,3 +1614,23 @@ def test_admin_client_settings_are_private_and_seed_new_videos(
             == 204
         )
         assert listed("saas")["items"][0]["id"] == project
+
+
+def test_motion_assignment_is_owned_and_idempotent(login):
+    owner, other = login(), login()
+    with TestClient(app) as client:
+        styles = client.get("/api/v1/motion/styles", headers=owner).json()
+        assert len(styles) >= 100
+        style = styles[0]
+        project = client.post(
+            "/api/v1/projects", headers=owner, json={"name": "Motion"}
+        ).json()["id"]
+        path = f"/api/v1/projects/{project}/motion/styles"
+        assert client.put(path + "/" + style["id"], headers=other).status_code == 404
+        first = client.put(path + "/" + style["id"], headers=owner)
+        assert first.status_code == 200
+        assert (
+            client.put(path + "/" + style["id"], headers=owner).json()["id"]
+            == first.json()["id"]
+        )
+        assert client.get(path, headers=owner).json() == [style["id"]]

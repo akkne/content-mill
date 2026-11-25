@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
+from app.domain.motion import STYLES
+
 MOCK_SECONDS = 12
 VIDEO_DURATIONS = [15, 20, 30, 40, 45, 60]
 DEFAULT_EDITING_STYLE = "По сценарию"
@@ -37,6 +39,9 @@ EDITING_DIRECTIONS = {
 
 
 def editing_direction(settings: dict) -> str:
+    style = STYLES.get(settings.get("motion_template"))
+    if style:
+        return style["ru"]["description"] + " " + style["ru"]["use"]
     return EDITING_DIRECTIONS[settings.get("editing_style", DEFAULT_EDITING_STYLE)]
 
 

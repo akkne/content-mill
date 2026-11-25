@@ -1,4 +1,7 @@
 "use client";
+import { MotionPicker } from "./motion-picker";
+import type { MotionStyle } from "@/lib/motion";
+import { useInterfaceLanguage } from "@/app/interface-language";
 import { optionLabel } from "../video-labels";
 import { useTranslator } from "@/app/interface-language";
 import { MaterialPicker, resolveMaterials } from "./material-picker";
@@ -24,14 +27,13 @@ import { saveVideo } from "../actions";
 
 export function Wizard({
   projectId,
-  data,
+  data, library, initialStyle, motionOrigin,
 }: {
-  projectId: string;
+  projectId: string; library:{styles:MotionStyle[];saved:string[]}; initialStyle?:string; motionOrigin:string;
   data: VideoOptions;
 }) {
   const t = useTranslator();
   const labels = {
-    editing_style: t("Стиль монтажа", "Editing style"),
     method: t("Формат подачи", "Presentation style"),
     platform: t("Площадка", "Platform"),
     duration: t("Длительность", "Duration"),
@@ -64,7 +66,9 @@ export function Wizard({
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
-  const [editingStyle, setEditingStyle] = useState(data.defaults.editing_style);
+  const lang=useInterfaceLanguage();
+  const [styleId,setStyleId]=useState(library.styles.find(s=>s.id===initialStyle)?.id ?? library.saved[0] ?? data.motion_default);
+  const style=library.styles.find(s=>s.id===styleId);
   const [duration, setDuration] = useState(data.defaults.duration);
   const [review, setReview] = useState<FormData>();
   const [error, setError] = useState("");
@@ -156,6 +160,7 @@ export function Wizard({
                   maxLength={2000}
                 />
               </label>
+              <MotionPicker library={library} styleId={styleId} onChange={setStyleId} origin={motionOrigin}/>
               <CastPicker data={data} rows={cast} change={changeCast}/>
               <label className="grid gap-2 rounded-xl border border-dashed border-line p-4">
                 <strong>{t("Свои кадры и фото товара", "Your footage and product photos")}</strong>
@@ -227,10 +232,9 @@ export function Wizard({
                   <select
                     className={field}
                     name={k}
-                    defaultValue={k === "duration" || k === "editing_style" ? data.defaults[k] : undefined}
+                    defaultValue={k === "duration" ? data.defaults[k] : undefined}
                     onChange={e => {
                       if (k === "duration") setDuration(Number(e.target.value));
-                      if (k === "editing_style") setEditingStyle(e.target.value);
                     }}
                   >
                     {data.options[k].map((v) => (
@@ -240,10 +244,6 @@ export function Wizard({
                       </option>
                     ))}
                   </select>
-                  {k === "editing_style" && editingStyle === "История в цифрах" &&
-                    <span className="text-sm font-normal text-muted">{t("От факта к выводу. Числа и единицы выделяются в титрах.", "Lead with a fact and highlight its number and unit in captions.")}</span>}
-                  {k === "editing_style" && editingStyle === "История через детали" &&
-                    <span className="text-sm font-normal text-muted">{t("От общего плана к детали. Голос ведёт рассказ через вставки.", "Move from a wide shot to a telling detail, with narration across cutaways.")}</span>}
                 </label>
               ))}
 
@@ -273,7 +273,7 @@ export function Wizard({
                   t("Формат", "Format"),
                   optionLabel(String(review?.get("method") ?? ""), t) + " · " + optionLabel(String(review?.get("platform") ?? ""), t),
                 ],
-                [labels.editing_style, optionLabel(String(review?.get("editing_style") ?? ""), t)],
+                [t("Стиль монтажа","Editing style"), style?.[lang].title ?? ""],
                 [t("Настройки", "Settings"), duration + t(" сек · ", " sec · ") + optionLabel(String(review?.get("language") ?? ""), t)],
                 [
                   t("Персонажи и голоса", "Characters and voices"),
