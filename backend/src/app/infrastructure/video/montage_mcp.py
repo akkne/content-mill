@@ -117,6 +117,20 @@ def montage_server(directory: Path) -> FastMCP:
             )
         return f"{fmt}, {file.stat().st_size} bytes"
 
+    binding = directory / "openmotion.json"
+    if binding.is_file():
+        from app.infrastructure.video.openmotion import OpenMotion
+
+        selected = json.loads(binding.read_text())
+
+        @server.tool(annotations=read_only)
+        def openmotion_get_template() -> str:
+            """Read the native motion guide selected for this video."""
+            result = OpenMotion(selected["url"]).call(
+                "get_template", templateId=selected["template"]
+            )
+            return result["motionDocument"]["content"][:20000]
+
     return server
 
 

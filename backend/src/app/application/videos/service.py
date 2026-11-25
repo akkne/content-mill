@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from app.application.agents.ports import AgentScope
 from app.application.projects.ports import ProjectUnitOfWorkFactory
 from app.application.videos.cast import cast_options, resolve_cast
+from app.domain.motion import DEFAULT_STYLE, STYLES
 from app.domain.project import ProjectContext, ProjectNotFound
 from app.domain.video import (
     EDITING_DIRECTIONS,
@@ -78,6 +79,11 @@ class VideoService:
                 "duration": current.video_duration,
                 **settings,
             }
+            if (
+                settings.get("motion_template")
+                and settings["motion_template"] not in STYLES
+            ):
+                raise InvalidVideo("Неизвестный шаблон монтажа")
             if any(
                 settings.get(key) not in choices for key, choices in OPTIONS.items()
             ):
@@ -196,6 +202,7 @@ class VideoService:
 
             return {
                 "project": current.name,
+                "motion_default": DEFAULT_STYLE,
                 "options": OPTIONS,
                 "defaults": {
                     "duration": current.video_duration,
@@ -266,6 +273,10 @@ class VideoService:
                         "production", {"stage": "storyboard"}
                     )
                     state.pop("error", None)
+                    if state.get("motion_export") and state.get("failure", {}).get(
+                        "terminal"
+                    ):
+                        state["retry_motion_export"] = True
                     state.pop("failure", None)
                     video.ready_at = datetime.now(UTC)
                 elif action == "duplicate":

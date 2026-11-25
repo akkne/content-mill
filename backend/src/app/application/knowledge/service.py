@@ -474,3 +474,41 @@ class KnowledgeService:
             work.commit()
             cleanup.pop_all()
             return list(nodes.values())
+
+    def save_motion_style(self, project_id: UUID, owner_id: UUID, style: dict):
+        """Serialize assignments with the project's ownership lock."""
+        marker = "openmotion:" + style["id"]
+        with self.unit_of_work() as work, ExitStack() as cleanup:
+            self._owned(work, project_id, owner_id)
+            nodes = work.repository.list(project_id)
+            for node in nodes:
+                if node.description == marker:
+                    return node
+            folder = next((n for n in nodes if n.folder_role == "motion_library"), None)
+            if folder is None:
+                folder = work.repository.create(
+                    project_id, None, "folder", "Стили монтажа", "motion_library"
+                )
+            title = style["ru"]["title"]
+            content = "\n\n".join(
+                [
+                    "# " + title,
+                    style["ru"]["description"],
+                    style["en"]["description"],
+                    style["reference"],
+                    marker,
+                ]
+            )
+            name = title.replace("/", " · ")[:105] + " · " + style["id"][-8:] + ".md"
+            entry = ExampleEntry(
+                style["id"], None, name, "document", content.encode(), "markdown"
+            )
+            node = create_entry(
+                project_id, folder.id, entry, work.repository, self.store, cleanup
+            )
+            saved = work.repository.change(
+                project_id, node.id, node.revision, description=marker
+            )
+            work.commit()
+            cleanup.pop_all()
+            return saved

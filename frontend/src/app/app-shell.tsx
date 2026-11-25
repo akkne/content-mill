@@ -36,6 +36,7 @@ const navigation = [
   ["Главная", "Home", "home", "/"],
   ["Проекты", "Projects", "brand", "/projects"],
   ["База знаний", "Knowledge base", "brand", "/knowledge"],
+  ["Монтаж", "Editing", "studio", "/montage"],
   ["Ролики", "Videos", "videos", "/videos"],
   ["План и автопилот", "Plan and autopilot", "plan", null],
   ["Аналитика", "Analytics", "analytics", null],
@@ -153,7 +154,7 @@ export function AppShell({
                 href={
                   (href === "/knowledge" || href === "/videos") && projectId
                     ? `/projects/${projectId}${href}`
-                    : href
+                    : href === "/montage" && projectId ? `/montage?project=${projectId}` : href
                 }
                 key={label}
                 onClick={() => setMenuOpen(false)}

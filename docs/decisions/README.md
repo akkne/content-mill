@@ -43,3 +43,4 @@
 - [Фото товара в готовом ролике](0037-product-photo-cutaway.md)
 - [Стили монтажа по двум примерам с ведущей](0038-reference-editing-styles.md)
 - [Астра, речь и монтаж по референсу проекта](0039-astra-editorial-montage.md)
+- [Каталог монтажа и локальная OpenMotion Studio](0040-openmotion.md)

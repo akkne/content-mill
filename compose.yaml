@@ -1,4 +1,19 @@
 services:
+  openmotion:
+    build:
+      context: ./infra/openmotion
+      additional_contexts:
+        upstream: ${OPENMOTION_BUILD_CONTEXT:-https://github.com/nexu-io/openmotion.git#74a3d1e79d599673bc49e5e93aaa8707f1041804}
+    ports:
+      - "127.0.0.1:${OPENMOTION_PORT:-4173}:4173"
+    volumes:
+      - openmotion_data:/data
+      - motion_inbox:/motion-inbox:ro
+    shm_size: 1gb
+    environment:
+      DO_NOT_TRACK: "1"
+      HYPERFRAMES_HISTORY_ROOT: /data/native-history
+
   postgres:
     image: postgres:17
     environment:
@@ -37,7 +52,9 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./backend/src:/app
+      - motion_inbox:/motion-inbox
     environment:
+      OPENMOTION_URL: http://openmotion:4173
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       CONTENT_MILL_SCRIPT_PROVIDER: ${CONTENT_MILL_SCRIPT_PROVIDER-codex}
@@ -70,6 +87,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
+      OPENMOTION_PUBLIC_URL: http://127.0.0.1:${OPENMOTION_PORT:-4173}
       BACKEND_URL: http://backend:8000
       SESSION_COOKIE_SECURE: "false"
     volumes:
@@ -82,6 +100,8 @@ services:
     command: npm run dev -- --hostname 0.0.0.0
 
 volumes:
+  motion_inbox:
+  openmotion_data:
   postgres_data:
   s3_data:
   frontend_node_modules:

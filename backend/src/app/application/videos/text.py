@@ -113,7 +113,7 @@ class VideoTextGenerator:
             attach_style_guide(
                 self.style_guide,
                 scope.project_id,
-                settings.get("editing_style", ""),
+                settings.get("motion_template") or settings.get("editing_style", ""),
                 data,
                 images,
             )

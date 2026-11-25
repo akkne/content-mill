@@ -16,6 +16,7 @@ export type VideoSource = {
   character_id?: string | null;
 };
 export type VideoOptions = {
+  motion_default: string;
   project: string;
   products: string[];
   folders: { id: string; parent_id: string | null; name: string }[];
@@ -42,8 +43,9 @@ export type VideoCard = {
   platform: string;
 };
 export type ProjectVideo = Omit<VideoCard, "duration" | "platform"> & {
+  motion_title?: {ru:string; en:string} | null;
   settings: {
-    production?: { stage: string; clip_model?: string; index?: number; line?: number; operation?: string; error?: string; failure?: VideoFailure; files?: Record<string, { node: string; version: string }> };
+    production?: { motion_export?: { project: string }; stage: string; clip_model?: string; index?: number; line?: number; operation?: string; error?: string; failure?: VideoFailure; files?: Record<string, { node: string; version: string }> };
     library_voice_id?: string;
     voice?: string;
     duration: number;

@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 import sys
 from collections.abc import Iterable
 from pathlib import Path
@@ -155,11 +156,26 @@ class CodexCli:
                     ]
                 )
                 # Only these local, read-only tools can run unattended.
-                for tool in (
-                    ("inspect_frame", "listen", "inspect_material")
-                    if clips
-                    else ("inspect_material",)
-                ):
+                tools = ["inspect_material"]
+                if clips:
+                    tools.extend(["inspect_frame", "listen"])
+                    try:
+                        template = json.loads(text).get("motion_template")
+                    except (ValueError, AttributeError):
+                        template = None
+                    if template:
+                        (footage / "openmotion.json").write_text(
+                            json.dumps(
+                                {
+                                    "template": template,
+                                    "url": os.getenv(
+                                        "OPENMOTION_URL", "http://localhost:4173"
+                                    ),
+                                }
+                            )
+                        )
+                        tools.append("openmotion_get_template")
+                for tool in tools:
                     command.extend(
                         [
                             "-c",

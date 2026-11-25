@@ -27,8 +27,14 @@ export default async function VideoPage({
       </div>
       <p className={pageLead}>
         {project.name} · {optionLabel(item.settings.method, t)} · {item.settings.duration} {t("сек ·", "sec ·")}{" "}
-        {optionLabel(item.settings.platform, t)} · {optionLabel(item.settings.editing_style ?? "По сценарию", t)}
+        {optionLabel(item.settings.platform, t)} · {item.motion_title ? t(item.motion_title.ru,item.motion_title.en) : optionLabel(item.settings.editing_style ?? "По сценарию", t)}
       </p>
+      {item.settings.production?.motion_export && (
+        <a className={secondaryButton+" mb-4"} target="_blank" rel="noreferrer"
+          href={`${process.env.OPENMOTION_PUBLIC_URL ?? "http://127.0.0.1:4173"}/#project/${encodeURIComponent(item.settings.production.motion_export.project)}`}>
+          {t("Открыть монтаж в Studio","Open edit in Studio")} ↗
+        </a>
+      )}
       <VideoEditor item={item} project={project.name} projectId={id} />
     </>
   );
