@@ -190,7 +190,6 @@ class LipSync(Protocol):
 
 
 class ClipGenerator(Protocol):
-    def submit_overlay(self, prompt: str, frame: bytes) -> str: ...
     def submit(self, prompt: str, frame: bytes) -> str: ...
     def collect(self, operation: str) -> bytes | None: ...
 
@@ -415,6 +414,8 @@ class VideoProduction:
                     "reel_select",
                     "reel_captions",
                     "reel_plan",
+                    "reel_motion_score",
+                    "reel_motion_render",
                 }:
                     stack.enter_context(self.renew_claim(video, claim))
                 files, delay = self.step(video)

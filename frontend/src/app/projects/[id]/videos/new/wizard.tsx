@@ -311,7 +311,7 @@ export function Wizard({
               </details>}
               <p className="text-muted">
                 {recording ? t("GPT выберет отрывок из записи, сохранив голос спикера.", "GPT selects a short from the recording and keeps the speaker’s voice.") : t("Nano Banana и Kling создадут исходные сцены по брифу. Для выбранных голосов используется ElevenLabs.", "Nano Banana and Kling generate the source scenes from the brief. Selected character voices use ElevenLabs.")}
-                {" "}{t("Субтитры создаются локально. Для каждой иллюстрации оплачиваются отдельный макет Nano Banana и пятисекундная анимация Kling. OpenMotion собирает готовый MP4.", "Captions are generated locally. Each illustration is billed as a separate Nano Banana design and a five-second Kling animation. OpenMotion assembles the final MP4.")}
+                {" "}{t("Субтитры создаются локально. GPT рисует иллюстрации и задаёт движение каждого слоя в такт речи. OpenMotion собирает готовый MP4.", "Captions are generated locally. GPT draws the illustrations and animates each layer to the speech. OpenMotion assembles the final MP4.")}
               </p>
             </div>
           )}

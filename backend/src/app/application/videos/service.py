@@ -51,12 +51,21 @@ class VideoService:
         generator: VideoGenerator,
         assembly_error: str = "",
         *,
+        media_error: str = "",
         lipsync_available: bool = False,
     ):
+        self.media_error = media_error
         self.work = work
         self.generator = generator
         self.assembly_error = assembly_error
         self.lipsync_available = lipsync_available
+
+    def check_assembly(self, settings):
+        error = self.assembly_error or (
+            self.media_error if not settings.get("speaker_source_id") else ""
+        )
+        if error:
+            raise VideoTextUnavailable(error)
 
     def create(
         self,
@@ -71,8 +80,8 @@ class VideoService:
             current = work.repository.get_owned(project, owner)
             if not current:
                 raise ProjectNotFound
-            if assemble and self.assembly_error:
-                raise VideoTextUnavailable(self.assembly_error)
+            if assemble:
+                self.check_assembly(settings)
             context = work.repository.context(project)
             settings = {
                 "editing_style": current.video_style,
@@ -292,9 +301,13 @@ class VideoService:
                 elif action == "caption":
                     video.caption = value
                 elif action == "assemble" and video.status in ("draft", "failed"):
-                    if self.assembly_error:
-                        raise VideoTextUnavailable(self.assembly_error)
-                    if video.needs_order_check() and value != "new_order":
+                    self.check_assembly(video.settings)
+                    if (
+                        video.needs_order_check()
+                        and value != "new_order"
+                        and video.settings["production"]["stage"]
+                        not in {"overlay_design", "overlay_animate"}
+                    ):
                         raise InvalidVideo(
                             "Проверьте заказ у провайдера перед новой отправкой."
                         )

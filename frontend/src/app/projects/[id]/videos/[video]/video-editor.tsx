@@ -51,9 +51,11 @@ export function VideoEditor({
     reel_select: t("Выбор отрывка · GPT","Selecting a short · GPT"),
     reel_captions: t("Субтитры · локальный Whisper","Captions · local Whisper"),
     reel_plan: t("План иллюстраций · GPT","Illustration plan · GPT"),
-    overlay_design: t("Макет иллюстрации · Nano Banana","Illustration design · Nano Banana"),
+    reel_motion_score: t("Рисунок и ключевые кадры · GPT","Artwork and keyframes · GPT"),
+    reel_motion_render: t("Рендер прозрачной анимации","Rendering transparent animation"),
+    overlay_design: t("Подготовка иллюстрации · GPT","Preparing illustration · GPT"),
     collect_overlay_design: t("Проверка макета","Checking the design"),
-    overlay_animate: t("Анимация иллюстрации · Kling","Animating illustration · Kling"),
+    overlay_animate: t("Анимация иллюстрации · GPT","Animating illustration · GPT"),
     collect_overlay_animation: t("Подготовка прозрачного слоя","Preparing the transparent overlay"),
     reel_export: t("Сборка слоёв · OpenMotion","Assembling layers · OpenMotion"),
     storyboard: t("Раскадровка и промпты", "Storyboard and prompts"),
@@ -78,9 +80,9 @@ export function VideoEditor({
   const stoppedStage = failure?.stage ?? production?.stage ?? "";
   const resumeStage = production?.stage ?? "";
   const polling = resumeStage.startsWith("collect") && !!production?.operation;
-  const newOrder = ["frame", "submit", "sync", "speech","overlay_design","overlay_animate"].includes(resumeStage);
+  const newOrder = ["frame", "submit", "sync", "speech"].includes(resumeStage);
   const sceneStage = ["frame", "collect_frame", "submit", "collect", "speech", "collect_speech", "sync", "collect_sync", "mix_speech", "dub"].includes(stoppedStage);
-  const uncertainOrder = ["frame", "submit", "sync","overlay_design","overlay_animate"].includes(resumeStage) && !production?.operation && stoppedStage === resumeStage && ["order_unconfirmed", "network", "timeout"].includes(reason);
+  const uncertainOrder = ["frame", "submit", "sync"].includes(resumeStage) && !production?.operation && stoppedStage === resumeStage && ["order_unconfirmed", "network", "timeout"].includes(reason);
   const failed = item.status === "failed";
   const draft = item.status === "draft";
   const [tab, setTab] = useState("publication");

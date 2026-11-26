@@ -41,13 +41,19 @@ def test_source_recording_to_openmotion_resumes_without_resubmitting_layers():
     media = MagicMock()
     media.transcribe.return_value = words
     media.rough_cut.return_value = b"speaker"
-    media.transparent.side_effect = [b"first alpha", b"second alpha"]
+    media.render_motion.side_effect = [b"first alpha", b"second alpha"]
+    media.motion_design.return_value = b"poster"
     frames, clips, motion, model, preview = (MagicMock() for _ in range(5))
     preview.render.return_value = b"preview"
-    frames.submit.side_effect = ["d1", "d2"]
-    frames.collect.side_effect = [None, b"design 1", b"design 2"]
-    clips.submit_overlay.side_effect = ["a1", "a2"]
-    clips.collect.side_effect = [None, b"motion 1", b"motion 2"]
+    score = json.dumps(
+        {
+            "layers": [
+                {"artwork": "<circle r='30'/>", "keys": [{"t": 0}, {"t": 1, "x": 30}]},
+                {"artwork": "<path d='M5 5L25 25'/>", "keys": [{"t": 0}]},
+            ]
+        }
+    )
+    model.generate_edit.side_effect = [score, score]
     model.generate.side_effect = [
         json.dumps(
             {
@@ -72,8 +78,6 @@ def test_source_recording_to_openmotion_resumes_without_resubmitting_layers():
                 ],
             }
         ),
-        '{"approved":true}',
-        '{"approved":true}',
     ]
     motion.submit.return_value = {"job": "export"}
     motion.collect.return_value = b"mp4"
@@ -101,20 +105,22 @@ def test_source_recording_to_openmotion_resumes_without_resubmitting_layers():
     for _ in range(30):
         files, _ = producer.step(video)
         artifacts.update((name, body) for name, _, _, body in files)
+        video.settings["production"]["files"].update({name: {} for name, *_ in files})
         if video.status == "ready":
             break
     assert video.status == "ready" and artifacts["final.mp4"] == b"mp4"
     assert artifacts["rough-cut.mp4"] == b"speaker"
     assert artifacts["overlay-01.webm"] == b"first alpha"
-    assert frames.submit.call_count == clips.submit_overlay.call_count == 2
-    assert [c.args[1] for c in clips.submit_overlay.call_args_list] == [
-        b"design 1",
-        b"design 2",
-    ]
+    frames.submit.assert_not_called()
+    clips.submit.assert_not_called()
+    assert model.generate_edit.call_count == 2
+    assert (
+        "overlay-01.motion.json" in artifacts and "overlay-02-design.png" in artifacts
+    )
     assert motion.submit.call_args.args[4] == [b"speaker"]
     assert motion.submit.call_args.kwargs["overlays"] == [
-        (1200, 2200, "left", b"first alpha"),
-        (4800, 5800, "left", b"second alpha"),
+        (1200, 2200, "wide-left", b"first alpha"),
+        (4800, 5800, "wide-left", b"second alpha"),
     ]
     assert json.loads(artifacts["captions.json"])[1]["text"] == "Sentence 1."
     assert "Sentence 7." in video.script
@@ -196,3 +202,78 @@ def test_transparent_animation_preserves_matte_and_foley(tmp_path):
         ],
     )
     assert pixels[0] < 10 and pixels[8 * 9 + 4] > 240
+
+
+def test_model_keyframes_render_transparent_motion_with_foley(tmp_path):
+    import shutil
+    from io import BytesIO
+
+    from app.application.videos.motion_score import MotionScore
+    from app.infrastructure.video.vector_motion import (
+        artwork,
+        motion_design,
+        render_layer,
+    )
+    from app.infrastructure.video.video_edit import ffmpeg, track_info
+    from PIL import Image
+
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        pytest.skip("requires FFmpeg")
+    score = MotionScore(
+        layers=[
+            {
+                "artwork": '<rect width="80" height="100" fill="red"/>',
+                "keys": [{"t": 0}, {"t": 1, "x": 240}],
+            },
+            {"artwork": '<circle cx="50" cy="160" r="10"/>', "keys": [{"t": 0}]},
+        ],
+        sounds=[{"kind": "tap", "t": 0.4}],
+    )
+    poster = Image.open(BytesIO(motion_design(score))).convert("RGBA")
+    assert poster.getpixel((250, 50)) == (255, 0, 0, 255)
+    path = tmp_path / "overlay.webm"
+    path.write_bytes(render_layer(score, 500))
+    tracks, _ = track_info(path, "matroska")
+    assert "audio" in tracks and tracks["video"]["tags"]["alpha_mode"] == "1"
+    pixels = ffmpeg(
+        tmp_path,
+        [
+            "-c:v",
+            "libvpx-vp9",
+            "-i",
+            path.name,
+            "-an",
+            "-vf",
+            "alphaextract,scale=60:36",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "gray",
+            "pipe:1",
+        ],
+    )
+    first, last = pixels[:2160], pixels[-2160:]
+    assert first[5 * 60 + 3] > 240 and last[5 * 60 + 3] < 10 and last[5 * 60 + 25] > 240
+    with pytest.raises(ValueError):
+        artwork('<image href="file:///etc/hostname"/>')
+
+
+def test_old_unsubmitted_illustration_continues_with_gpt():
+    from app.application.videos.reel import ReelEdit
+
+    media = MagicMock()
+    job = SimpleNamespace(
+        reel_media=media, motion=MagicMock(), clips=MagicMock(), frames=MagicMock()
+    )
+    state = {
+        "stage": "overlay_animate",
+        "overlay_index": 0,
+        "files": {"overlay-01.webm": {}},
+    }
+    reel = ReelEdit(
+        job, SimpleNamespace(settings={"production": state, "language": "English"})
+    )
+    plan = SimpleNamespace(overlays=[object(), object()])
+    assert reel.generate_overlay(plan, []) == ([], 0)
+    assert (state["stage"], state["overlay_index"]) == ("reel_motion_score", 1)
+    assert not job.frames.mock_calls and not job.clips.mock_calls
