@@ -120,6 +120,8 @@ class ProjectContextModel(Base):
 class LibraryVoiceModel(Base):
     __tablename__ = "library_voices"
 
+    voice_speed: Mapped[float] = mapped_column(server_default="1.1")
+    voice_style: Mapped[float] = mapped_column(server_default="0.4")
     lumean_template_id: Mapped[UUID | None] = mapped_column()
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

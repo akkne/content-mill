@@ -1,4 +1,5 @@
 "use client";
+import { DeliveryFields } from "./delivery-fields";
 import { useTranslator } from "@/app/interface-language";
 
 import { useState, useTransition } from "react";
@@ -32,6 +33,8 @@ export function VoiceEditor({
         start(async () => {
           const result = await editVoice(voice.id, {
             description: val("description"),
+            voice_speed: Number(data.get("voice_speed")),
+            voice_style: Number(data.get("voice_style")),
             voice_language: val("language"),
             voice_model: val("model"),
             voice_gender: val("gender") || null,
@@ -90,6 +93,7 @@ export function VoiceEditor({
           defaultValue={voice.elevenlabs_voice_id ?? ""}
         />
       </label>
+      <DeliveryFields speed={voice.voice_speed} style={voice.voice_style} />
       <div className="flex items-end gap-2">
         <button className={primaryButton} disabled={pending}>
           {t("Сохранить", "Save")}

@@ -13,6 +13,7 @@ from app.application.voices.speech import SpeechResult, SpeechService
 from app.container import speech_service, voice_catalog, voice_library
 from app.domain.knowledge import InvalidNodeOperation, NodeNotFound
 from app.domain.project import ProjectNotFound
+from app.domain.voice import VoiceDelivery
 from app.presentation.http.dependencies import CurrentUser
 from app.presentation.http.errors import translate
 from app.presentation.http.schemas.voices import (
@@ -65,6 +66,7 @@ def save(payload: SaveVoice, user: CurrentUser, library: Library):
             payload.language,
             payload.gender,
             payload.model,
+            VoiceDelivery(payload.voice_speed, payload.voice_style),
         )
     except CatalogError as error:
         raise HTTPException(error.status, str(error)) from error
@@ -85,7 +87,9 @@ def assign(
 @router.patch("/{voice_id}")
 def edit(voice_id: UUID, payload: VoiceDetails, user: CurrentUser, library: Library):
     try:
-        return library.repository.edit(user.id, voice_id, payload.model_dump())
+        return library.repository.edit(
+            user.id, voice_id, payload.model_dump(exclude_unset=True)
+        )
     except NodeNotFound as error:
         raise translate(error) from error
 

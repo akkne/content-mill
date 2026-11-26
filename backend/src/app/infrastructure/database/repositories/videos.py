@@ -6,10 +6,12 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.domain.video import Video, VideoSource
+from app.domain.voice import VoiceDelivery
 from app.infrastructure.database.models import (
     AvatarWorkspaceModel,
     DocumentVersionModel,
     KnowledgeNodeModel,
+    LibraryVoiceModel,
     ProjectModel,
     VideoModel,
 )
@@ -40,6 +42,15 @@ class VideoRepository:
             .join(ProjectModel, ProjectModel.owner_id == AvatarWorkspaceModel.owner_id)
             .where(ProjectModel.id == project)
         )
+
+    def voice_deliveries(self, project: UUID) -> dict[UUID, VoiceDelivery]:
+        node, card = KnowledgeNodeModel, LibraryVoiceModel
+        rows = self.session.execute(
+            select(node.id, card.voice_speed, card.voice_style)
+            .join(card, card.id == node.library_voice_id)
+            .where(node.project_id == project, node.archived_at.is_(None))
+        )
+        return {node_id: VoiceDelivery(speed, style) for node_id, speed, style in rows}
 
     def voices(self, project: UUID) -> dict[str, str]:
         rows = self.session.execute(

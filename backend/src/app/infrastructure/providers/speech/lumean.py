@@ -11,15 +11,21 @@ from app.application.voices.catalog import (
     VoicePage,
 )
 from app.application.voices.speech import SpeechProvider, SpeechResult
+from app.domain.voice import (
+    DEFAULT_DELIVERY,
+    DEFAULT_SPEED,
+    DEFAULT_STYLE,
+    VoiceDelivery,
+)
 from app.infrastructure.providers.media.media_download import download_result
 
 # Applied at order time as well so saved library templates get the current delivery.
 VOICE_SETTINGS = {
     "stability": 0.5,
     "similarity_boost": 0.75,
-    "style": 0.4,
+    "style": DEFAULT_STYLE,
     "use_speaker_boost": True,
-    "speed": 1.2,
+    "speed": DEFAULT_SPEED,
 }
 
 
@@ -153,7 +159,14 @@ class LumeanElevenLabs(VoiceCatalog, SpeechProvider):
             },
         )
 
-    def submit(self, template: UUID, voice: str, text: str, request: UUID) -> UUID:
+    def submit(
+        self,
+        template: UUID,
+        voice: str,
+        text: str,
+        request: UUID,
+        delivery: VoiceDelivery = DEFAULT_DELIVERY,
+    ) -> UUID:
         return self._create(
             "orders",
             {
@@ -164,7 +177,11 @@ class LumeanElevenLabs(VoiceCatalog, SpeechProvider):
                     "tts_settings": {
                         "voice_id": voice,
                         "advanced_voice_settings": True,
-                        "voice_settings": VOICE_SETTINGS,
+                        "voice_settings": {
+                            **VOICE_SETTINGS,
+                            "speed": delivery.speed,
+                            "style": delivery.style,
+                        },
                     }
                 },
             },
@@ -198,7 +215,10 @@ class LumeanElevenLabs(VoiceCatalog, SpeechProvider):
     def submit_line(self, voice: dict, text: str, request: UUID) -> str:
         external = voice["elevenlabs_voice_id"]
         template = self.template(external, voice["model_id"])
-        return str(self.submit(template, external, text, request))
+        delivery = VoiceDelivery(
+            voice.get("speed", DEFAULT_SPEED), voice.get("style", DEFAULT_STYLE)
+        )
+        return str(self.submit(template, external, text, request, delivery))
 
     def collect_line(self, operation: str) -> bytes | None:
         result = self.result(UUID(operation))

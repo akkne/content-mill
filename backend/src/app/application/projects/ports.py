@@ -8,6 +8,7 @@ from app.application.agents.ports import AgentRepository
 from app.application.knowledge.ports import KnowledgeRepository
 from app.domain.project import Project, ProjectContext
 from app.domain.video import Video, VideoSource
+from app.domain.voice import VoiceDelivery
 
 
 class ProjectRepository(Protocol):
@@ -36,6 +37,7 @@ class ProjectRepository(Protocol):
 
 
 class VideoRepository(Protocol):
+    def voice_deliveries(self, project: UUID) -> dict[UUID, VoiceDelivery]: ...
     def voices(self, project: UUID) -> dict[str, str]: ...
     def avatar_library(self, project: UUID) -> UUID | None: ...
     def next_production(self, now: datetime) -> Video | None: ...

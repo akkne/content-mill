@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.application.voices.catalog import CatalogError
 from app.application.voices.speech import Reservation
+from app.domain.voice import VoiceDelivery
 from app.infrastructure.database.models import LibraryVoiceModel as Voice
 from app.infrastructure.database.models import SpeechJobModel as Job
 from app.infrastructure.database.session import session_factory
@@ -56,7 +57,12 @@ class SqlSpeechRepository:
                 raise CatalogError(
                     409, "Этот идентификатор уже использован."
                 ) from error
-            return Reservation(True, row.elevenlabs_voice_id, row.lumean_template_id)
+            return Reservation(
+                True,
+                row.elevenlabs_voice_id,
+                row.lumean_template_id,
+                VoiceDelivery(row.voice_speed, row.voice_style),
+            )
 
     def save_template(self, voice: UUID, template: UUID):
         with session_factory().begin() as db:

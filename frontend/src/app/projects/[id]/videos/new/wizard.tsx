@@ -310,7 +310,7 @@ export function Wizard({
                 <ul className="mt-2 grid max-h-52 gap-1 overflow-auto text-sm">{attachments.map(file=><li key={file.id}>{file.path??file.name} · v{file.version}</li>)}</ul>
               </details>}
               <p className="text-muted">
-                {recording ? t("GPT выберет отрывок из записи, сохранив голос спикера.", "GPT selects a short from the recording and keeps the speaker’s voice.") : t("Nano Banana подготовит кадры, HeyGen Video 1 снимет сцены по брифу. Выбранные голоса ElevenLabs звучат в темпе 1,2× с выразительной подачей.", "Nano Banana creates the starting images and HeyGen Video 1 generates the scenes. Selected ElevenLabs voices use expressive delivery at 1.2× speed.")}
+                {recording ? t("GPT выберет отрывок из записи, сохранив голос спикера.", "GPT selects a short from the recording and keeps the speaker’s voice.") : t("Nano Banana подготовит кадры, HeyGen Video 1 снимет сцены по брифу. Скорость и выразительность берутся из карточки каждого голоса ElevenLabs.", "Nano Banana creates the starting images and HeyGen Video 1 generates the scenes. Speech speed and expressiveness come from each selected ElevenLabs voice card.")}
                 {" "}{t("Субтитры создаются локально. GPT анимирует предметы на белом фоне в такт речи. OpenMotion собирает готовый MP4.", "Captions are generated locally. GPT animates objects on a white background in time with the speech. OpenMotion assembles the final MP4.")}
               </p>
             </div>

@@ -8,6 +8,7 @@ from app.application.voices.catalog import CatalogVoice
 from app.application.voices.library import LibraryVoice
 from app.domain.knowledge import InvalidNodeOperation, NodeNotFound
 from app.domain.project import ProjectNotFound
+from app.domain.voice import VoiceDelivery
 from app.infrastructure.database.models import (
     AvatarWorkspaceModel,
     ProjectModel,
@@ -32,7 +33,11 @@ VOICE_FIELDS = (
 
 def view(row: Voice, projects: list[UUID]) -> LibraryVoice:
     return LibraryVoice(
-        id=row.id, project_ids=projects, **{k: getattr(row, k) for k in VOICE_FIELDS}
+        id=row.id,
+        project_ids=projects,
+        voice_speed=row.voice_speed,
+        voice_style=row.voice_style,
+        **{k: getattr(row, k) for k in VOICE_FIELDS},
     )
 
 
@@ -58,7 +63,14 @@ class SqlVoiceLibrary:
                     voices[voice.id].project_ids.append(project)
             return list(voices.values())
 
-    def create(self, owner: UUID, name: str, voice: CatalogVoice, model: str | None):
+    def create(
+        self,
+        owner: UUID,
+        name: str,
+        voice: CatalogVoice,
+        model: str | None,
+        delivery: VoiceDelivery,
+    ):
         with session_factory().begin() as db:
             db.scalar(
                 select(UserModel.id).where(UserModel.id == owner).with_for_update()
@@ -83,6 +95,8 @@ class SqlVoiceLibrary:
                 catalog_languages=voice.languages,
                 voice_language=next(iter(voice.languages), None),
                 voice_model=model,
+                voice_speed=delivery.speed,
+                voice_style=delivery.style,
                 voice_preview_url=voice.preview_url,
             )
             db.add(row)
@@ -108,11 +122,13 @@ class SqlVoiceLibrary:
             if changes:
                 for key, value in changes.items():
                     setattr(row, key, value)
-                db.execute(
-                    update(Node)
-                    .where(Node.library_voice_id == voice)
-                    .values(**changes, revision=Node.revision + 1)
-                )
+                project_fields = {k: v for k, v in changes.items() if k in VOICE_FIELDS}
+                if project_fields:
+                    db.execute(
+                        update(Node)
+                        .where(Node.library_voice_id == voice)
+                        .values(**project_fields, revision=Node.revision + 1)
+                    )
             projects = list(
                 db.scalars(
                     select(Node.project_id).where(
