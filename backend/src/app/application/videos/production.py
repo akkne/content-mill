@@ -115,6 +115,20 @@ class Storyboard(BaseModel):
 
 
 class ShortShot(TimedScene):
+    composition: Description = Field(
+        description="Opening composition and focus, subject and object positions, change on the spoken cue, end frame and visual match to the next shot. Aim for 110–135 words."
+    )
+    image_prompt: Description = Field(
+        description="A self-contained still-image brief: precise framing, camera height and side, screen positions, foreground, lighting, identity and continuity from approved references. Aim for 155–185 words."
+    )
+    video_prompt: str = Field(
+        min_length=1,
+        max_length=2400,
+        description="Self-contained motion over the clean source plate: local time beats, actor/object paths, camera motion or lock, verbatim speech, final readable state and hold. Aim for 185–215 words.",
+    )
+    cut: Description = Field(
+        description="Explain the outgoing and incoming frames, exact spoken or action cue, screen direction, eye line, prop continuity and reason for this cut. Aim for 105–140 words using details specific to this shot."
+    )
     keep_ms: int = Field(ge=3000, le=4000)
     camera_setup: CameraSetup
 
@@ -298,7 +312,7 @@ Write the full image_prompt for Nano Banana: subject, blocking, props, wardrobe,
 lighting and composition of the first frame. Choose visual reference_ids in input
 order. Optionally select an earlier continuity_scene if its frame should also
 guide this shot; it will be the last reference image.
-Write the full video_prompt for HeyGen Video 1 (maximum 850 characters before the timing instruction): one continuous
+Write the full video_prompt for HeyGen Video 1 within the schema limit: one continuous
 shot from the supplied first frame, action and camera movement, language, delivery,
 timing, speaker names and exact words for every utterance, including punctuation.
 Direct visible speakers to articulate their own lines in sync, keep other mouths
@@ -1186,7 +1200,7 @@ class VideoProduction:
             directions += (
                 " "
                 + SHORT_SHOT_DIRECTION
-                + " Generate the underlying shot and its complete spoken line even where a white insert is planned. Keep image_prompt and video_prompt free of added subtitles, titles, graphics, UI mockups or animated inserts. These live on separate tracks in the edit. Leave white cutaways to the GPT motion stage. Describe a distinct camera setup in each image_prompt and video_prompt. Each keep_ms MUST be between 3000 and 4000 inclusive."
+                + " Generate the underlying shot and its complete spoken line even where a white insert is planned. Keep image_prompt and video_prompt free of added subtitles, titles, graphics, UI mockups or animated inserts. These live on separate tracks in the edit. Leave white cutaways to the GPT motion stage. Describe a distinct camera setup in each image_prompt and video_prompt. Turn every edit note into reproducible screen directions. For composition identify the cue, the starting frame, what moves relative to what and what the viewer sees at the cut. For cut describe exit pose, gaze or object continuity and the next entrance (or the final hold). Use relative shot times for action beats. Spend detail on the single action already in the brief. Each keep_ms MUST be between 3000 and 4000 inclusive."
             )
         elif video.settings.get("generated_overlays"):
             directions += (

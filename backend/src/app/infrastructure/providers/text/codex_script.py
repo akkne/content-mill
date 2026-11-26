@@ -87,7 +87,7 @@ class CodexCli:
         clips: list[bytes],
         materials: Iterable[tuple[str, str, bytes]] = (),
         *,
-        timeout: int | None = 120,
+        timeout: int | None = 600,
     ) -> str:
         with TemporaryDirectory(prefix="cm-codex-") as folder:
             directory = Path(folder)

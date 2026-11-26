@@ -3,7 +3,7 @@ import json
 from dataclasses import asdict
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 from app.application.agents.files import AgentFiles
 from app.application.agents.ports import AgentScope
@@ -12,6 +12,7 @@ from app.application.videos.spoken_script import ScriptScene, format_script
 from app.application.videos.style_guide import GuideReader, attach_style_guide
 from app.domain.project import ProjectContext
 from app.domain.video import (
+    FRAGMENT_DIRECTION,
     SHORT_SHOT_DIRECTION,
     VideoSource,
     VideoTextUnavailable,
@@ -34,6 +35,25 @@ class CastVideoCopy(BaseModel):
     scenes: list[ScriptScene] = Field(min_length=1, max_length=15)
     caption: VideoText
     edit_plan: list[VideoText] = Field(min_length=1)
+
+
+class DetailedVideoCopy(CastVideoCopy):
+    edit_plan: list[
+        Annotated[
+            str,
+            StringConstraints(strip_whitespace=True, min_length=150, max_length=2500),
+        ]
+    ] = Field(
+        min_length=1,
+        max_length=15,
+        description="One visual direction per scene in scene order. Follow the fragment guidance.",
+    )
+
+    @model_validator(mode="after")
+    def one_note_per_scene(self):
+        if len(self.edit_plan) != len(self.scenes):
+            raise ValueError("Each scene needs its own visual direction")
+        return self
 
 
 class VideoTextGenerator:
@@ -127,8 +147,14 @@ class VideoTextGenerator:
                 data,
                 images,
             )
-            schema = CastVideoCopy if cast or settings.get("short_shots") else VideoCopy
+            schema = CastVideoCopy if cast else VideoCopy
+            if settings.get("short_shots"):
+                schema = DetailedVideoCopy
             data["output_schema"] = schema.model_json_schema()
+            if schema is DetailedVideoCopy:
+                data["output_schema"]["properties"]["edit_plan"].update(
+                    minItems=data["scene_count"], maxItems=data["scene_count"]
+                )
             result = self.model.generate(
                 "Подготовь сценарий короткого ролика, подпись к публикации и монтажный лист "
                 "по сценам с таймкодами, кадрами, склейками и титрами на языке settings.language. "
@@ -155,7 +181,11 @@ class VideoTextGenerator:
                 "Если задан состав, реплики могут принадлежать только персонажам с голосом. "
                 "Верни только JSON "
                 "по output_schema. Если заданы scenes, сумма duration_ms равна длительности ролика в мс. Объединяй последовательные фразы одного говорящего в одну реплику, пока не меняется план или говорящий."
-                + (" " + SHORT_SHOT_DIRECTION if settings.get("short_shots") else ""),
+                + (
+                    " " + SHORT_SHOT_DIRECTION + " " + FRAGMENT_DIRECTION
+                    if settings.get("short_shots")
+                    else ""
+                ),
                 json.dumps(data, ensure_ascii=False, default=str),
                 images,
             )
