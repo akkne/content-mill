@@ -124,7 +124,7 @@ class ShortShot(TimedScene):
     video_prompt: str = Field(
         min_length=1,
         max_length=3000,
-        description="Self-contained motion over the clean source plate: local time beats, actor/object paths, camera motion or lock, verbatim speech, final readable state and hold. Aim for 235–265 words.",
+        description="Self-contained motion over the clean source plate: local time beats, actor/object paths, camera motion or lock, articulation on the spoken cue, final readable state and hold. Aim for 235–265 words.",
     )
     cut: Description = Field(
         description="Explain the outgoing and incoming frames, exact spoken or action cue, screen direction, eye line, prop continuity and reason for this cut. Aim for 135–160 words using details specific to this shot."
@@ -358,10 +358,21 @@ including after rounding source intervals to the nearest 24 fps frame."""
 
 
 def source_prompt(shot: Shot) -> str:
-    return (
+    prompt = (
         f"10-second take. Complete all action and dialogue within 0–{shot.keep_ms / 1000:g}s. "
         f"Hold the ending for the remaining time. {shot.video_prompt}"
     )
+
+    if isinstance(shot, Scene) and any(
+        line.speaker not in shot.video_prompt or line.text not in shot.video_prompt
+        for line in shot.utterances
+    ):
+        dialogue = "\n".join(
+            f"{line.start_ms}–{line.end_ms} ms, {line.speaker} ({line.delivery}): {line.text}"
+            for line in shot.utterances
+        )
+        prompt += "\nUse only this exact dialogue and timing:\n" + dialogue
+    return prompt
 
 
 def validate_scene_windows(scenes, duration: int) -> None:
@@ -1200,7 +1211,7 @@ class VideoProduction:
             directions += (
                 " "
                 + SHORT_SHOT_DIRECTION
-                + " Generate the underlying shot and its complete spoken line even where a white insert is planned. Keep image_prompt and video_prompt free of added subtitles, titles, graphics, UI mockups or animated inserts. These live on separate tracks in the edit. Leave white cutaways to the GPT motion stage. Describe a distinct camera setup in each image_prompt and video_prompt. Turn every edit note into reproducible screen directions. For composition identify the cue, the starting frame, what moves relative to what and what the viewer sees at the cut. For cut describe exit pose, gaze or object continuity and the next entrance (or the final hold). Use relative shot times for action beats. Meet the word ranges in each field by spelling out staging and screen geography at the opening, action and cut, preserving reference-specific details and keeping the single action already in the brief. Make each image and motion brief self-contained for its renderer. Each keep_ms MUST be between 3000 and 4000 inclusive."
+                + " Generate the underlying shot and its complete spoken line even where a white insert is planned. Keep image_prompt and video_prompt free of added subtitles, titles, graphics, UI mockups or animated inserts. These live on separate tracks in the edit. Leave white cutaways to the GPT motion stage. Describe a distinct camera setup in each image_prompt and video_prompt. Turn every edit note into reproducible screen directions. For composition identify the cue, the starting frame, what moves relative to what and what the viewer sees at the cut. For cut describe exit pose, gaze or object continuity and the next entrance (or the final hold). Use relative shot times for action beats. Meet the word ranges in each field by spelling out staging and screen geography at the opening, action and cut, preserving reference-specific details and keeping the single action already in the brief. Make the visual instructions self-contained. For these short shots, put full verbatim dialogue and speaker names in utterances. The application supplies this exact timed dialogue to HeyGen. Use only cue words in the motion prose to direct articulation or a gesture. Each keep_ms MUST be between 3000 and 4000 inclusive."
             )
         elif video.settings.get("generated_overlays"):
             directions += (
@@ -1244,7 +1255,7 @@ class VideoProduction:
             for line in shot.utterances:
                 if line.end_ms <= line.start_ms:
                     raise ValueError("Invalid dialogue interval")
-                if (
+                if not isinstance(shot, ShortShot) and (
                     line.text not in shot.video_prompt
                     or line.speaker not in shot.video_prompt
                 ):
