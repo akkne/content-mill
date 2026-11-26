@@ -41,7 +41,7 @@ class ReelMediaEditor:
                         "-map",
                         "0:a:0",
                         "-vf",
-                        "fps=24,scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,setsar=1",
+                        "fps=24:start_time=0,scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,setsar=1",
                         "-af",
                         "aresample=48000:async=1:first_pts=0,apad",
                         "-ac",
