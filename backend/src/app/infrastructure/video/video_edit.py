@@ -76,7 +76,7 @@ class FFmpegEditor:
                 - origin
                 for k in ("audio", "video")
             )
-            if not 0 < length <= 10 + 1 / 24:
+            if not math.isfinite(length) or length <= 0:
                 raise ValueError("Unexpected clip duration")
             try:
                 sheet = ffmpeg(
@@ -101,7 +101,10 @@ class FFmpegEditor:
                 raise ValueError("Undecodable video track") from error
             if not sheet:
                 raise ValueError("No decoded frames")
-            return round(length * 1000), base64.b64encode(sheet).decode()
+            # ffprobe reports seconds to microsecond precision. Only full milliseconds
+            # are available to the montage, even just below a planned cut.
+            length_ms = round(length * 1_000_000) // 1000
+            return length_ms, base64.b64encode(sheet).decode()
 
     def render(
         self,

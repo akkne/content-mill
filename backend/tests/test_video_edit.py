@@ -114,6 +114,83 @@ def test_real_montage_keeps_delayed_audio_at_the_cut(tmp_path):
     assert image.crop((500, 0, 800, 160)).getbbox() is not None
 
 
+@pytest.mark.skipif(
+    not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="requires FFmpeg"
+)
+@pytest.mark.parametrize(
+    ("video_seconds", "audio_seconds", "accepted"),
+    [
+        ("10.125", "10.21", True),
+        ("3.75", "3.75", True),
+        ("3.5", "10", False),
+        ("10", "3.7495", False),
+    ],
+)
+def test_collect_checks_both_tracks_against_fractional_scene_window(
+    tmp_path, video_seconds, audio_seconds, accepted
+):
+    from types import SimpleNamespace
+
+    from app.application.videos.production import ProductionError, VideoProduction
+
+    ffmpeg(
+        tmp_path,
+        [
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=red:s=32x32:r=24:d={video_seconds}",
+            "-f",
+            "lavfi",
+            "-i",
+            f"sine=r=48000:d={audio_seconds}",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "alac",
+            "-movie_timescale",
+            "48000",
+            "take.mp4",
+        ],
+    )
+    clip = (tmp_path / "take.mp4").read_bytes()
+    board = SavedStoryboard(
+        scenes=[
+            {
+                "keep_ms": 3750,
+                "composition": "opening",
+                "cast_and_wardrobe": "presenter",
+                "cut": "cut",
+                "image_prompt": "portrait",
+                "video_prompt": "turn",
+                "reference_ids": [],
+                "utterances": [],
+            }
+        ]
+    )
+    state = {"stage": "collect", "index": 0, "files": {}, "operation": "heygen:paid"}
+    video = SimpleNamespace(settings={"duration": 15, "production": state})
+    worker = VideoProduction(
+        None,
+        None,
+        object(),
+        None,
+        SimpleNamespace(collect=lambda _: clip),
+        FFmpegEditor(),
+        None,
+        describe_error=describe_video_error,
+    )
+    worker.artifact = lambda video, name: board.model_dump_json()
+    if accepted:
+        files, _ = worker.step(video)
+        assert state["stage"] == "edit"
+        assert files == [("scene-01.mp4", "video", "video/mp4", clip)]
+    else:
+        with pytest.raises(ProductionError) as error:
+            worker.step(video)
+        assert error.value.detail["reason"] == "invalid_clip"
+
+
 def test_cast_dialogue_is_dubbed_onto_veo_clip():
     from types import SimpleNamespace
     from uuid import uuid4
