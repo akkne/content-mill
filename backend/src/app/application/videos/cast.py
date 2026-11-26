@@ -1,7 +1,9 @@
+from dataclasses import asdict
 from uuid import UUID
 
 from app.domain.knowledge import KnowledgeNode
 from app.domain.video import InvalidVideo, VideoSource
+from app.domain.voice import DEFAULT_DELIVERY, VoiceDelivery
 
 
 def cast_options(nodes: list[KnowledgeNode]):
@@ -32,7 +34,12 @@ def media_role(folder: str) -> str:
     }.get(folder, "angle_reference")
 
 
-def resolve_cast(rows, nodes: list[KnowledgeNode], versions: list[VideoSource]):
+def resolve_cast(
+    rows,
+    nodes: list[KnowledgeNode],
+    versions: list[VideoSource],
+    deliveries: dict[UUID, VoiceDelivery],
+):
     by_id = {node.id: node for node in nodes}
     cast, names = [], set()
     for row in rows:
@@ -82,6 +89,7 @@ def resolve_cast(rows, nodes: list[KnowledgeNode], versions: list[VideoSource]):
                 "display_name": avatar.name,
                 "files": assets,
                 "voice": {
+                    **asdict(deliveries.get(voice.id, DEFAULT_DELIVERY)),
                     "project_voice_id": str(voice.id),
                     "elevenlabs_voice_id": voice.elevenlabs_voice_id,
                     "model_id": voice.voice_model or "eleven_multilingual_v2",

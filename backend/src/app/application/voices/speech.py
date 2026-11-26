@@ -4,6 +4,7 @@ from typing import Protocol
 from uuid import UUID
 
 from app.application.voices.catalog import CatalogError
+from app.domain.voice import DEFAULT_DELIVERY, VoiceDelivery
 
 
 @dataclass
@@ -17,7 +18,14 @@ class SpeechProvider(ABC):
     def template(self, voice: str) -> UUID: ...
 
     @abstractmethod
-    def submit(self, template: UUID, voice: str, text: str, request: UUID) -> UUID: ...
+    def submit(
+        self,
+        template: UUID,
+        voice: str,
+        text: str,
+        request: UUID,
+        delivery: VoiceDelivery = DEFAULT_DELIVERY,
+    ) -> UUID: ...
 
     @abstractmethod
     def result(self, order: UUID) -> SpeechResult: ...
@@ -28,6 +36,7 @@ class Reservation:
     fresh: bool
     voice: str
     template: UUID | None
+    delivery: VoiceDelivery = DEFAULT_DELIVERY
 
 
 class SpeechRepository(Protocol):
@@ -60,7 +69,9 @@ class SpeechService:
             self.repository.finish(request, None, "failed")
             raise
         try:
-            order = self.provider.submit(template, job.voice, text, request)
+            order = self.provider.submit(
+                template, job.voice, text, request, job.delivery
+            )
         except CatalogError as error:
             self.repository.finish(
                 request, None, "uncertain" if error.status == 502 else "failed"

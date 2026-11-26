@@ -15,7 +15,7 @@
 | POST storage/url | path из result.files[0], download=false | url (HTTPS) |
 
 ```json
-{"mode":"mode_v1","model_id":"eleven_multilingual_v2","voice_id":"<voice_id>","advanced_voice_settings":true,"voice_settings":{"stability":0.5,"similarity_boost":0.75,"use_speaker_boost":true,"style":0.4,"speed":1.2}}
+{"mode":"mode_v1","model_id":"eleven_multilingual_v2","voice_id":"<voice_id>","advanced_voice_settings":true,"voice_settings":{"stability":0.5,"similarity_boost":0.75,"use_speaker_boost":true,"style":0.4,"speed":1.1}}
 ```
 
 Финальные статусы с результатом — completed и result_delivered. Для реплики ролика ограничиваем скачивание 16 МиБ. Lumean проверяет максимум 1500 фрагментов на заказ, 500 пауз, 10 секунд на паузу и 3600 секунд суммарной тишины. При превышении возвращает 422. Ограничения частоты и числа одновременных заказов зависят от подписки. [Текст и разбиение](https://lumean.app/en/developers/docs/guide/text) · [Квоты](https://lumean.app/en/developers/docs/guide/limits)
@@ -34,4 +34,4 @@ GET /voices принимает provider=elevenlabs, поиск, язык, пол
 
 При сборке ролика карточка показывает причину ошибки заказа и отдельно сохраняет HTTP-статус при ошибке запроса. [Диагностика генерации](../../../../../../docs/decisions/0024-video-failures.md)
 
-Для нового шаблона и каждого нового заказа передаются одни параметры подачи. Переопределение на заказе применяет скорость и выразительность к ранее сохранённым шаблонам. [Шаблоны и config_override](https://lumean.app/en/developers/docs/guide/templates).
+Шаблон создаётся со скоростью 1,1 и выразительностью 0,4. При каждом заказе в config_override передаются сохранённые в карточке speed (0,7–1,2) и style (0–1). Переопределение на заказе применяет скорость и выразительность к ранее сохранённым шаблонам. [Шаблоны и config_override](https://lumean.app/en/developers/docs/guide/templates).

@@ -86,6 +86,27 @@ def test_expressive_speed_overrides_cached_templates_and_keeps_voice():
     assert order["advanced_voice_settings"] and order["voice_id"] == "selected-voice"
     assert template["voice_settings"] == order["voice_settings"]
     assert (
-        order["voice_settings"]["speed"] == 1.2
+        order["voice_settings"]["speed"] == 1.1
         and order["voice_settings"]["style"] == 0.4
     )
+
+
+def test_cast_synthesis_uses_its_saved_delivery():
+    import json
+
+    calls = []
+
+    def handle(request):
+        calls.append(json.loads(request.content))
+        return httpx.Response(200, json={"success": True, "data": {"id": str(uuid4())}})
+
+    with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+        voice = {
+            "elevenlabs_voice_id": "speaker",
+            "model_id": "eleven_multilingual_v2",
+            "speed": 0.85,
+            "style": 0.0,
+        }
+        LumeanElevenLabs("test", client).submit_line(voice, "Проверка", uuid4())
+    delivery = calls[-1]["config_override"]["tts_settings"]["voice_settings"]
+    assert (delivery["speed"], delivery["style"]) == (0.85, 0.0)

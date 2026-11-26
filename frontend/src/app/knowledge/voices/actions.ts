@@ -25,7 +25,7 @@ export type SavedVoice = Pick<
   | "voice_preview_url"
   | "elevenlabs_voice_id"
   | "voice_model"
-> & { project_ids: string[] };
+> & { project_ids: string[]; voice_speed: number; voice_style: number };
 type Reply<T> = { data: T; error?: never } | { error: string; data?: never };
 
 async function request<T>(
@@ -62,6 +62,8 @@ export async function addVoice(body: {
   name: string;
   voice_id: string;
   from_catalog: boolean;
+  voice_speed: number;
+  voice_style: number;
   gender: string | null;
   language: string;
   description: string;
@@ -82,6 +84,8 @@ export async function editVoice(
     description: string;
     voice_language: string;
     voice_gender: string | null;
+    voice_speed: number;
+    voice_style: number;
     voice_model: string;
     elevenlabs_voice_id: string | null;
   },

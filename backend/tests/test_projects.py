@@ -1288,6 +1288,8 @@ def test_lumean_speech_lifecycle(login):
             assert body["config"]["tts_settings"]["voice_id"] == "my-voice"
             data = {"id": str(template)}
         elif path == "orders":
+            settings = body["config_override"]["tts_settings"]["voice_settings"]
+            assert (settings["speed"], settings["style"]) == (0.92, 0.65)
             assert body["template_id"] == str(template) and body["name"] == str(request)
             data = {"id": str(order)}
         elif path == str(order):
@@ -1312,7 +1314,12 @@ def test_lumean_speech_lifecycle(login):
             voice = client.post(
                 "/api/v1/voices",
                 headers=owner,
-                json={"name": "Диктор", "voice_id": "my-voice"},
+                json={
+                    "name": "Диктор",
+                    "voice_id": "my-voice",
+                    "voice_speed": 0.92,
+                    "voice_style": 0.65,
+                },
             ).json()["id"]
             path = f"/api/v1/voices/{voice}/speech"
             payload = {"text": "Привет", "request_id": str(request)}
@@ -1493,6 +1500,24 @@ def test_avatar_library_project_snapshot_and_voice(login, video_model, missing_f
                 {"character_id": assigned, "voice_id": character["default_voice_id"]}
             ],
         }
+        assert (voice["voice_speed"], voice["voice_style"]) == (1.1, 0.4)
+        fields = {
+            "description": "",
+            "voice_language": "",
+            "voice_gender": None,
+            "voice_model": "eleven_multilingual_v2",
+            "elevenlabs_voice_id": "external-a",
+        }
+        url = "/api/v1/voices/" + voice["id"]
+        assert client.patch(url, json={**fields, "voice_speed": 1.3}).status_code == 422
+        assert (
+            client.patch(url, json={**fields, "voice_style": -0.01}).status_code == 422
+        )
+        client.patch(
+            url, json={**fields, "voice_speed": 0.95, "voice_style": 0}
+        ).raise_for_status()
+        saved = client.patch(url, json=fields).json()
+        assert (saved["voice_speed"], saved["voice_style"]) == (0.95, 0)
         result = client.post(videos, json=body)
         result.raise_for_status()
         settings = result.json()["settings"]
@@ -1501,6 +1526,7 @@ def test_avatar_library_project_snapshot_and_voice(login, video_model, missing_f
             cast["display_name"] == "Анна"
             and cast["voice"]["elevenlabs_voice_id"] == "external-a"
         )
+        assert (cast["voice"]["speed"], cast["voice"]["style"]) == (0.95, 0)
         assert cast["files"] == settings["sources"] == []
         # Upload after assignment, with no media in the project snapshot.
         from contextlib import ExitStack

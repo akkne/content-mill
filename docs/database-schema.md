@@ -159,6 +159,8 @@ PK обозначает первичный ключ, FK — внешний кл�
 
 ### library_voices
 
+Столбцы `voice_speed` и `voice_style` типа double precision обязательны. Серверные значения по умолчанию равны 1,1 и 0,4 соответственно. При создании ролика настройки голоса сохраняются в `videos.settings.characters[].voice`.
+
 Личные голоса. Первичный ключ `id` (UUID), владелец `owner_id` (обязательный индексированный FK на users с каскадным удалением), обязательное имя `name` (varchar 160). Необязательные поля: `description` и `voice_preview_url` (text), `elevenlabs_voice_id` и `voice_model` (varchar 160), `voice_gender` (varchar 16), `voice_language` (varchar 80), `catalog_languages` (jsonb). Индекс по knowledge_nodes.library_voice_id используется при чтении назначений.
 
 ## Ролики проекта

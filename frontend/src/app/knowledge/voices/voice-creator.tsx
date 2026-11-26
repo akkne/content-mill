@@ -1,4 +1,5 @@
 "use client";
+import { DeliveryFields } from "./delivery-fields";
 import { useTranslator } from "@/app/interface-language";
 
 import { useEffect, useState, useTransition } from "react";
@@ -109,7 +110,7 @@ export function VoiceCreator({
     setPlaying("");
     setError("");
   }
-  function save() {
+  function save(data: FormData) {
     const fromCatalog = mode === "catalog";
     const id = fromCatalog ? selected?.id : manualId.trim();
     if (!id || !name.trim() || saving) return;
@@ -122,6 +123,8 @@ export function VoiceCreator({
         name: name.trim(),
         voice_id: id,
         from_catalog: fromCatalog,
+        voice_speed: Number(data.get("voice_speed")),
+        voice_style: Number(data.get("voice_style")),
         gender: fromCatalog ? null : manualGender || null,
       });
       if (reply.data) onSave(reply.data);
@@ -319,7 +322,7 @@ export function VoiceCreator({
             className="sticky bottom-0 mt-5 grid gap-3 border-t border-line bg-surface py-3 sm:grid-cols-2"
             onSubmit={(event) => {
               event.preventDefault();
-              save();
+              save(new FormData(event.currentTarget));
             }}
           >
             {mode === "manual" && (
@@ -385,6 +388,7 @@ export function VoiceCreator({
                 onChange={(e) => setName(e.target.value)}
               />
             </label>
+            <DeliveryFields />
             <button className={primaryButton} disabled={saving}>
               {saving ? t("Сохраняем…", "Saving…") : t("Сохранить в библиотеку", "Save to library")}
             </button>

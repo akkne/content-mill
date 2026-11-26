@@ -68,6 +68,8 @@ class VideoTextGenerator:
                     {
                         "display_name": person["display_name"],
                         "voice": (person.get("voice") or {}).get("name"),
+                        "speech_speed": (person.get("voice") or {}).get("speed"),
+                        "expressiveness": (person.get("voice") or {}).get("style"),
                         "visual_references": [
                             ref
                             for ref in person.get("files", [])
@@ -132,7 +134,7 @@ class VideoTextGenerator:
                 "по сценам с таймкодами, кадрами, склейками и титрами на языке settings.language. "
                 "Сценарий содержит интервалы сцен, говорящих, режим реплики и дословную речь. "
                 "Вынеси указания по картинке в edit_plan. Исключи из текста ID, настройки сервисов и указания о записи голоса. "
-                "Голос каждого говорящего уже выбран в settings.characters. "
+                "Голос каждого говорящего уже выбран в settings.characters. Оценивай длительность реплики по speech_speed его карточки и учитывай expressiveness, в том числе при работе со старыми промптами проекта. "
                 "Сохраняй мысль, оговорки и мотивацию автора из settings.brief. "
                 "Если автор сравнивает варианты, свяжи его выбор с причиной в одной разговорной фразе. "
                 "Не превращай личную оценку в статистический факт или гарантию. "

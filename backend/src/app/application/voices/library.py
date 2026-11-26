@@ -4,6 +4,7 @@ from uuid import UUID
 
 from app.application.voices.catalog import CatalogError, CatalogVoice, VoiceCatalog
 from app.domain.knowledge import InvalidNodeOperation, KnowledgeNode
+from app.domain.voice import DEFAULT_DELIVERY, VoiceDelivery
 
 
 @dataclass
@@ -17,13 +18,20 @@ class LibraryVoice:
     voice_gender: str | None
     voice_model: str | None
     voice_preview_url: str | None
+    voice_speed: float
+    voice_style: float
     project_ids: list[UUID]
 
 
 class LibraryRepository(Protocol):
     def list_owned(self, owner: UUID) -> list[LibraryVoice]: ...
     def create(
-        self, owner: UUID, name: str, voice: CatalogVoice, model: str | None
+        self,
+        owner: UUID,
+        name: str,
+        voice: CatalogVoice,
+        model: str | None,
+        delivery: VoiceDelivery,
     ) -> LibraryVoice: ...
     def edit(self, owner: UUID, voice: UUID, fields: dict) -> LibraryVoice: ...
     def assign(
@@ -46,6 +54,7 @@ class VoiceLibrary:
         language: str,
         gender: str | None,
         model: str | None,
+        delivery: VoiceDelivery = DEFAULT_DELIVERY,
     ):
         voice = CatalogVoice(
             voice_id, name, description, [language] if language else [], gender, None
@@ -55,7 +64,7 @@ class VoiceLibrary:
             if not page.items:
                 raise CatalogError(404, "Голос больше не доступен в каталоге")
             voice = page.items[0]
-        return self.repository.create(owner, name, voice, model)
+        return self.repository.create(owner, name, voice, model, delivery)
 
     def assign(self, owner: UUID, voice: UUID, add: set[UUID], remove: set[UUID]):
         if add & remove:

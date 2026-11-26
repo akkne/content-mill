@@ -3,12 +3,18 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, StringConstraints
 
+from app.domain.voice import DEFAULT_SPEED, DEFAULT_STYLE
 from app.presentation.http.schemas.knowledge import RenameInput
 
 Gender = Literal["male", "female"]
 
 
-class SaveVoice(RenameInput):
+class DeliveryFields(BaseModel):
+    voice_speed: float = Field(default=DEFAULT_SPEED, ge=0.7, le=1.2)
+    voice_style: float = Field(default=DEFAULT_STYLE, ge=0.0, le=1.0)
+
+
+class SaveVoice(RenameInput, DeliveryFields):
     voice_id: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)
     ]
@@ -25,7 +31,7 @@ class AssignProjects(BaseModel):
     remove: set[UUID] = Field(default_factory=set)
 
 
-class VoiceDetails(BaseModel):
+class VoiceDetails(DeliveryFields):
     description: str = Field(max_length=4000)
     voice_language: str = Field(max_length=80)
     voice_gender: Gender | None

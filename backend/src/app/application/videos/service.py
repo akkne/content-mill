@@ -140,7 +140,10 @@ class VideoService:
                 settings["product_photo_id"] = str(photo)
             if settings.get("characters"):
                 settings["characters"] = resolve_cast(
-                    settings["characters"], work.knowledge.list(project), materials
+                    settings["characters"],
+                    work.knowledge.list(project),
+                    materials,
+                    work.videos.voice_deliveries(project),
                 )
             if settings.get("heygen_lipsync") and (
                 not self.lipsync_available
