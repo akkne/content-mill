@@ -191,6 +191,43 @@ def test_collect_checks_both_tracks_against_fractional_scene_window(
         assert error.value.detail["reason"] == "invalid_clip"
 
 
+@pytest.mark.skipif(
+    not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="requires FFmpeg"
+)
+def test_rough_cut_keeps_first_90_frames_with_late_picture(tmp_path):
+    from app.infrastructure.video.reel_media import ReelMediaEditor
+
+    ffmpeg(
+        tmp_path,
+        [
+            "-itsoffset",
+            "0.083333",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=red:s=32x32:r=24:d=5",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=d=5",
+            "-c:v",
+            "libx264",
+            "-fps_mode",
+            "passthrough",
+            "-c:a",
+            "aac",
+            "source.mp4",
+        ],
+    )
+    path = tmp_path / "source.mp4"
+    assert float(track_info(path)[0]["video"]["start_time"]) > 0.08
+    cut = ReelMediaEditor().rough_cut([path.read_bytes()], "video/mp4", [(0, 0, 3750)])
+    path.write_bytes(cut)
+    picture = track_info(path)[0]["video"]
+    assert int(picture["nb_frames"]) == 90
+    assert float(picture["duration"]) == 3.75
+
+
 def test_cast_dialogue_is_dubbed_onto_veo_clip():
     from types import SimpleNamespace
     from uuid import uuid4
