@@ -344,8 +344,8 @@ export function Catalog({
             )}
           </a>
           <a className="underline" target="_blank" rel="noreferrer"
-            href="https://images.nasa.gov/details/iss069m262001424_Expedition_69_Education_Inflight_Big_Brothers_and_Sisters_of_Wyoming_230719">
-            {t("Интервью с МКС · NASA", "ISS interview · NASA")}
+            href="https://images.nasa.gov/details/GSFC_20150916_AACS_m11991_Thinning_Ice">
+            {t("Келли Брант о полярном льде · NASA", "Kelly Brunt on thinning ice · NASA")}
           </a>
           {project && (
             <Link

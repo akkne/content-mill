@@ -146,8 +146,12 @@ def composition(
                 f'window.__timelines.main.set("#{sprite}",{{backgroundPosition:"{x:.6f}% {y:.6f}%"}},{start_ms / 1000 + frame / 24:.6f});'
             )
     for i, cue in enumerate(timeline.subtitles):
+        caption = escape(cue.text)
+        if overlays is not None and cue.emphasis and cue.emphasis in cue.text:
+            before, accent, after = cue.text.partition(cue.emphasis)
+            caption = f"{escape(before)}<b>{escape(accent)}</b>{escape(after)}"
         layers.append(
-            f'<div class="clip caption" id="caption-{i}" data-start="{cue.start_ms / 1000:g}" data-duration="{(cue.end_ms - cue.start_ms) / 1000:g}" data-track-index="6">{escape(cue.text)}</div>'
+            f'<div class="clip caption" id="caption-{i}" data-start="{cue.start_ms / 1000:g}" data-duration="{(cue.end_ms - cue.start_ms) / 1000:g}" data-track-index="6">{caption}</div>'
         )
     for i, graphic in enumerate(timeline.graphics):
         for j, beat in enumerate(graphic.beats):
@@ -190,7 +194,11 @@ canvas{{width:100%;height:100%;object-fit:contain}}
 .caption,.fact{{position:absolute;text-align:center;left:6%;right:6%;bottom:7%;text-shadow:0 2px 9px black;background:#13151cce;border-radius:10px;padding:8px}}
 .overlay{{position:absolute;top:38%;width:47%;aspect-ratio:9/16;overflow:hidden;z-index:5}}
 .overlay.left{{left:4%}}.overlay.right{{right:4%}}.overlay.center{{left:26.5%}}
+.overlay.wide-center,.overlay.wide-left,.overlay.wide-right{{top:52%;width:84%;aspect-ratio:5/3}}
+.overlay.wide-center{{left:8%}}.overlay.wide-left{{left:2%}}.overlay.wide-right{{right:2%}}
 .talking-head .caption{{z-index:6;bottom:11%;font:500 36px/1.16 Arial,sans-serif;background:none;text-shadow:0 2px 4px #000,0 0 12px #000;padding:0 16px}}
+.talking-head:has(.wide-center,.wide-left,.wide-right) .caption{{font:600 40px/1.1 Arial,sans-serif;text-shadow:0 2px 3px #000,0 0 8px #172a38,0 0 14px #172a38}}
+.talking-head .caption b{{color:#d3ecff;font-weight:700}}
 .fact{{bottom:auto;top:8%;font-size:50px;color:{style["accent"]}}}
 .reel-story .caption{{left:8%;right:8%;bottom:11%;background:#111b24da;border-radius:0;border-left:6px solid #e7bc76;padding:16px 20px;text-align:left;font-family:Georgia,serif}}
 .reel-steps .caption{{left:7%;right:7%;bottom:11%;text-align:left;background:#f8efda;color:#162b31;text-shadow:none;border-radius:16px;padding:18px 24px;border-top:8px solid #ef744b}}

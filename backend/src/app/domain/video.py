@@ -96,6 +96,11 @@ class Video:
                 stage = state["stage"]
                 if stage in ("render", "reel_export"):
                     return 96
+                if stage.startswith("reel_motion_"):
+                    return 68 + (
+                        26 * state.get("overlay_index", 0)
+                        + (13 if stage == "reel_motion_render" else 0)
+                    ) // max(1, state.get("overlay_count", 1))
                 if stage in (
                     "overlay_design",
                     "collect_overlay_design",

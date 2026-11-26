@@ -6,10 +6,13 @@ from PIL import Image
 
 from app.application.videos.production import ProductionError
 from app.infrastructure.providers.speech.local_whisper import transcribe
+from app.infrastructure.video.vector_motion import motion_design, render_layer
 from app.infrastructure.video.video_edit import ffmpeg
 
 
 class ReelMediaEditor:
+    motion_design = staticmethod(motion_design)
+    render_motion = staticmethod(render_layer)
     transcribe = staticmethod(transcribe)
 
     def rough_cut(

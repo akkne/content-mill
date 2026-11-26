@@ -93,15 +93,13 @@ def read_style_guide(project: UUID, style: str) -> bytes | None:
 
 def video_service() -> VideoService:
     models, selected = text_models()
-    assembly_error = ""
-    if not os.getenv("POLZA_API_KEY", "").strip():
-        assembly_error = "Для сборки добавьте POLZA_API_KEY на сервере."
-    elif AstraCli.model not in models:
-        assembly_error = "Для монтажа подключите Codex на сервере."
     return VideoService(
         SqlAlchemyProjectUnitOfWork,
         VideoTextGenerator(models.get(selected), agent_files(), read_style_guide),
-        assembly_error,
+        "" if AstraCli.model in models else "Для монтажа подключите Codex на сервере.",
+        media_error=""
+        if os.getenv("POLZA_API_KEY", "").strip()
+        else "Для сборки добавьте POLZA_API_KEY на сервере.",
         lipsync_available=bool(
             os.getenv("HEYGEN_API_KEY", "").strip()
             and os.getenv("LUMEAN_API_KEY", "").strip()

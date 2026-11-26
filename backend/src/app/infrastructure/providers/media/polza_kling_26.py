@@ -6,17 +6,11 @@ class PolzaKling26:
         self.api = api
 
     def submit(self, prompt: str, frame: bytes) -> str:
-        return self._submit(prompt, frame, "10")
-
-    def submit_overlay(self, prompt: str, frame: bytes) -> str:
-        return self._submit(prompt, frame, "5")
-
-    def _submit(self, prompt: str, frame: bytes, duration: str) -> str:
         return self.api.submit(
             "kling/v2.6",
             {
                 "prompt": prompt,
-                "duration": duration,
+                "duration": "10",
                 "sound": "true",
                 "aspect_ratio": "9:16",
                 "images": [image_input(frame, "image/png")],

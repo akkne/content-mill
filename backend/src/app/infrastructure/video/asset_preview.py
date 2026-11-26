@@ -12,7 +12,7 @@ def check_size(width: int, height: int) -> None:
 
 
 class AssetPreview:
-    def render(self, data: bytes, mime: str) -> bytes:
+    def render(self, data: bytes, mime: str, *, at_ms: int = 0) -> bytes:
         try:
             if mime.startswith("video/"):
                 fmt = {"video/mp4": "mov", "video/webm": "matroska"}[mime]
@@ -21,7 +21,18 @@ class AssetPreview:
                 ) as container:
                     stream = container.streams.video[0]
                     check_size(stream.width, stream.height)
-                    frame = next(container.decode(stream))
+                    if at_ms:
+                        pts = (stream.start_time or 0) + int(
+                            at_ms / 1000 / stream.time_base
+                        )
+                        container.seek(pts, stream=stream)
+                        frame = next(
+                            frame
+                            for frame in container.decode(stream)
+                            if frame.pts is not None and frame.pts >= pts
+                        )
+                    else:
+                        frame = next(container.decode(stream))
                     check_size(frame.width, frame.height)
                     picture = frame.to_image()
             else:
