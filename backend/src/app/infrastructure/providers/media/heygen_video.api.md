@@ -1,0 +1,5 @@
+# HeyGen Video 1
+
+Проверено 26 ноября 2026 года. Сервер отправляет `X-Api-Key` и сохранённый для заказа `Idempotency-Key` в `POST https://api.heygen.com/v3/models/videos`. Тело содержит `model=heygen-video-1`, `mode=image_to_video`, `image={type:base64,media_type:image/png,data:…}`, `prompt`, `duration=10` и `resolution=768p`. Пропорции задаёт стартовый кадр. Документированный диапазон длительности 5–30 секунд с дополнительными ограничениями для длинных клипов. Максимальная длина промпта 16 000 символов. Монтаж использует утверждённое окно плана.
+
+Ответ 202 содержит `data.video_id`. По `GET /v3/models/videos/{video_id}` состояния pending и processing означают ожидание, completed даёт `data.video_url`, failed и cancelled завершают заказ с ошибкой. Ограничение приложения для скачивания — 64 МиБ. При неопределённом результате отправки повтор использует тот же ключ идемпотентности. [Создание видео](https://developers.heygen.com/reference/create-heygen-video) · [Статус и результат](https://developers.heygen.com/reference/get-heygen-video).

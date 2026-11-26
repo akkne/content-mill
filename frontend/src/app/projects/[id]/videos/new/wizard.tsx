@@ -305,12 +305,12 @@ export function Wizard({
                   <strong>{String(v)}</strong>
                 </p>
               ))}
-              {review?.get("heygen_lipsync") && <p>{t("HeyGen Avatar 6 Turbo оживит кадр ведущего под озвучку. Для этих сцен используется изображение без заказа клипа Kling.", "HeyGen Avatar 6 Turbo animates presenter images using the voice track. These scenes skip Kling clip generation.")}</p>}
+              {review?.get("heygen_lipsync") && <p>{t("HeyGen Avatar 6 Turbo оживит кадр ведущего под озвучку.", "HeyGen Avatar 6 Turbo animates presenter images using the voice track.")}</p>}
               {attachments.length>0 && <details><summary className="cursor-pointer font-bold">{t("Файлы для агента","Files for the agent")}</summary>
                 <ul className="mt-2 grid max-h-52 gap-1 overflow-auto text-sm">{attachments.map(file=><li key={file.id}>{file.path??file.name} · v{file.version}</li>)}</ul>
               </details>}
               <p className="text-muted">
-                {recording ? t("GPT выберет отрывок из записи, сохранив голос спикера.", "GPT selects a short from the recording and keeps the speaker’s voice.") : t("Nano Banana и Kling создадут исходные сцены по брифу. Выбранные голоса ElevenLabs звучат в темпе 1,2× с выразительной подачей.", "Nano Banana and Kling generate the source scenes from the brief. Selected ElevenLabs voices use expressive delivery at 1.2× speed.")}
+                {recording ? t("GPT выберет отрывок из записи, сохранив голос спикера.", "GPT selects a short from the recording and keeps the speaker’s voice.") : t("Nano Banana подготовит кадры, HeyGen Video 1 снимет сцены по брифу. Выбранные голоса ElevenLabs звучат в темпе 1,2× с выразительной подачей.", "Nano Banana creates the starting images and HeyGen Video 1 generates the scenes. Selected ElevenLabs voices use expressive delivery at 1.2× speed.")}
                 {" "}{t("Субтитры создаются локально. GPT анимирует предметы на белом фоне в такт речи. OpenMotion собирает готовый MP4.", "Captions are generated locally. GPT animates objects on a white background in time with the speech. OpenMotion assembles the final MP4.")}
               </p>
             </div>

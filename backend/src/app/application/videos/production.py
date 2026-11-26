@@ -86,6 +86,13 @@ class LegacyScene(Shot):
 
 
 class SavedStoryboard(BaseModel):
+    @staticmethod
+    def filename(files: dict) -> str:
+        for name in ("storyboard-adapted.json", "storyboard-kling.json"):
+            if name in files:
+                return name
+        return "storyboard.json"
+
     scenes: list[Scene | LegacyScene] = Field(min_length=1, max_length=15)
 
 
@@ -94,13 +101,13 @@ class TimedScene(Scene):
     video_prompt: str = Field(min_length=1, max_length=850)
 
 
-class KlingScenePlan(BaseModel):
+class SourceScenePlan(BaseModel):
     keep_ms: KeepMs
     video_prompt: str = Field(min_length=1, max_length=850)
 
 
-class KlingPlan(BaseModel):
-    scenes: list[KlingScenePlan] = Field(min_length=1, max_length=15)
+class SourcePlan(BaseModel):
+    scenes: list[SourceScenePlan] = Field(min_length=1, max_length=15)
 
 
 class Storyboard(BaseModel):
@@ -225,7 +232,7 @@ class LipSync(Protocol):
 
 
 class ClipGenerator(Protocol):
-    def submit(self, prompt: str, frame: bytes) -> str: ...
+    def submit(self, prompt: str, frame: bytes, request_id: str) -> str: ...
     def collect(self, operation: str) -> bytes | None: ...
 
 
@@ -291,7 +298,7 @@ Write the full image_prompt for Nano Banana: subject, blocking, props, wardrobe,
 lighting and composition of the first frame. Choose visual reference_ids in input
 order. Optionally select an earlier continuity_scene if its frame should also
 guide this shot; it will be the last reference image.
-Write the full video_prompt for Kling 2.6 (maximum 850 characters before the timing instruction): one continuous
+Write the full video_prompt for HeyGen Video 1 (maximum 850 characters before the timing instruction): one continuous
 shot from the supplied first frame, action and camera movement, language, delivery,
 timing, speaker names and exact words for every utterance, including punctuation.
 Direct visible speakers to articulate their own lines in sync, keep other mouths
@@ -336,7 +343,7 @@ speech with the planned utterance windows. Keep each complete line inside its cu
 including after rounding source intervals to the nearest 24 fps frame."""
 
 
-def kling_prompt(shot: Shot) -> str:
+def source_prompt(shot: Shot) -> str:
     return (
         f"10-second take. Complete all action and dialogue within 0–{shot.keep_ms / 1000:g}s. "
         f"Hold the ending for the remaining time. {shot.video_prompt}"
@@ -398,12 +405,14 @@ class VideoProduction:
         *,
         motion: MotionRenderer | None = None,
         reel_media: ReelMedia | None = None,
+        legacy_clip_result: Callable[[str], bytes | None] | None = None,
         style_guide: GuideReader | None = None,
         lipsync: LipSync | None = None,
         describe_error: Callable[[BaseException, str], dict],
     ):
         self.reel_media = reel_media
         self.motion = motion
+        self.legacy_clip_result = legacy_clip_result
         self.style_guide = style_guide
         self.describe_error = describe_error
         self.speech = speech
@@ -436,6 +445,8 @@ class VideoProduction:
                 work.videos.save(video)
                 work.commit()
                 return True
+            if state["stage"] == "submit":
+                state.setdefault("clip_request", str(uuid4()))
             claim = state["claim"] = str(uuid4())
             video.ready_at = now + timedelta(minutes=20)
             work.videos.save(video)
@@ -481,6 +492,8 @@ class VideoProduction:
                     "sync",
                 } and attempted.get("operation"):
                     # The provider already accepted the order before checkpointing failed.
+                    if attempted.get("clip_model"):
+                        state["clip_model"] = attempted["clip_model"]
                     for key in ("operation", "submitted", "stage"):
                         state[key] = attempted[key]
                 if state["stage"] in {"collect", "collect_frame"} and code in {
@@ -489,6 +502,8 @@ class VideoProduction:
                     "frame_rejected",
                 }:
                     state.pop("operation", None)
+                    if state["stage"] == "collect":
+                        state.pop("clip_request", None)
                     state["stage"] = (
                         "frame" if state["stage"] == "collect_frame" else "submit"
                     )
@@ -647,9 +662,7 @@ class VideoProduction:
         board = SavedStoryboard.model_validate_json(
             self.artifact(
                 video,
-                "storyboard-kling.json"
-                if "storyboard-kling.json" in state["files"]
-                else "storyboard.json",
+                SavedStoryboard.filename(state["files"]),
             )
         )
         count = len(board.scenes)
@@ -694,15 +707,19 @@ class VideoProduction:
             if stage == "submit":
                 if shot.keep_ms is None:
                     return self.upgrade_storyboard(board, duration)
-                state["clip_model"] = "kling/v2.6"
+                state["clip_model"] = "heygen-video-1"
                 state["operation"] = self.clips.submit(
-                    kling_prompt(shot), self.artifact(video, prefix + ".png")
+                    source_prompt(shot),
+                    self.artifact(video, prefix + ".png"),
+                    state.setdefault("clip_request", str(uuid4())),
                 )
                 state["stage"] = "collect"
                 state["submitted"] = datetime.now(UTC).isoformat()
                 return [], 10
-            generator = self.frames if stage == "collect_frame" else self.clips
-            media = generator.collect(state["operation"])
+            collect = (
+                self.frames.collect if stage == "collect_frame" else self.collect_clip
+            )
+            media = collect(state["operation"])
             if media is None:
                 if datetime.now(UTC) - datetime.fromisoformat(
                     state["submitted"]
@@ -730,6 +747,7 @@ class VideoProduction:
             except (KeyError, ValueError) as error:
                 raise ProductionError("clip_rejected", reason="invalid_clip") from error
             state.pop("operation")
+            state.pop("clip_request", None)
             if video.settings.get("characters") and shot.utterances:
                 state.update(stage="speech", line=0)
                 return [(prefix + "-source.mp4", "video", "video/mp4", media)], 0
@@ -907,6 +925,11 @@ class VideoProduction:
         video.status = "ready"
         return [("final.mp4", "video", "video/mp4", result)], 0
 
+    def collect_clip(self, operation: str) -> bytes | None:
+        if operation.startswith("polza:") and self.legacy_clip_result:
+            return self.legacy_clip_result(operation)
+        return self.clips.collect(operation)
+
     def character_audio(self, video: Video, shot: Scene, count: int):
         state = video.settings["production"]
         index, stage = state["index"], state["stage"]
@@ -1019,8 +1042,8 @@ class VideoProduction:
         # Keep the approved board and generated frames when retrying old Veo jobs.
         plan = model_json(
             self.model.generate,
-            KlingPlan,
-            "Adapt the saved storyboard for Kling 2.6. Return one plan per scene in "
+            SourcePlan,
+            "Adapt the saved storyboard for HeyGen Video 1. Return one plan per scene in "
             "the same order. Read each keep_ms from the scene's final timeline "
             "timecodes (end minus start). If absent, infer it from the cut notes "
             "and speech. All durations must sum to the requested runtime. Write a "
@@ -1039,7 +1062,7 @@ class VideoProduction:
             shot.keep_ms = adapted.keep_ms
             shot.video_prompt = adapted.video_prompt
         validate_scene_windows(board.scenes, duration)
-        return [document("storyboard-kling.json", board.model_dump(mode="json"))], 0
+        return [document("storyboard-adapted.json", board.model_dump(mode="json"))], 0
 
     def artifact(self, video: Video, name: str) -> bytes:
         files = video.settings["production"]["files"]
