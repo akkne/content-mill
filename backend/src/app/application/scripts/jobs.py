@@ -10,7 +10,7 @@ from app.application.agents.files import AgentFiles
 from app.application.agents.ports import AgentScope
 from app.application.projects.ports import ProjectUnitOfWorkFactory
 from app.domain.project import ProjectNotFound
-from app.domain.video import SHORT_SHOT_DIRECTION
+from app.domain.video import FRAGMENT_DIRECTION, SHORT_SHOT_DIRECTION
 
 
 @dataclass(frozen=True)
@@ -93,6 +93,8 @@ class ScriptWriter:
         instructions = (
             "Подготовь готовый сценарий короткого ролика по брифу на языке пользователя. Используй материалы проекта как источники данных. Не выдумывай факты. "
             + SHORT_SHOT_DIRECTION
+            + " "
+            + FRAGMENT_DIRECTION
         )
         # Use pinned sources first. Select additional references by project path or indexed text.
         catalog = self.files.find(job.scope, "", None, None, None, 0, 40)["items"]

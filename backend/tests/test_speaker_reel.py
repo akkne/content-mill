@@ -8,7 +8,9 @@ import pytest
 from app.application.videos.production import VideoProduction
 from app.application.videos.reel import ReelPlan, validate_plan
 from app.application.videos.reel_media import Word
+from app.application.videos.text import CastVideoCopy, DetailedVideoCopy
 from app.domain.video import Video
+from pydantic import ValidationError
 
 
 def test_source_recording_to_openmotion_resumes_without_resubmitting_layers():
@@ -376,3 +378,19 @@ def test_legacy_overlay_cannot_bypass_phrase_validation_with_exact_times():
     )
     with pytest.raises(ValueError, match="interval"):
         validate_plan(plan, [], False, [])
+
+
+def test_short_script_requires_individual_visual_directions_for_every_shot():
+    scenes = [{"duration_ms": 3500, "lines": []}] * 2
+    note = (
+        "From the opening waist-up framing the presenter raises the page to eye level, "
+        "tracks the heading with one finger and holds it in view through the outgoing cut."
+    )
+    script = {"scenes": scenes, "caption": "A page", "edit_plan": [note]}
+    with pytest.raises(
+        ValidationError, match="Each scene needs its own visual direction"
+    ):
+        DetailedVideoCopy.model_validate(script)
+    assert CastVideoCopy.model_validate(script).edit_plan == [note]
+    with pytest.raises(ValidationError, match="at least 150 characters"):
+        DetailedVideoCopy.model_validate({**script, "edit_plan": [note, "Zoom in."]})

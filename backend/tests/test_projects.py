@@ -378,7 +378,10 @@ def video_model(monkeypatch):
                     "script": data["title"]
                     + " ".join(m.get("text", "") for m in data["materials"]),
                     "caption": "Подпись к ролику",
-                    "edit_plan": ["0–3 с: общий план"],
+                    "edit_plan": [
+                        f"{a}–{b} мс. Средний план по пояс, камера на уровне глаз. Ведущий переводит взгляд на предмет у правого края стола, поднимает его на ключевом слове и удерживает перед склейкой. Нижняя часть кадра свободна для субтитров."
+                        for a, b in itertools.pairwise(boundaries)
+                    ],
                 }
             )
 
@@ -1059,7 +1062,8 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
                 for k, v in stored.settings.items()
                 if k not in {"short_shots", "generated_overlays"}
             }
-        assert video["journal"] == ["0–3 с: общий план"]
+        assert len(video["journal"]) == 4
+        assert video["journal"][0].startswith("0–3750 мс.")
         assert video["caption"] == "Подпись к ролику"
         path = f"{base}/{video['id']}"
         assert (
