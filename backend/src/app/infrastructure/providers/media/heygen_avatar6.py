@@ -1,13 +1,8 @@
-from urllib.parse import quote
-
-import httpx
-
 from app.application.videos.production import ProductionError
-from app.infrastructure.providers.media.heygen_lipsync import HeyGenLipSync
-from app.infrastructure.providers.media.media_download import download_result
+from app.infrastructure.providers.media.heygen_api import HeyGenAPI
 
 
-class HeyGenAvatar6(HeyGenLipSync):
+class HeyGenAvatar6(HeyGenAPI):
     model = "heygen-avatar-6-turbo"
 
     def submit(self, image: bytes, audio: bytes) -> str:
@@ -25,24 +20,7 @@ class HeyGenAvatar6(HeyGenLipSync):
             "audio": asset("speech.wav", audio, "audio/wav"),
             "resolution": "1080p",
         }
-        try:
-            order = self.request("POST", "models/avatars", json=payload)["video_id"]
-            if not isinstance(order, str) or not order:
-                raise ValueError("Missing video ID")
-            return order
-        except httpx.HTTPStatusError as error:
-            if error.response.status_code >= 500:
-                raise ProductionError("order_unconfirmed") from error
-            raise
-        except (httpx.RequestError, ValueError, KeyError, TypeError) as error:
-            raise ProductionError("order_unconfirmed") from error
+        return self.create_video("models/avatars", payload)
 
     def collect(self, operation: str) -> bytes | None:
-        result = self.request("GET", "models/videos/" + quote(operation, safe=""))
-        if result["status"] in {"pending", "processing"}:
-            return None
-        if result["status"] in {"failed", "cancelled"}:
-            raise ProductionError("lipsync_failed")
-        if result["status"] != "completed":
-            raise ValueError("Unexpected Avatar 6 status")
-        return download_result(result["video_url"], 64 * 1024 * 1024)
+        return self.collect_video(operation, "lipsync_failed")

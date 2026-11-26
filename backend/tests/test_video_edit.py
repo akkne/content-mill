@@ -251,11 +251,11 @@ def test_dub_uses_complete_line_at_planned_sample_offset(tmp_path):
         assert not any(result.readframes(24000))
 
 
-def test_kling_preserves_each_storyboard_window_on_retry_and_edit():
+def test_source_prompt_preserves_each_storyboard_window_on_retry_and_edit():
     import json
     from types import SimpleNamespace
 
-    from app.application.videos.production import VideoProduction, kling_prompt
+    from app.application.videos.production import VideoProduction, source_prompt
 
     shot = {
         "composition": "00:00–00:07. Opening",
@@ -274,8 +274,8 @@ def test_kling_preserves_each_storyboard_window_on_retry_and_edit():
     )
     files, _ = worker.upgrade_storyboard(old, 15)
     board = SavedStoryboard.model_validate_json(files[0][3])
-    assert "0–7s" in kling_prompt(board.scenes[0])
-    assert "0–8s" in kling_prompt(board.scenes[1])
+    assert "0–7s" in source_prompt(board.scenes[0])
+    assert "0–8s" in source_prompt(board.scenes[1])
     cuts = Timeline(
         cuts=[
             {"scene": i, "start_ms": 0, "end_ms": n} for i, n in [(1, 7000), (2, 8000)]

@@ -61,8 +61,10 @@ export function VideoEditor({
     storyboard: t("Раскадровка и промпты", "Storyboard and prompts"),
     frame: t("Стартовый кадр · Nano Banana 2.1", "First frame · Nano Banana 2.1"),
     collect_frame: t("Получение кадра · Nano Banana", "Retrieving frame · Nano Banana"),
-    submit: t("Запуск Kling 2.6", "Submitting to Kling 2.6"),
-    collect: production?.clip_model === "kling/v2.6"
+    submit: t("Запуск HeyGen Video 1", "Submitting to HeyGen Video 1"),
+    collect: production?.clip_model === "heygen-video-1"
+      ? t("Получение клипа · HeyGen Video 1", "Retrieving clip · HeyGen Video 1")
+      : production?.clip_model === "kling/v2.6"
       ? t("Получение клипа · Kling 2.6", "Retrieving clip · Kling 2.6")
       : t("Получение клипа · Veo Fast", "Retrieving clip · Veo Fast"),
     speech: t("Озвучка реплики","Synthesizing dialogue"),
@@ -216,13 +218,13 @@ export function VideoEditor({
                 {["speech", "collect_speech"].includes(stoppedStage) && typeof production.line === "number" && ` · ${t("Реплика", "Line")} ${production.line + 1}`}
               </p>}
               <p>{polling && ["submit", "frame"].includes(stoppedStage)
-                ? t("Номер заказа Polza восстановлен. Можно получить результат.", "The Polza order ID has been recovered. You can retrieve the result.")
+                ? t("Номер заказа восстановлен. Можно получить результат.", "The order ID has been recovered. You can retrieve the result.")
                 : videoFailureMessage(t, uncertainOrder ? "order_unconfirmed" : reason)}</p>
               <p className="text-sm text-muted">{t("Код", "Code")} · {failure ? failureCode(failure) : reason}</p>
               <p className="text-sm">{polling
                 ? t("Повтор проверит результат по сохранённому номеру заказа.", "Retry checks the existing order for its result.")
                 : uncertainOrder && resumeStage === "sync" ? t("Проверьте заказ в кабинете HeyGen перед повторной отправкой.", "Check the order in your HeyGen account before resubmitting.")
-                : uncertainOrder ? t("Сверьте заказ в истории Polza. Если он существует, администратор может восстановить его по ID. Создание ещё одного заказа может привести к повторной оплате.", "Check your Polza history. An administrator can recover an existing order by ID. Creating another order may incur a second charge.")
+                : uncertainOrder ? t("Сверьте заказ в истории провайдера перед повторной отправкой. Создание ещё одного заказа может привести к повторной оплате.", "Check your provider order history before resubmitting. Creating another order may incur a second charge.")
                 : newOrder ? t("Повтор отправит новый заказ для этой сцены. Провайдер может списать средства.", "Retry submits a new order for this scene. The provider may charge for it.")
                 : ["edit", "storyboard"].includes(resumeStage) ? t("Повтор продолжит этап подготовки. Новый вызов модели расходует квоту.", "Retry resumes preparation. A new model call uses quota.")
                 : t("Повтор возобновит обработку с сохранённого этапа.", "Retry resumes processing from the saved stage.")}</p>

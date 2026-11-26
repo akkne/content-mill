@@ -70,3 +70,58 @@ def test_avatar6_generates_from_a_still_and_polls_the_model_job(monkeypatch):
     }
     assert api.collect("order-6") is None
     assert requests[-1][:2] == ("GET", "models/videos/order-6")
+
+
+def test_heygen_source_clip_reuses_request_key_and_collects_only_its_own_orders(
+    monkeypatch,
+):
+    from app.infrastructure.providers.media.heygen_video import HeyGenVideo
+
+    api = HeyGenVideo("test")
+    calls = []
+
+    def request(method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {"video_id": "scene-1"} if method == "POST" else {"status": "pending"}
+
+    monkeypatch.setattr(api, "request", request)
+    for _ in range(2):
+        assert api.submit("turn", b"png", "stable-request") == "heygen:scene-1"
+    assert calls[0] == calls[1]
+    method, path, args = calls[0]
+    assert (method, path) == ("POST", "models/videos")
+    assert args["headers"]["Idempotency-Key"] == "stable-request"
+    assert args["json"]["model"] == "heygen-video-1"
+    assert args["json"]["image"] == {
+        "type": "base64",
+        "media_type": "image/png",
+        "data": "cG5n",
+    }
+    assert api.collect("heygen:scene-1") is None
+    assert calls[-1][:2] == ("GET", "models/videos/scene-1")
+    from app.application.videos.production import ProductionError
+
+    with pytest.raises(ProductionError, match="legacy_operation"):
+        api.collect("polza:gen_previous")
+
+
+def test_pending_polza_clip_uses_only_the_previous_order_reader():
+    from unittest.mock import Mock
+
+    from app.application.videos.production import VideoProduction
+
+    production = VideoProduction(
+        None,
+        None,
+        None,
+        None,
+        Mock(),
+        None,
+        None,
+        legacy_clip_result=Mock(return_value=b"existing"),
+        describe_error=Mock(),
+    )
+    assert production.collect_clip("polza:gen_old") == b"existing"
+    production.legacy_clip_result.assert_called_once_with("polza:gen_old")
+    production.clips.collect.assert_not_called()
+    production.clips.submit.assert_not_called()

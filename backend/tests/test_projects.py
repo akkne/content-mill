@@ -991,7 +991,7 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
     class Clips:
         submitted = 0
 
-        def submit(self, prompt, frame):
+        def submit(self, prompt, frame, request_id):
             assert f"0–{7 + self.submitted}s" in prompt
             self.submitted += 1
             return "saved-request"
@@ -1083,6 +1083,9 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
         monkeypatch.delenv("POLZA_API_KEY", raising=False)
         assert act("assemble").status_code == 503
         monkeypatch.setenv("POLZA_API_KEY", "test")
+        monkeypatch.delenv("HEYGEN_API_KEY", raising=False)
+        assert act("assemble").status_code == 503
+        monkeypatch.setenv("HEYGEN_API_KEY", "test")
         assert act("assemble").json()["status"] == "generating"
         assert act("assemble").status_code == 422
         assert worker.run_next()  # Copy the pinned document to the production folder.

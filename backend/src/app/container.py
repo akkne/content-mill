@@ -1,6 +1,6 @@
 import os
 import shutil
-from functools import lru_cache
+from functools import lru_cache, partial
 from pathlib import Path
 from uuid import UUID
 
@@ -30,7 +30,7 @@ from app.infrastructure.database.transactions.projects import (
     SqlAlchemyProjectUnitOfWork,
 )
 from app.infrastructure.providers.media.heygen_avatar6 import HeyGenAvatar6
-from app.infrastructure.providers.media.polza_kling_26 import PolzaKling26
+from app.infrastructure.providers.media.heygen_video import HeyGenVideo
 from app.infrastructure.providers.media.polza_media import PolzaMedia
 from app.infrastructure.providers.media.polza_nano_banana import PolzaNanoBanana21
 from app.infrastructure.providers.speech.lumean import LumeanElevenLabs
@@ -98,8 +98,10 @@ def video_service() -> VideoService:
         VideoTextGenerator(models.get(selected), agent_files(), read_style_guide),
         "" if AstraCli.model in models else "Для монтажа подключите Codex на сервере.",
         media_error=""
-        if os.getenv("POLZA_API_KEY", "").strip()
-        else "Для сборки добавьте POLZA_API_KEY на сервере.",
+        if all(
+            os.getenv(key, "").strip() for key in ("POLZA_API_KEY", "HEYGEN_API_KEY")
+        )
+        else "Для кадров и видеосцен подключите ключи Polza и HeyGen на сервере.",
         lipsync_available=bool(
             os.getenv("HEYGEN_API_KEY", "").strip()
             and os.getenv("LUMEAN_API_KEY", "").strip()
@@ -115,10 +117,13 @@ def video_production() -> VideoProduction:
         S3DocumentStore(),
         models.get(AstraCli.model),
         PolzaNanoBanana21(api),
-        PolzaKling26(api),
+        HeyGenVideo(os.getenv("HEYGEN_API_KEY", "").strip()),
         FFmpegEditor(),
         AssetPreview(),
         voice_catalog() if os.getenv("LUMEAN_API_KEY", "").strip() else None,
+        legacy_clip_result=partial(
+            api.collect, limit=64 * 1024 * 1024, rejected="clip_rejected"
+        ),
         reel_media=ReelMediaEditor(),
         motion=OpenMotion(os.environ.get("OPENMOTION_URL", "http://localhost:4173")),
         style_guide=read_style_guide,

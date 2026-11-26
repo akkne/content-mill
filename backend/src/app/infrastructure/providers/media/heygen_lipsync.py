@@ -1,27 +1,12 @@
 import httpx
 
 from app.application.videos.production import ProductionError
+from app.infrastructure.providers.media.heygen_api import HeyGenAPI
 from app.infrastructure.providers.media.media_download import download_result
 from app.infrastructure.video.video_failures import provider_cause
 
 
-class HeyGenLipSync:
-    def __init__(self, key: str):
-        self.key = key
-
-    def request(self, method, path, **kwargs):
-        if not self.key:
-            raise ProductionError("heygen_key")
-        response = httpx.request(
-            method,
-            "https://api.heygen.com/v3/" + path,
-            headers={"X-Api-Key": self.key},
-            timeout=120,
-            **kwargs,
-        )
-        response.raise_for_status()
-        return response.json()["data"]
-
+class HeyGenLipSync(HeyGenAPI):
     def submit(self, video: bytes, audio: bytes) -> str:
         def upload(name, body, fmt):
             if len(body) > 50_000_000:

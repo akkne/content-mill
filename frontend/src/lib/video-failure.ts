@@ -12,7 +12,7 @@ export function videoFailureMessage(t: Translate, reason: string) {
     design_rejected: t("Макет не прошёл проверку по брифу. Повторите генерацию иллюстрации.", "The design did not pass review against the brief. Generate the illustration again."),
     no_speech: t("Недостаточно разборчивой речи для монтажа. Проверьте запись и язык ролика.", "Too little intelligible speech to edit. Check the recording and the selected language."),
     invalid_matte: t("Не удалось отделить иллюстрацию от фона. Повторите генерацию слоя.", "The illustration could not be separated from its background. Generate the layer again."),
-    order_unconfirmed: t("Polza не вернула номер заказа. Генерация могла начаться.", "Polza did not return an order ID. Generation may have started."),
+    order_unconfirmed: t("Провайдер не вернул номер заказа. Генерация могла начаться.", "The provider did not return an order ID. Generation may have started."),
     heygen_key: t("Подключите серверный ключ HeyGen и повторите этап.","Configure the HeyGen key on the server and retry the stage."),
     speech_failed: t("Сервис не выдал озвучку реплики.","The speech service did not deliver the line."),
     speech_too_long: t("Реплика не помещается в интервал. Создайте вариант с более короткой репликой.","The line exceeds its time slot. Create a variation with a shorter line."),

@@ -259,11 +259,7 @@ class ReelEdit:
 
     def cut_scenes(self):
         board = SavedStoryboard.model_validate_json(
-            self.read(
-                "storyboard-kling.json"
-                if "storyboard-kling.json" in self.state["files"]
-                else "storyboard.json"
-            )
+            self.read(SavedStoryboard.filename(self.state["files"]))
         )
         clips = [self.read(f"scene-{i + 1:02}.mp4") for i in range(len(board.scenes))]
         cuts = [(i, 0, shot.keep_ms) for i, shot in enumerate(board.scenes)]
@@ -480,7 +476,7 @@ class ReelEdit:
         if stage not in {"collect_overlay_design", "collect_overlay_animation"}:
             raise ValueError("Unexpected overlay stage")
         design = stage == "collect_overlay_design"
-        result = (self.job.frames if design else self.job.clips).collect(
+        result = (self.job.frames.collect if design else self.job.collect_clip)(
             self.state["operation"]
         )
         if result is None:
