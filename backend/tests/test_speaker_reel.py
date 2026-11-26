@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from app.application.videos.production import VideoProduction
+from app.application.videos.production import Scene, VideoProduction, source_prompt
 from app.application.videos.reel import ReelPlan, validate_plan
 from app.application.videos.reel_media import Word
 from app.application.videos.text import CastVideoCopy, DetailedVideoCopy
@@ -394,3 +394,27 @@ def test_short_script_requires_individual_visual_directions_for_every_shot():
     assert CastVideoCopy.model_validate(script).edit_plan == [note]
     with pytest.raises(ValidationError, match="at least 150 characters"):
         DetailedVideoCopy.model_validate({**script, "edit_plan": [note, "Zoom in."]})
+
+
+def test_source_prompt_restores_exact_spoken_line_from_saved_storyboard():
+    shot = Scene(
+        keep_ms=3500,
+        composition="Close-up",
+        cast_and_wardrobe="Presenter",
+        cut="Hold the page",
+        image_prompt="A page in the right hand",
+        video_prompt="At the first word lift the page towards the camera.",
+        reference_ids=[],
+        utterances=[
+            {
+                "speaker": "Ведущий",
+                "text": "Вот пример.",
+                "delivery": "on_screen",
+                "start_ms": 300,
+                "end_ms": 2000,
+            }
+        ],
+    )
+    assert "300–2000 ms, Ведущий (on_screen): Вот пример." in source_prompt(shot)
+    shot.video_prompt = "Ведущий поднимает лист и говорит: Вот пример."
+    assert source_prompt(shot).count("Вот пример.") == 1
