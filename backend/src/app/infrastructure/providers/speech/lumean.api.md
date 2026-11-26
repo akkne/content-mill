@@ -2,7 +2,7 @@
 
 ## Контракт адаптера
 
-Сверка источников — 22 ноября 2026.
+Сверка источников — 26 ноября 2026.
 
 Базовый URL `https://api.lumean.app/api/public/`. Каждый успешный ответ имеет оболочку `{"success":true,"data":{…}}`.
 
@@ -10,12 +10,12 @@
 | --- | --- | --- |
 | GET voices | provider=elevenlabs, page, per_page=20 и необязательные search/voice_id, language, gender | items[] с voice_id и метаданными, has_more (boolean) |
 | POST templates | name, service_key=elevenlabs, config.tts_settings (см. ниже) | id (UUID) |
-| POST orders | template_id, input_text, name (UUID попытки), config_override.tts_settings.voice_id | id (UUID) |
+| POST orders | template_id, input_text, name (UUID попытки), config_override.tts_settings с voice_id, advanced_voice_settings и voice_settings | id (UUID) |
 | GET orders/{id} | ID заказа | status, files_expired, result.files[] (пути) |
 | POST storage/url | path из result.files[0], download=false | url (HTTPS) |
 
 ```json
-{"mode":"mode_v1","model_id":"eleven_multilingual_v2","voice_id":"<voice_id>","advanced_voice_settings":true,"voice_settings":{"stability":0.5,"similarity_boost":0.75,"use_speaker_boost":true,"speed":1.0}}
+{"mode":"mode_v1","model_id":"eleven_multilingual_v2","voice_id":"<voice_id>","advanced_voice_settings":true,"voice_settings":{"stability":0.5,"similarity_boost":0.75,"use_speaker_boost":true,"style":0.4,"speed":1.2}}
 ```
 
 Финальные статусы с результатом — completed и result_delivered. Для реплики ролика ограничиваем скачивание 16 МиБ. Lumean проверяет максимум 1500 фрагментов на заказ, 500 пауз, 10 секунд на паузу и 3600 секунд суммарной тишины. При превышении возвращает 422. Ограничения частоты и числа одновременных заказов зависят от подписки. [Текст и разбиение](https://lumean.app/en/developers/docs/guide/text) · [Квоты](https://lumean.app/en/developers/docs/guide/limits)
@@ -33,3 +33,5 @@ GET /voices принимает provider=elevenlabs, поиск, язык, пол
 Повтор POST /orders может списать средства повторно. Перед отправкой резервируем локальный UUID. При потере ответа передаём этот же UUID как имя заказа для сверки в кабинете Lumean. Платный запрос автоматически не повторяется. Отмену в интерфейсе не предоставляем. Перед рабочим запуском проверьте доступ к каталогу и одну короткую озвучку со своего аккаунта. [Повторы](https://lumean.app/developers/docs/guide/retries) · [Адаптер](lumean.py)
 
 При сборке ролика карточка показывает причину ошибки заказа и отдельно сохраняет HTTP-статус при ошибке запроса. [Диагностика генерации](../../../../../../docs/decisions/0024-video-failures.md)
+
+Для нового шаблона и каждого нового заказа передаются одни параметры подачи. Переопределение на заказе применяет скорость и выразительность к ранее сохранённым шаблонам. [Шаблоны и config_override](https://lumean.app/en/developers/docs/guide/templates).

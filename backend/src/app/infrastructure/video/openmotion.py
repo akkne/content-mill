@@ -119,7 +119,10 @@ def composition(
         layers.append(
             f'<div class="clip" id="guide" data-composition-id="guide" data-start="{start}" data-duration="{seconds}" data-track-index="5" data-width="{w}" data-height="{h}"><canvas width="{w}" height="{h}"></canvas></div>'
         )
-    animation_keys = []
+    animation_keys = [
+        f'window.__timelines.main.set("#shot-0",{{scale:{1.10 if i % 2 == 0 else 1},transformOrigin:"50% 40%"}},{at_ms / 1000:g});'
+        for i, at_ms in enumerate(timeline.reframe_ms)
+    ]
     for i, (start_ms, end_ms, position, frames) in enumerate(overlays or []):
         rows = math.ceil(frames / 8)
         sprite = f"overlay-{i}"
@@ -139,6 +142,14 @@ def composition(
                     'data-volume="0.12589"',
                 )
             )
+        if position == "white-cutaway":
+            for at_ms, color, shadow in [
+                (start_ms, "#182238", "none"),
+                (end_ms, "white", ""),
+            ]:
+                animation_keys.append(
+                    f'window.__timelines.main.set(".caption,.caption b",{{color:"{color}",textShadow:"{shadow}"}},{at_ms / 1000:g});'
+                )
         for frame in range(frames):
             x = (frame % 8) * 100 / 7
             y = (frame // 8) * 100 / max(1, rows - 1)
@@ -194,6 +205,7 @@ canvas{{width:100%;height:100%;object-fit:contain}}
 .caption,.fact{{position:absolute;text-align:center;left:6%;right:6%;bottom:7%;text-shadow:0 2px 9px black;background:#13151cce;border-radius:10px;padding:8px}}
 .overlay{{position:absolute;top:38%;width:47%;aspect-ratio:9/16;overflow:hidden;z-index:5}}
 .overlay.left{{left:4%}}.overlay.right{{right:4%}}.overlay.center{{left:26.5%}}
+.overlay.white-cutaway{{inset:0;width:100%;height:100%;background-color:white;aspect-ratio:auto}}
 .overlay.wide-center,.overlay.wide-left,.overlay.wide-right{{top:52%;width:84%;aspect-ratio:5/3}}
 .overlay.wide-center{{left:8%}}.overlay.wide-left{{left:2%}}.overlay.wide-right{{right:2%}}
 .talking-head .caption{{z-index:6;bottom:11%;font:500 36px/1.16 Arial,sans-serif;background:none;text-shadow:0 2px 4px #000,0 0 12px #000;padding:0 16px}}

@@ -52,7 +52,7 @@ export function VideoEditor({
     reel_captions: t("Субтитры · локальный Whisper","Captions · local Whisper"),
     reel_plan: t("План иллюстраций · GPT","Illustration plan · GPT"),
     reel_motion_score: t("Рисунок и ключевые кадры · GPT","Artwork and keyframes · GPT"),
-    reel_motion_render: t("Рендер прозрачной анимации","Rendering transparent animation"),
+    reel_motion_render: item.settings.short_shots ? t("Анимация на белом фоне", "Rendering white cutaway") : t("Рендер прозрачной анимации","Rendering transparent animation"),
     overlay_design: t("Подготовка иллюстрации · GPT","Preparing illustration · GPT"),
     collect_overlay_design: t("Проверка макета","Checking the design"),
     overlay_animate: t("Анимация иллюстрации · GPT","Animating illustration · GPT"),
@@ -212,7 +212,7 @@ export function VideoEditor({
             <p>{item.progress}%</p>
             {failed && <div role="alert" className="my-3 grid gap-2 border-l-2 border-current pl-3">
               {sceneStage && typeof production?.index === "number" && <p className="text-sm font-semibold">
-                {t("Сцена", "Scene")} {production.index + 1} / {Math.ceil(item.settings.duration / 8)}
+                {t("Сцена", "Scene")} {production.index + 1} / {Math.ceil(item.settings.duration / (item.settings.short_shots ? 4 : 8))}
                 {["speech", "collect_speech"].includes(stoppedStage) && typeof production.line === "number" && ` · ${t("Реплика", "Line")} ${production.line + 1}`}
               </p>}
               <p>{polling && ["submit", "frame"].includes(stoppedStage)

@@ -357,7 +357,22 @@ def video_model(monkeypatch):
             return json.dumps(
                 {
                     "scenes": [
-                        {"duration_ms": b - a, "lines": []}
+                        {
+                            "duration_ms": b - a,
+                            "lines": [
+                                {
+                                    "speaker": "Ведущий",
+                                    "delivery": "on_screen",
+                                    "text": data["title"]
+                                    + " ".join(
+                                        " ".join(m.get("text", "").split())[:300]
+                                        for m in data["materials"]
+                                    ),
+                                }
+                            ]
+                            if a == 0 and not data["settings"].get("characters")
+                            else [],
+                        }
                         for a, b in itertools.pairwise(boundaries)
                     ],
                     "script": data["title"]
@@ -1033,6 +1048,17 @@ def test_project_video_lifecycle(login, video_model, monkeypatch):
                 "sources": [source_id],
             },
         ).json()
+        # This lifecycle exercises recovery of an eight-second draft from before the new format.
+        assert (
+            video["settings"]["short_shots"] and video["settings"]["generated_overlays"]
+        )
+        with session_factory().begin() as session:
+            stored = session.get(VideoModel, UUID(video["id"]))
+            stored.settings = {
+                k: v
+                for k, v in stored.settings.items()
+                if k not in {"short_shots", "generated_overlays"}
+            }
         assert video["journal"] == ["0–3 с: общий план"]
         assert video["caption"] == "Подпись к ролику"
         path = f"{base}/{video['id']}"

@@ -64,3 +64,28 @@ def test_missing_key_does_not_contact_provider():
         pytest.raises(CatalogError, match="LUMEAN_API_KEY"),
     ):
         LumeanElevenLabs("", client).search("", False, "", "", "")
+
+
+def test_expressive_speed_overrides_cached_templates_and_keeps_voice():
+    import json
+
+    requests = []
+
+    def handle(req):
+        requests.append(json.loads(req.content))
+        return httpx.Response(200, json={"success": True, "data": {"id": str(uuid4())}})
+
+    with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+        provider = LumeanElevenLabs("key", client)
+        provider.template("selected-voice")
+        previous = uuid4()
+        provider.submit(previous, "selected-voice", "Точный текст.", uuid4())
+    template = requests[0]["config"]["tts_settings"]
+    order = requests[1]["config_override"]["tts_settings"]
+    assert requests[1]["template_id"] == str(previous)
+    assert order["advanced_voice_settings"] and order["voice_id"] == "selected-voice"
+    assert template["voice_settings"] == order["voice_settings"]
+    assert (
+        order["voice_settings"]["speed"] == 1.2
+        and order["voice_settings"]["style"] == 0.4
+    )

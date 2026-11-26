@@ -13,6 +13,15 @@ from app.application.voices.catalog import (
 from app.application.voices.speech import SpeechProvider, SpeechResult
 from app.infrastructure.providers.media.media_download import download_result
 
+# Applied at order time as well so saved library templates get the current delivery.
+VOICE_SETTINGS = {
+    "stability": 0.5,
+    "similarity_boost": 0.75,
+    "style": 0.4,
+    "use_speaker_boost": True,
+    "speed": 1.2,
+}
+
 
 class VoiceItem(BaseModel):
     voice_id: str
@@ -138,12 +147,7 @@ class LumeanElevenLabs(VoiceCatalog, SpeechProvider):
                         "model_id": model,
                         "voice_id": voice,
                         "advanced_voice_settings": True,
-                        "voice_settings": {
-                            "stability": 0.5,
-                            "similarity_boost": 0.75,
-                            "use_speaker_boost": True,
-                            "speed": 1.0,
-                        },
+                        "voice_settings": VOICE_SETTINGS,
                     }
                 },
             },
@@ -156,7 +160,13 @@ class LumeanElevenLabs(VoiceCatalog, SpeechProvider):
                 "template_id": str(template),
                 "input_text": text,
                 "name": str(request),
-                "config_override": {"tts_settings": {"voice_id": voice}},
+                "config_override": {
+                    "tts_settings": {
+                        "voice_id": voice,
+                        "advanced_voice_settings": True,
+                        "voice_settings": VOICE_SETTINGS,
+                    }
+                },
             },
         )
 
