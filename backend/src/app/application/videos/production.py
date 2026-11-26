@@ -8,11 +8,12 @@ from collections.abc import Callable, Iterable
 from contextlib import ExitStack, contextmanager
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 from threading import Event, Thread
 from typing import Annotated, Literal, Protocol
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 from app.application.agents.ports import PreviewRenderer
 from app.application.knowledge.ports import DocumentStore
@@ -26,6 +27,7 @@ from app.application.videos.style_guide import GuideReader, attach_style_guide
 from app.domain.knowledge import ExampleEntry
 from app.domain.video import (
     DEFAULT_EDITING_STYLE,
+    SHORT_SHOT_DIRECTION,
     Video,
     editing_direction,
     scene_count,
@@ -58,7 +60,21 @@ class Utterance(BaseModel):
     end_ms: int = Field(gt=0, le=10000)
 
 
+CameraSetup = Literal[
+    "frontal medium",
+    "frontal close-up",
+    "three-quarter medium",
+    "three-quarter close-up",
+    "profile",
+    "over-the-shoulder",
+    "wide",
+    "overhead detail",
+    "low angle",
+]
+
+
 class Scene(Shot):
+    camera_setup: CameraSetup | None = None
     visible_character_ids: list[UUID] = Field(default_factory=list)
     utterances: list[Utterance]
     continuity_scene: int | None = Field(default=None, ge=1)
@@ -70,7 +86,7 @@ class LegacyScene(Shot):
 
 
 class SavedStoryboard(BaseModel):
-    scenes: list[Scene | LegacyScene] = Field(min_length=1, max_length=8)
+    scenes: list[Scene | LegacyScene] = Field(min_length=1, max_length=15)
 
 
 class TimedScene(Scene):
@@ -84,11 +100,26 @@ class KlingScenePlan(BaseModel):
 
 
 class KlingPlan(BaseModel):
-    scenes: list[KlingScenePlan] = Field(min_length=1, max_length=8)
+    scenes: list[KlingScenePlan] = Field(min_length=1, max_length=15)
 
 
 class Storyboard(BaseModel):
-    scenes: list[TimedScene] = Field(min_length=1, max_length=8)
+    scenes: list[TimedScene] = Field(min_length=1, max_length=15)
+
+
+class ShortShot(TimedScene):
+    keep_ms: int = Field(ge=3000, le=4000)
+    camera_setup: CameraSetup
+
+
+class ShortStoryboard(BaseModel):
+    scenes: list[ShortShot] = Field(min_length=1, max_length=15)
+
+    @model_validator(mode="after")
+    def alternate_camera(self):
+        if any(a.camera_setup == b.camera_setup for a, b in pairwise(self.scenes)):
+            raise ValueError("Use a different camera setup on adjacent shots")
+        return self
 
 
 class Cut(BaseModel):
@@ -146,6 +177,10 @@ class Graphic(BaseModel):
 
 
 class Timeline(BaseModel):
+    # Digital framing changes on the single recorded source; the audio clip stays whole.
+    reframe_ms: list[Annotated[int, Field(gt=0)]] = Field(
+        default_factory=list, max_length=24
+    )
     graphics: list[Graphic] = Field(default_factory=list, max_length=4)
     photo_cards: list[PhotoCard] = Field(default_factory=list, max_length=12)
     photo_cutaway: PhotoCutaway | None = None
@@ -580,7 +615,6 @@ class VideoProduction:
             raise ProductionError("codex_unavailable")
 
         duration = video.settings["duration"]
-        count = scene_count(duration)
         if stage == "render" and state.get("motion_export"):
             if self.motion is None:
                 raise ValueError("OpenMotion is unavailable")
@@ -596,9 +630,13 @@ class VideoProduction:
                 document("openmotion.json", state["motion_export"]),
                 ("final.mp4", "video", "video/mp4", result),
             ], 0
-        if video.settings.get("generated_overlays") and (
-            stage == "edit"
-            or stage.startswith(("reel_", "overlay_", "collect_overlay_"))
+        if (
+            video.settings.get("generated_overlays")
+            and not state.get("silent_edit")
+            and (
+                stage == "edit"
+                or stage.startswith(("reel_", "overlay_", "collect_overlay_"))
+            )
         ):
             from app.application.videos.reel import ReelEdit
 
@@ -614,6 +652,7 @@ class VideoProduction:
                 else "storyboard.json",
             )
         )
+        count = len(board.scenes)
         index = state["index"]
         if stage in {
             "speech",
@@ -645,7 +684,10 @@ class VideoProduction:
                             "image/png",
                         )
                     )
-                state["operation"] = self.frames.submit(shot.image_prompt, refs)
+                prompt = shot.image_prompt
+                if isinstance(shot, Scene) and shot.camera_setup:
+                    prompt = f"Camera setup: {shot.camera_setup}. Clean source plate, no added captions or motion graphics. {prompt}"
+                state["operation"] = self.frames.submit(prompt, refs)
                 state["stage"] = "collect_frame"
                 state["submitted"] = datetime.now(UTC).isoformat()
                 return [], 5
@@ -1006,7 +1048,6 @@ class VideoProduction:
     def storyboard(self, video: Video):
         state = video.settings["production"]
         duration = video.settings["duration"]
-        count = scene_count(duration)
         # Copy each pinned input separately so the shoot survives source edits or archival.
         inputs = state.setdefault("inputs", {})
         characters = video.settings.get("characters", [])
@@ -1089,7 +1130,7 @@ class VideoProduction:
             "context": context,
             "language": video.settings["language"],
             "duration": duration,
-            "scene_count": count,
+            "scene_count": scene_count(video.settings),
             "source_duration_ms": 10000,
             "edit_notes": video.journal,
             "platform": video.settings["platform"],
@@ -1118,42 +1159,46 @@ class VideoProduction:
             )
 
         directions = PLAN
-        if video.settings.get("generated_overlays"):
+        if video.settings.get("short_shots"):
+            directions += (
+                " "
+                + SHORT_SHOT_DIRECTION
+                + " Generate the underlying shot and its complete spoken line even where a white insert is planned. Keep image_prompt and video_prompt free of added subtitles, titles, graphics, UI mockups or animated inserts. These live on separate tracks in the edit. Leave white cutaways to the GPT motion stage. Describe a distinct camera setup in each image_prompt and video_prompt. Each keep_ms MUST be between 3000 and 4000 inclusive."
+            )
+        elif video.settings.get("generated_overlays"):
             directions += (
                 " Film clean talking-head source footage. In both image_prompt and video_prompt "
                 "keep the speaking face visible, maintain the presenter's identity and background "
                 "across shots, and leave torso space for later overlays. No baked-in graphics, "
                 "text, diagrams, music or animated inserts. Preserve the approved spoken lines."
             )
-        board = model_json(
-            self.model.generate_storyboard,
-            Storyboard,
-            directions,
-            payload,
-            previews,
-            originals(),
-        )
-        if not matches_script(video.script, board.scenes):
-            board = model_json(
-                self.model.generate_storyboard,
-                Storyboard,
-                directions,
-                {
-                    **payload,
-                    "correction": "Copy every spoken line, speaker, delivery, order and scene duration verbatim from script. Remove any added words.",
-                },
-                previews,
-                originals(),
-            )
-            if not matches_script(video.script, board.scenes):
-                raise ValueError("Storyboard speech differs from the script")
-        if len(board.scenes) != count or any(
-            str(ref) not in visuals
-            for scene in board.scenes
-            for ref in scene.reference_ids
-        ):
-            raise ValueError("Invalid scene count or references")
-        validate_scene_windows(board.scenes, duration)
+        schema = ShortStoryboard if video.settings.get("short_shots") else Storyboard
+        for attempt in range(2):
+            try:
+                board = model_json(
+                    self.model.generate_storyboard,
+                    schema,
+                    directions,
+                    payload,
+                    previews,
+                    originals(),
+                )
+                if len(board.scenes) != payload["scene_count"] or any(
+                    str(ref) not in visuals
+                    for scene in board.scenes
+                    for ref in scene.reference_ids
+                ):
+                    raise ValueError("Invalid scene count or references")
+                if not matches_script(video.script, board.scenes):
+                    raise ValueError(
+                        "Copy exact script dialogue, speakers, delivery, order and durations"
+                    )
+                validate_scene_windows(board.scenes, duration)
+                break
+            except ValueError as error:
+                if attempt:
+                    raise
+                payload["correction"] = str(error)[:800]
         for number, shot in enumerate(board.scenes, start=1):
             if payload["characters"]:
                 validate_cast_scene(shot, payload["characters"])

@@ -277,3 +277,102 @@ def test_old_unsubmitted_illustration_continues_with_gpt():
     assert reel.generate_overlay(plan, []) == ([], 0)
     assert (state["stage"], state["overlay_index"]) == ("reel_motion_score", 1)
     assert not job.frames.mock_calls and not job.clips.mock_calls
+
+
+@pytest.mark.parametrize("duration", [15, 20, 30, 40, 45, 60])
+def test_short_shots_cover_every_supported_runtime(duration):
+    from app.application.videos.production import Storyboard
+    from app.domain.video import scene_count
+
+    count = scene_count({"duration": duration, "short_shots": True})
+    assert 3000 <= duration * 1000 / count <= 4000
+    assert count <= Storyboard.model_json_schema()["properties"]["scenes"]["maxItems"]
+    assert count > scene_count({"duration": duration})
+
+
+def test_white_cutaways_use_actual_speech_keep_hook_and_allow_subphrase_cuts():
+    from app.application.videos.reel import WhiteCutawayPlan
+
+    phrases = [
+        Word(start_ms=i * 2000, end_ms=i * 2000 + 1800, text="Предмет.")
+        for i in range(3)
+    ]
+
+    def plan(a, b):
+        return WhiteCutawayPlan(
+            art_direction="ink",
+            cutaways=[{"start_ms": a, "end_ms": b, "design": "pen", "motion": "draw"}],
+        )
+
+    words = [w.model_dump() for w in phrases]
+    cut = plan(2110, 3350).timeline(phrases, words).overlays[0]
+    assert cut.window(phrases) == (2110, 3350) and cut.first == cut.last == 1
+    for a, b in [(500, 1500), (2200, 3120), (2050, 4200), (5200, 6200)]:
+        with pytest.raises(ValueError):
+            plan(a, b).timeline(phrases, words)
+
+
+def test_white_motion_renders_an_opaque_portrait_with_visible_art():
+    from io import BytesIO
+
+    from app.application.videos.motion_score import MotionScore
+    from app.infrastructure.video.vector_motion import motion_design
+    from PIL import Image
+
+    score = MotionScore(
+        white_cutaway=True,
+        layers=[
+            {
+                "artwork": '<rect x="50" y="90" width="120" height="100" fill="#123456"/>',
+                "keys": [{"t": 0}, {"t": 1, "x": 70}],
+            },
+            {"artwork": '<circle cx="32" cy="15" r="5"/>', "keys": [{"t": 0}]},
+        ],
+    )
+    image = Image.open(BytesIO(motion_design(score))).convert("RGBA")
+    assert image.size == (360, 640) and image.getpixel((0, 0)) == (255, 255, 255, 255)
+    assert image.getpixel((135, 130)) == (18, 52, 86, 255)
+    for layer in score.layers:
+        layer.keys[-1].opacity = 0
+    with pytest.raises(ValueError, match="visible until the hard cut"):
+        motion_design(score)
+
+
+def test_short_storyboard_enforces_duration_and_alternating_camera():
+    from app.application.videos.production import ShortStoryboard
+
+    shot = {
+        "keep_ms": 3500,
+        "camera_setup": "frontal medium",
+        "composition": "Desk",
+        "cast_and_wardrobe": "Presenter",
+        "cut": "Straight",
+        "image_prompt": "Desk",
+        "video_prompt": "Presenter speaks",
+        "reference_ids": [],
+        "utterances": [],
+    }
+    other = dict(shot, camera_setup="three-quarter medium")
+    assert len(ShortStoryboard(scenes=[shot, other]).scenes) == 2
+    for invalid in [shot, dict(other, keep_ms=2999), dict(other, keep_ms=4001)]:
+        with pytest.raises(ValueError):
+            ShortStoryboard(scenes=[shot, invalid])
+
+
+def test_legacy_overlay_cannot_bypass_phrase_validation_with_exact_times():
+    plan = ReelPlan(
+        art_direction="Ink",
+        overlays=[
+            {
+                "first": 5,
+                "last": 7,
+                "start_ms": 0,
+                "end_ms": 1200,
+                "position": "left",
+                "design": "Poster",
+                "motion": "Fold",
+            }
+        ],
+    )
+    with pytest.raises(ValueError, match="interval"):
+        validate_plan(plan, [], False, [])

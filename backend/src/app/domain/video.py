@@ -43,6 +43,13 @@ def editing_direction(settings: dict) -> str:
     if reel := REELS.get(settings.get("reel_format")):
         text = reel["ru"]
         direction = text["beats"] + ". " + text["description"]
+        if settings.get("short_shots"):
+            return (
+                direction
+                + " "
+                + SHORT_SHOT_DIRECTION
+                + (" Референс: " + style["ru"]["description"] if style else "")
+            )
         if settings.get("generated_overlays"):
             direction += " Построй цельный рассказ ведущего: сильная первая реплика, объяснение, вывод. Сохрани лицо в верхней половине кадра. Оставь нижнюю половину под отдельные прозрачные иллюстрации и титры. Снимай чистую сцену со спикером без встроенного текста и графики."
             if style:
@@ -60,8 +67,19 @@ def editing_direction(settings: dict) -> str:
     return EDITING_DIRECTIONS[settings.get("editing_style", DEFAULT_EDITING_STYLE)]
 
 
-def scene_count(duration: int) -> int:
-    return (duration + 7) // 8
+SHORT_SHOT_DIRECTION = (
+    "Разбей съёмку на планы по 3–4 секунды. В соседних планах смени ракурс или крупность: "
+    "анфас, три четверти, через плечо, деталь рук. Сохраняй личность, одежду, ось взгляда и свет. "
+    "На конкретных словах о предмете или инструменте запланируй отдельные полноэкранные "
+    "GPT-анимации по 1–2 секунды на белом фоне, без аватара. Покажи одно действие и результат. "
+    "Голос продолжается через обе склейки. Выбери подходящие референсы пользователя или образ из брифа. "
+    "Для озвучки пиши короткие разговорные фразы, ставь смысловое ударение на глагол, число или контраст."
+)
+
+
+def scene_count(settings: dict) -> int:
+    seconds = 4 if settings.get("short_shots") else 8
+    return (settings["duration"] + seconds - 1) // seconds
 
 
 @dataclass
@@ -115,13 +133,10 @@ class Video:
                     return {"edit": 55, "reel_captions": 60, "reel_plan": 65}[stage]
                 if stage == "reel_select":
                     return 35
-                return 5 + 50 * state.get("index", 0) // scene_count(
-                    self.settings["duration"]
-                )
+                return 5 + 50 * state.get("index", 0) // scene_count(self.settings)
             return min(
                 95,
-                5
-                + 85 * state.get("index", 0) // scene_count(self.settings["duration"]),
+                5 + 85 * state.get("index", 0) // scene_count(self.settings),
             )
         if not self.ready_at or self.status != "generating":
             return 100

@@ -116,15 +116,18 @@ def pose_at(keys, t):
     ]
 
 
-def frame_svg(layers, t):
+def frame_svg(layers, t, *, white_cutaway=False):
+    width, height = (360, 640) if white_cutaway else (600, 360)
     parts = [
-        '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="360" viewBox="0 0 600 360">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">'
     ]
+    if white_cutaway:
+        parts.append('<rect width="100%" height="100%" fill="white"/>')
     for i, (layer, art) in enumerate(layers):
         x, y, scale, angle, opacity, wipe = pose_at(layer.keys, t)
         px, py = layer.pivot_x, layer.pivot_y
         parts.append(
-            f'<defs><clipPath id="cm-wipe-{i}"><rect width="{600 * wipe:.3f}" height="360"/></clipPath></defs><g clip-path="url(#cm-wipe-{i})"><g opacity="{opacity:.4f}" transform="translate({x + px:.3f} {y + py:.3f}) rotate({angle:.3f}) scale({scale:.5f}) translate({-px} {-py})">{art}</g></g>'
+            f'<defs><clipPath id="cm-wipe-{i}"><rect width="{width * wipe:.3f}" height="{height}"/></clipPath></defs><g clip-path="url(#cm-wipe-{i})"><g opacity="{opacity:.4f}" transform="translate({x + px:.3f} {y + py:.3f}) rotate({angle:.3f}) scale({scale:.5f}) translate({-px} {-py})">{art}</g></g>'
         )
     return "".join(parts) + "</svg>"
 
@@ -163,15 +166,25 @@ def motion_design(score: MotionScore) -> bytes:
     poster = None
     for time in (0, 0.2, 0.4, 0.6, 0.8, 1):
         png = svg_to_bytes(
-            svg_string=frame_svg(layers, time), font_family="DejaVu Sans"
+            svg_string=frame_svg(layers, time, white_cutaway=score.white_cutaway),
+            font_family="DejaVu Sans",
         )
         with Image.open(BytesIO(png)) as image:
             probe = image.convert("RGBA").resize((100, 60))
             probes.append(probe.tobytes())
-            if 0.025 < 1 - probe.getchannel("A").histogram()[0] / 6000 < 0.97:
+            coverage = (
+                sum(probe.convert("L").histogram()[:245]) / 6000
+                if score.white_cutaway
+                else 1 - probe.getchannel("A").histogram()[0] / 6000
+            )
+            if 0.025 < coverage < 0.97:
                 poster = png
+            elif score.white_cutaway and time >= 0.8:
+                raise ValueError(
+                    "Keep the illustrated result visible until the hard cut, including the last frame"
+                )
     if poster is None or len(set(probes)) < 2:
-        raise ValueError("Illustration needs visible movement and transparent margins")
+        raise ValueError("Illustration needs visible movement and clear margins")
     return poster
 
 
@@ -184,7 +197,9 @@ def render_layer(score: MotionScore, length_ms: int) -> bytes:
         folder = Path(tmp)
         for i in range(frames):
             png = svg_to_bytes(
-                svg_string=frame_svg(layers, i / (frames - 1)),
+                svg_string=frame_svg(
+                    layers, i / (frames - 1), white_cutaway=score.white_cutaway
+                ),
                 font_family="DejaVu Sans",
             )
             (folder / f"{i:03}.png").write_bytes(png)

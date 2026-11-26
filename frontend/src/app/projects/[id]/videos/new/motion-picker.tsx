@@ -56,7 +56,7 @@ export function MotionPicker({
             ))}
           </fieldset>
           <p className="text-sm text-muted">
-            {t("GPT выберет реплики для иллюстраций. Для каждой модель создаст макет и прозрачную анимацию поверх спикера. В паузах останутся только спикер и субтитры.", "GPT chooses which lines to illustrate. Each gets its own design and transparent animation over the speaker. Breather moments keep just the speaker and captions.")}
+            {t("Планы по 3–4 секунды чередуются с анимациями на белом фоне по 1–2 секунды. Пока GPT показывает действие инструмента или предмета, голос ведущего продолжает звучать.", "Shots last 3–4 seconds. At a key phrase, a 1–2 second animation fills the screen with a tool or object on white. The presenter keeps speaking throughout.")}
           </p>
           <details className="rounded-xl border border-line p-3">
             <summary className="cursor-pointer font-semibold">

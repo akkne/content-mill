@@ -10,6 +10,7 @@ from app.application.agents.files import AgentFiles
 from app.application.agents.ports import AgentScope
 from app.application.projects.ports import ProjectUnitOfWorkFactory
 from app.domain.project import ProjectNotFound
+from app.domain.video import SHORT_SHOT_DIRECTION
 
 
 @dataclass(frozen=True)
@@ -89,7 +90,10 @@ class ScriptWriter:
             context = asdict(work.repository.context(project.id))
         pinned = context.pop("source_version_ids")
         brief = {"project": project.name, "brief": job.brief, "context": context}
-        instructions = "Подготовь готовый сценарий короткого ролика по брифу на языке пользователя. Используй материалы проекта как источники данных. Не выдумывай факты."
+        instructions = (
+            "Подготовь готовый сценарий короткого ролика по брифу на языке пользователя. Используй материалы проекта как источники данных. Не выдумывай факты. "
+            + SHORT_SHOT_DIRECTION
+        )
         # Use pinned sources first. Select additional references by project path or indexed text.
         catalog = self.files.find(job.scope, "", None, None, None, 0, 40)["items"]
         selection = model.generate(

@@ -114,8 +114,7 @@ class VideoService:
                 settings["library_voice_id"] = voice
                 settings["voice"] = voices[voice]
             materials = work.videos.sources(project, sources)
-            if settings.get("reel_format"):
-                settings["generated_overlays"] = True
+            settings.update(short_shots=True, generated_overlays=True)
             speaker = settings.get("speaker_source_id")
             if speaker:
                 if not settings.get("reel_format") or not any(

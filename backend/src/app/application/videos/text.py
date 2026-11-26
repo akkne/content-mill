@@ -12,6 +12,7 @@ from app.application.videos.spoken_script import ScriptScene, format_script
 from app.application.videos.style_guide import GuideReader, attach_style_guide
 from app.domain.project import ProjectContext
 from app.domain.video import (
+    SHORT_SHOT_DIRECTION,
     VideoSource,
     VideoTextUnavailable,
     editing_direction,
@@ -30,7 +31,7 @@ class VideoCopy(BaseModel):
 
 
 class CastVideoCopy(BaseModel):
-    scenes: list[ScriptScene] = Field(min_length=1, max_length=8)
+    scenes: list[ScriptScene] = Field(min_length=1, max_length=15)
     caption: VideoText
     edit_plan: list[VideoText] = Field(min_length=1)
 
@@ -106,10 +107,17 @@ class VideoTextGenerator:
                 "title": title,
                 "settings": script_settings,
                 "editing_direction": editing_direction(settings),
-                "scene_count": scene_count(settings["duration"]),
+                "scene_count": scene_count(settings),
                 "context": asdict(context),
                 "materials": materials,
             }
+            if settings.get("short_shots"):
+                count = data["scene_count"]
+                total_ms = settings["duration"] * 1000
+                data["suggested_scene_durations_ms"] = [
+                    total_ms * (i + 1) // count - total_ms * i // count
+                    for i in range(count)
+                ]
             attach_style_guide(
                 self.style_guide,
                 scope.project_id,
@@ -117,7 +125,7 @@ class VideoTextGenerator:
                 data,
                 images,
             )
-            schema = CastVideoCopy if cast else VideoCopy
+            schema = CastVideoCopy if cast or settings.get("short_shots") else VideoCopy
             data["output_schema"] = schema.model_json_schema()
             result = self.model.generate(
                 "Подготовь сценарий короткого ролика, подпись к публикации и монтажный лист "
@@ -137,14 +145,15 @@ class VideoTextGenerator:
                 "плана опиши положение предметов, персонажей, одежду и склейку. Для каждой "
                 "реплики дай точный текст, говорящего и пометку «в кадре» или «за кадром». "
                 "Имена из брифа и обозначения «Персонаж 1» соответствуют записям settings.characters. "
-                "Сохраняй точные имена говорящих. Для немого персонажа не пиши реплик. "
+                "Сохраняй точные имена говорящих. Если состав не задан, обозначь рассказчика его ролью. Для немого персонажа не пиши реплик. "
                 "Связывай фото и одежду с владельцем по ID версии, учитывай выбранные файлы. "
                 "Если задан product_photo_id, запланируй показ оригинала на 1–6 секунд во время конкретной реплики о товаре. "
                 "Не выдумывай характеристики, цены и обещания, которых нет в брифе и материалах. "
                 "Выбранные пользователем материалы — первоочередные творческие источники. "
                 "Если задан состав, реплики могут принадлежать только персонажам с голосом. "
                 "Верни только JSON "
-                "по output_schema. Если заданы scenes, сумма duration_ms равна длительности ролика в мс. Объединяй последовательные фразы одного говорящего в одну реплику, пока не меняется план или говорящий.",
+                "по output_schema. Если заданы scenes, сумма duration_ms равна длительности ролика в мс. Объединяй последовательные фразы одного говорящего в одну реплику, пока не меняется план или говорящий."
+                + (" " + SHORT_SHOT_DIRECTION if settings.get("short_shots") else ""),
                 json.dumps(data, ensure_ascii=False, default=str),
                 images,
             )
@@ -154,12 +163,19 @@ class VideoTextGenerator:
             if isinstance(copy, CastVideoCopy):
                 if (
                     len(copy.scenes) != data["scene_count"]
+                    or (
+                        settings.get("short_shots")
+                        and any(
+                            not 3000 <= scene.duration_ms <= 4000
+                            for scene in copy.scenes
+                        )
+                    )
                     or sum(scene.duration_ms for scene in copy.scenes)
                     != settings["duration"] * 1000
                 ):
                     raise ValueError("Script timing differs from the brief")
                 speakers = {p["display_name"] for p in cast if p.get("voice")}
-                if any(
+                if cast and any(
                     line.speaker not in speakers
                     for scene in copy.scenes
                     for line in scene.lines
