@@ -2,6 +2,7 @@ import os
 import shutil
 from functools import lru_cache, partial
 from pathlib import Path
+from typing import cast
 from uuid import UUID
 
 import httpx
@@ -13,7 +14,7 @@ from app.application.knowledge.service import KnowledgeService
 from app.application.projects.admin import ClientAdministration
 from app.application.projects.service import ProjectService
 from app.application.scripts.jobs import ScriptModel, ScriptWriter
-from app.application.videos.production import VideoProduction
+from app.application.videos.production import MontageModel, VideoProduction
 from app.application.videos.service import VideoService
 from app.application.videos.text import VideoTextGenerator
 from app.application.voices.library import VoiceLibrary
@@ -37,6 +38,7 @@ from app.infrastructure.providers.speech.lumean import LumeanElevenLabs
 from app.infrastructure.providers.text.astra_script import AstraCli
 from app.infrastructure.providers.text.claude_script import ClaudeCodeCli, ClaudeScript
 from app.infrastructure.providers.text.codex_script import CodexCli, CodexScript
+from app.infrastructure.providers.text.polza_opus import PolzaOpus
 from app.infrastructure.providers.text.sol_script import SolCli
 from app.infrastructure.security.passwords import Argon2Passwords
 from app.infrastructure.security.tokens import SecureTokens
@@ -91,12 +93,27 @@ def read_style_guide(project: UUID, style: str) -> bytes | None:
     return None
 
 
+def montage_model(models: dict[str, ScriptModel]) -> tuple[MontageModel | None, str]:
+    provider = os.getenv("CONTENT_MILL_MONTAGE_PROVIDER", "codex").strip().lower()
+    if provider == "codex":
+        return cast(AstraCli | None, models.get(AstraCli.model)), "codex_unavailable"
+    if provider == "polza":
+        key = os.getenv("POLZA_API_KEY", "").strip()
+        return PolzaOpus(key) if key else None, "polza_key"
+    raise ValueError("CONTENT_MILL_MONTAGE_PROVIDER must be codex or polza")
+
+
 def video_service() -> VideoService:
     models, selected = text_models()
+    montage, missing = montage_model(models)
+    errors = {
+        "codex_unavailable": "Для монтажа подключите Codex на сервере.",
+        "polza_key": "Для сборки добавьте POLZA_API_KEY на сервере.",
+    }
     return VideoService(
         SqlAlchemyProjectUnitOfWork,
         VideoTextGenerator(models.get(selected), agent_files(), read_style_guide),
-        "" if AstraCli.model in models else "Для монтажа подключите Codex на сервере.",
+        "" if montage else errors[missing],
         media_error=""
         if all(
             os.getenv(key, "").strip() for key in ("POLZA_API_KEY", "HEYGEN_API_KEY")
@@ -111,16 +128,18 @@ def video_service() -> VideoService:
 
 def video_production() -> VideoProduction:
     models, _ = text_models()
+    montage, missing = montage_model(models)
     api = PolzaMedia(os.getenv("POLZA_API_KEY", "").strip())
     return VideoProduction(
         SqlAlchemyProjectUnitOfWork,
         S3DocumentStore(),
-        models.get(AstraCli.model),
+        montage,
         PolzaNanoBanana21(api),
         HeyGenVideo(os.getenv("HEYGEN_API_KEY", "").strip()),
         FFmpegEditor(),
         AssetPreview(),
         voice_catalog() if os.getenv("LUMEAN_API_KEY", "").strip() else None,
+        missing_model_error=missing,
         legacy_clip_result=partial(
             api.collect, limit=64 * 1024 * 1024, rejected="clip_rejected"
         ),

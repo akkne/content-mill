@@ -1,6 +1,5 @@
 import base64
 import json
-import os
 import sys
 from collections.abc import Iterable
 from pathlib import Path
@@ -9,6 +8,7 @@ from tempfile import TemporaryDirectory
 import httpx
 
 from app.infrastructure.providers.text.script_cli import run_cli
+from app.infrastructure.video.montage_inputs import stage_montage
 
 
 class CodexScript:
@@ -134,14 +134,7 @@ class CodexCli:
             ]
             if clips or materials:
                 footage = directory / "footage"
-                footage.mkdir()
-                for index, clip in enumerate(clips, start=1):
-                    (footage / f"scene-{index:02}.mp4").write_bytes(clip)
-                catalog = {}
-                for version, fmt, data in materials:
-                    (footage / version).write_bytes(data)
-                    catalog[version] = fmt
-                (footage / "catalog.json").write_text(json.dumps(catalog))
+                tools = stage_montage(footage, text, clips, materials)
                 command.extend(
                     [
                         "-c",
@@ -156,25 +149,6 @@ class CodexCli:
                     ]
                 )
                 # Only these local, read-only tools can run unattended.
-                tools = ["inspect_material"]
-                if clips:
-                    tools.extend(["inspect_frame", "listen"])
-                    try:
-                        template = json.loads(text).get("motion_template")
-                    except (ValueError, AttributeError):
-                        template = None
-                    if template:
-                        (footage / "openmotion.json").write_text(
-                            json.dumps(
-                                {
-                                    "template": template,
-                                    "url": os.getenv(
-                                        "OPENMOTION_URL", "http://localhost:4173"
-                                    ),
-                                }
-                            )
-                        )
-                        tools.append("openmotion_get_template")
                 for tool in tools:
                     command.extend(
                         [

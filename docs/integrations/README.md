@@ -31,3 +31,5 @@
 Синхронизация губ по выбору пользователя — [HeyGen Avatar 6 Turbo](heygen-avatar-6.md).
 
 Для субтитров по звуковой дорожке используется [локальный Whisper](local-whisper.md).
+
+Раскадровку и монтаж можно переключить на [Claude Opus 5.5 через Polza AI](polza-claude-opus-5.5.md).

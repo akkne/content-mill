@@ -428,6 +428,7 @@ class VideoProduction:
         preview: PreviewRenderer,
         speech: CastSpeech | None = None,
         *,
+        missing_model_error: str = "codex_unavailable",
         motion: MotionRenderer | None = None,
         reel_media: ReelMedia | None = None,
         legacy_clip_result: Callable[[str], bytes | None] | None = None,
@@ -435,6 +436,7 @@ class VideoProduction:
         lipsync: LipSync | None = None,
         describe_error: Callable[[BaseException, str], dict],
     ):
+        self.missing_model_error = missing_model_error
         self.reel_media = reel_media
         self.motion = motion
         self.legacy_clip_result = legacy_clip_result
@@ -652,7 +654,7 @@ class VideoProduction:
         state = video.settings["production"]
         stage = state["stage"]
         if self.model is None:
-            raise ProductionError("codex_unavailable")
+            raise ProductionError(self.missing_model_error)
 
         duration = video.settings["duration"]
         if stage == "render" and state.get("motion_export"):
